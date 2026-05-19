@@ -1,5 +1,5 @@
 import { AnimatePresence, m } from 'framer-motion';
-import { Camera, Music, Music2, Sparkles } from 'lucide-react';
+import { BookOpen, Camera, Music, Music2, Sparkles, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { LANDING_SLIDES } from '../data/memories';
 import { useAmbientTone } from '../hooks/useAmbientTone';
@@ -17,8 +17,38 @@ const quotes = [
   'We were only students, and somehow that was everything.',
 ];
 
+const tutorialImage = (index: number) => LANDING_SLIDES[index % LANDING_SLIDES.length].src.replace('w=1800', 'w=900');
+
+const tutorialSteps = [
+  {
+    title: '1. Vào lớp 9/8',
+    text: 'Bấm Join Memory Book, nhập họ tên của bạn. Nếu tên mới, hãy đặt mật khẩu; nếu tên đã có, nhập mật khẩu để tiếp tục.',
+    image: tutorialImage(0),
+    alt: 'Học sinh chụp ảnh kỷ niệm trong lớp học',
+  },
+  {
+    title: '2. Đăng photobook',
+    text: 'Vào Đăng ảnh, chọn số ảnh, kiểu chụp, chất lượng và nền. Bạn có thể chụp bằng camera hoặc upload ảnh có sẵn.',
+    image: tutorialImage(1),
+    alt: 'Bạn bè học sinh tạo dáng trong ngày tốt nghiệp',
+  },
+  {
+    title: '3. Xem feed realtime',
+    text: 'Trang Ký ức cập nhật theo thời gian thực. Bạn có thể thả tim một lần, bình luận và bấm vào ảnh để xem rõ hơn.',
+    image: tutorialImage(2),
+    alt: 'Học sinh tốt nghiệp tung mũ trước trường',
+  },
+  {
+    title: '4. Gửi điều chưa kịp nói',
+    text: 'Dùng Thư lớp để gửi lời nhắn cho lớp. Nhật ký là nơi riêng tư để viết những điều tiếc nuối chỉ mình bạn thấy.',
+    image: tutorialImage(0),
+    alt: 'Không khí lớp học và kỷ niệm tuổi học trò',
+  },
+];
+
 export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
   const [active, setActive] = useState(0);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
   const prefersReducedMotion = usePrefersReducedMotion();
   const scrollProgress = useRafScrollProgress();
   const { enabled, toggle } = useAmbientTone();
@@ -39,6 +69,22 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
     image.decoding = 'async';
     image.src = nextSlide.src;
   }, [active]);
+
+  useEffect(() => {
+    if (!tutorialOpen) return undefined;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setTutorialOpen(false);
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [tutorialOpen]);
 
   return (
     <div className="relative">
@@ -105,9 +151,15 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
               {enabled ? <Music2 size={17} /> : <Music size={17} />}
               {enabled ? 'Music On' : 'Music Off'}
             </button>
-            <button className="secondary-button bg-white/40 backdrop-blur-xl" onClick={onExplore}>
-              Explore Memories
-            </button>
+            <div className="flex items-center gap-2">
+              <button className="secondary-button intro-header-button bg-white/40 backdrop-blur-xl" onClick={() => setTutorialOpen(true)}>
+                <BookOpen size={17} />
+                Tutorial
+              </button>
+              <button className="secondary-button intro-header-button hidden bg-white/40 backdrop-blur-xl sm:inline-flex" onClick={onExplore}>
+                Explore Memories
+              </button>
+            </div>
           </header>
 
           <div className="flex flex-1 items-center">
@@ -154,6 +206,10 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
                 <button className="secondary-button min-h-14 px-7 text-base" onClick={onExplore}>
                   Explore Memories
                 </button>
+                <button className="secondary-button min-h-14 px-7 text-base" onClick={() => setTutorialOpen(true)}>
+                  <BookOpen size={19} />
+                  Tutorial
+                </button>
               </m.div>
             </div>
           </div>
@@ -167,6 +223,88 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
           </div>
         </div>
       </section>
+
+      <AnimatePresence>
+        {tutorialOpen && (
+          <m.div
+            className="fixed inset-0 z-50 grid place-items-center bg-ink/82 p-3 backdrop-blur-sm sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Hướng dẫn sử dụng Memory Book"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: prefersReducedMotion ? 0 : 0.18 }}
+            onClick={() => setTutorialOpen(false)}
+          >
+            <m.div
+              className="relative max-h-[92svh] w-full max-w-6xl overflow-auto rounded-[1.25rem] bg-paper p-4 text-ink shadow-glass sm:p-6"
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 18, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={prefersReducedMotion ? undefined : { opacity: 0, y: 12, scale: 0.98 }}
+              transition={{ duration: prefersReducedMotion ? 0 : 0.22, ease: 'easeOut' }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                className="absolute right-3 top-3 z-10 grid h-10 w-10 place-items-center rounded-full bg-ink text-paper shadow-paper"
+                onClick={() => setTutorialOpen(false)}
+                aria-label="Đóng tutorial"
+              >
+                <X size={19} />
+              </button>
+
+              <div className="pr-12">
+                <p className="section-kicker">Tutorial</p>
+                <h2 className="font-display text-5xl leading-none sm:text-7xl">Cách dùng Memory Book</h2>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-ink/66">
+                  Một vòng hướng dẫn nhanh để bạn biết cách vào lớp, tạo photobook, tương tác với ảnh và viết những điều còn giữ trong lòng.
+                </p>
+              </div>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                {tutorialSteps.map((step) => (
+                  <article key={step.title} className="overflow-hidden rounded-[0.8rem] bg-white/58 shadow-paper">
+                    <img
+                      src={step.image}
+                      alt={step.alt}
+                      loading="lazy"
+                      decoding="async"
+                      sizes="(min-width: 768px) 42vw, 92vw"
+                      className="h-44 w-full object-cover sm:h-52"
+                    />
+                    <div className="p-4">
+                      <h3 className="font-display text-4xl leading-none">{step.title}</h3>
+                      <p className="mt-2 text-sm leading-7 text-ink/68">{step.text}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <button
+                  className="primary-button min-h-12 px-6"
+                  onClick={() => {
+                    setTutorialOpen(false);
+                    onJoin();
+                  }}
+                >
+                  <Camera size={18} />
+                  Bắt đầu vào lớp
+                </button>
+                <button
+                  className="secondary-button min-h-12 px-6"
+                  onClick={() => {
+                    setTutorialOpen(false);
+                    onExplore();
+                  }}
+                >
+                  Xem ký ức
+                </button>
+              </div>
+            </m.div>
+          </m.div>
+        )}
+      </AnimatePresence>
 
       <section className="relative z-10 mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="grid gap-5 md:grid-cols-3">

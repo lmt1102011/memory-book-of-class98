@@ -644,6 +644,12 @@
       padding-inline: 0.9rem;
     }
 
+    .intro-header-button {
+      width: auto;
+      min-height: 2.55rem;
+      padding-inline: 0.85rem;
+    }
+
     .photobook-setup-panel .grid {
       min-width: 0;
     }
