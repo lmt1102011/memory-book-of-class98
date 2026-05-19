@@ -1,0 +1,177 @@
+import { Dispatch, SetStateAction, useMemo, useState } from 'react';
+import { Camera, Filter, Search, X } from 'lucide-react';
+import Guestbook from '../components/Guestbook';
+import MemoryCard from '../components/MemoryCard';
+import { useDebounce } from '../hooks/useDebounce';
+import { useLocalStorage } from '../hooks/useLocalStorage';
+import type { GuestbookEntry, MemoryItem, UserProfile } from '../types';
+
+interface HomePageProps {
+  memories: MemoryItem[];
+  setMemories: Dispatch<SetStateAction<MemoryItem[]>>;
+  guestbook: GuestbookEntry[];
+  setGuestbook: Dispatch<SetStateAction<GuestbookEntry[]>>;
+  profile: UserProfile | null;
+  onJoin: () => void;
+  onPhotobook: () => void;
+}
+
+export default function HomePage({
+  memories,
+  setMemories,
+  guestbook,
+  setGuestbook,
+  profile,
+  onJoin,
+  onPhotobook,
+}: HomePageProps) {
+  const [nameQuery, setNameQuery] = useState('');
+  const [classQuery, setClassQuery] = useState('');
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [reactionBoosts, setReactionBoosts] = useLocalStorage<Record<string, number>>(
+    'school-photobook-reactions',
+    {},
+  );
+
+  const debouncedName = useDebounce(nameQuery);
+  const debouncedClass = useDebounce(classQuery);
+
+  const boostedMemories = useMemo(
+    () =>
+      memories.map((memory) => ({
+        ...memory,
+        reactions: memory.reactions + (reactionBoosts[memory.id] || 0),
+      })),
+    [memories, reactionBoosts],
+  );
+
+  const tags = useMemo(() => {
+    const unique = new Set<string>();
+    boostedMemories.forEach((memory) => memory.hashtags.forEach((tag) => unique.add(tag)));
+    return Array.from(unique).slice(0, 12);
+  }, [boostedMemories]);
+
+  const filteredMemories = useMemo(() => {
+    const name = debouncedName.trim().toLowerCase();
+    const className = debouncedClass.trim().toLowerCase();
+
+    return boostedMemories.filter((memory) => {
+      const byName = !name || memory.name.toLowerCase().includes(name);
+      const byClass = !className || memory.className.toLowerCase().includes(className);
+      const byTag = !activeTag || memory.hashtags.includes(activeTag);
+      return byName && byClass && byTag;
+    });
+  }, [activeTag, boostedMemories, debouncedClass, debouncedName]);
+
+  const handleReact = (id: string) => {
+    setReactionBoosts((current) => ({ ...current, [id]: (current[id] || 0) + 1 }));
+    setMemories((current) =>
+      current.map((memory) => (memory.id === id ? { ...memory, reactions: memory.reactions + 1 } : memory)),
+    );
+  };
+
+  const clearFilters = () => {
+    setNameQuery('');
+    setClassQuery('');
+    setActiveTag(null);
+  };
+
+  return (
+    <div className="relative">
+      <section className="mx-auto max-w-7xl px-4 pb-8 pt-9 sm:px-6 lg:px-8">
+        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+          <div>
+            <p className="section-kicker">Memory Feed</p>
+            <h1 className="max-w-4xl font-display text-6xl leading-[0.86] sm:text-8xl">
+              A scrapbook for the days we almost missed
+            </h1>
+            <p className="mt-5 max-w-2xl text-sm leading-7 text-ink/66 sm:text-base">
+              Search classmates, find your class, react to favorite memories, and add a new photobooth strip when the
+              moment feels ready.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-[1.5rem] border border-white/60 bg-white/45 p-4 shadow-paper backdrop-blur-xl">
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-hand text-3xl font-bold text-coffee">
+                {profile ? `Hi, ${profile.name}` : 'Guest student'}
+              </span>
+              <button className="primary-button" onClick={onPhotobook}>
+                <Camera size={17} />
+                Photobook
+              </button>
+            </div>
+            {!profile && (
+              <button className="secondary-button justify-center" onClick={onJoin}>
+                Join with name and class
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="sticky top-16 z-30 border-y border-white/55 bg-cream/75 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-3 lg:grid-cols-[1fr_1fr_auto]">
+          <label className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-coffee/55" size={17} />
+            <input
+              className="input-field pl-11"
+              value={nameQuery}
+              onChange={(event) => setNameQuery(event.target.value)}
+              placeholder="Search by name"
+            />
+          </label>
+          <label className="relative">
+            <Filter className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-coffee/55" size={17} />
+            <input
+              className="input-field pl-11"
+              value={classQuery}
+              onChange={(event) => setClassQuery(event.target.value)}
+              placeholder="Search by class"
+            />
+          </label>
+          <button className="secondary-button justify-center" onClick={clearFilters}>
+            <X size={16} />
+            Clear
+          </button>
+        </div>
+        <div className="mx-auto mt-3 flex max-w-7xl gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <button
+            className={`tag-button ${activeTag === null ? 'tag-button-active' : ''}`}
+            onClick={() => setActiveTag(null)}
+          >
+            All
+          </button>
+          {tags.map((tag) => (
+            <button
+              key={tag}
+              className={`tag-button ${activeTag === tag ? 'tag-button-active' : ''}`}
+              onClick={() => setActiveTag(tag)}
+            >
+              #{tag}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {filteredMemories.length ? (
+          <div className="masonry-feed">
+            {filteredMemories.map((memory) => (
+              <MemoryCard key={memory.id} memory={memory} onReact={handleReact} />
+            ))}
+          </div>
+        ) : (
+          <div className="grid min-h-80 place-items-center rounded-[1.5rem] bg-white/45 p-8 text-center shadow-paper">
+            <div>
+              <h2 className="font-display text-5xl">No memories found</h2>
+              <p className="mt-2 text-sm text-ink/60">Try another name, class, or hashtag.</p>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <Guestbook entries={guestbook} setEntries={setGuestbook} profile={profile} />
+    </div>
+  );
+}

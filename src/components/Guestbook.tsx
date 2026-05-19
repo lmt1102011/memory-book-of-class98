@@ -1,0 +1,76 @@
+import { Send } from 'lucide-react';
+import { Dispatch, FormEvent, SetStateAction, useState } from 'react';
+import type { GuestbookEntry, UserProfile } from '../types';
+import { formatMemoryDate } from '../utils/date';
+import { makeId } from '../utils/ids';
+
+interface GuestbookProps {
+  entries: GuestbookEntry[];
+  setEntries: Dispatch<SetStateAction<GuestbookEntry[]>>;
+  profile: UserProfile | null;
+}
+
+export default function Guestbook({ entries, setEntries, profile }: GuestbookProps) {
+  const [message, setMessage] = useState('');
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    const trimmed = message.trim();
+    if (!trimmed) return;
+
+    setEntries((current) => [
+      {
+        id: makeId('guest'),
+        name: profile?.name || 'Anonymous Student',
+        message: trimmed,
+        createdAt: new Date().toISOString(),
+      },
+      ...current,
+    ]);
+    setMessage('');
+  };
+
+  return (
+    <section className="mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6 lg:px-8">
+      <div className="grid gap-6 lg:grid-cols-[0.82fr_1.18fr]">
+        <div>
+          <p className="section-kicker">Guestbook</p>
+          <h2 className="font-display text-5xl leading-none sm:text-6xl">Write it before it fades</h2>
+          <p className="mt-4 max-w-xl text-sm leading-7 text-ink/68">
+            Small messages live well here: a line from the last day, a joke only your class knows, or a promise to
+            meet again after graduation.
+          </p>
+        </div>
+
+        <div className="rounded-[1.5rem] border border-white/60 bg-white/45 p-4 shadow-paper backdrop-blur-xl sm:p-5">
+          <form className="flex gap-3" onSubmit={handleSubmit}>
+            <input
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder="Leave a note for the class..."
+              className="input-field min-w-0 flex-1"
+              maxLength={120}
+            />
+            <button className="icon-button bg-ink text-paper" aria-label="Send guestbook entry">
+              <Send size={18} />
+            </button>
+          </form>
+
+          <div className="mt-5 grid gap-3">
+            {entries.slice(0, 5).map((entry) => (
+              <article key={entry.id} className="rounded-2xl bg-paper/80 p-4 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="font-hand text-2xl font-bold text-coffee">{entry.name}</h3>
+                  <time className="text-[11px] font-semibold uppercase text-ink/45">
+                    {formatMemoryDate(entry.createdAt)}
+                  </time>
+                </div>
+                <p className="mt-1 text-sm leading-6 text-ink/72">{entry.message}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
