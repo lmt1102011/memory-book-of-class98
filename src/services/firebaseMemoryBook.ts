@@ -10,6 +10,7 @@ import {
   addDoc,
   collection,
   doc,
+  enableNetwork,
   getDoc,
   increment,
   limit,
@@ -37,6 +38,7 @@ const SECRET_MAILBOX_PUBLIC_COLLECTION = 'secretMailbox98';
 const SECRET_MAILBOX_PRIVATE_COLLECTION = 'secretMailboxPrivate98';
 const STORAGE_ROOT = 'photobooks98';
 const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
+const FIREBASE_RETRY_DELAYS = [0, 450, 1000, 1800];
 
 export const cleanDisplayName = (name: string) => name.trim().replace(/\s+/g, ' ');
 
@@ -51,6 +53,67 @@ export const makeNameKey = (name: string) =>
     .replace(/^-+|-+$/g, '');
 
 const makeStudentEmail = (nameKey: string) => `${nameKey}@${AUTH_DOMAIN}`;
+
+const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const isOfflineLikeError = (error: unknown) => {
+  const maybeError = error as { code?: string; message?: string };
+  const text = `${maybeError.code || ''} ${maybeError.message || ''}`.toLowerCase();
+  return text.includes('offline') || text.includes('unavailable') || text.includes('network');
+};
+
+const friendlyFirebaseError = (error: unknown) => {
+  const maybeError = error as { code?: string; message?: string };
+  const text = `${maybeError.code || ''} ${maybeError.message || ''}`.toLowerCase();
+
+  if (text.includes('offline') || text.includes('unavailable') || text.includes('network')) {
+    return new Error(
+      'Chua ket noi duoc Firebase. Hay kiem tra internet, Firestore da duoc bat, va domain GitHub Pages da nam trong Authorized domains.',
+    );
+  }
+
+  return error instanceof Error ? error : new Error('Khong the ket noi Firebase luc nay.');
+};
+
+export const forceFirebaseOnline = async () => {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    throw new Error('Thiet bi dang mat internet, nen Firebase khong the online.');
+  }
+  await enableNetwork(db);
+};
+
+export const keepFirebaseOnline = () => {
+  const wake = () => {
+    void enableNetwork(db).catch(() => undefined);
+  };
+
+  wake();
+  window.addEventListener('online', wake);
+  document.addEventListener('visibilitychange', wake);
+
+  return () => {
+    window.removeEventListener('online', wake);
+    document.removeEventListener('visibilitychange', wake);
+  };
+};
+
+const withFirebaseRetry = async <T,>(operation: () => Promise<T>) => {
+  let lastError: unknown;
+
+  for (const delay of FIREBASE_RETRY_DELAYS) {
+    if (delay) await sleep(delay);
+
+    try {
+      await forceFirebaseOnline();
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (!isOfflineLikeError(error)) throw friendlyFirebaseError(error);
+    }
+  }
+
+  throw friendlyFirebaseError(lastError);
+};
 
 const timestampToIso = (value: unknown) => {
   if (value instanceof Timestamp) return value.toDate().toISOString();
@@ -99,7 +162,7 @@ const secretLetterFromDoc = (id: string, data: DocumentData): SecretLetterPublic
 export const checkStudentName = async (name: string) => {
   const nameKey = makeNameKey(name);
   if (!nameKey) throw new Error('Hay nhap ho ten hop le.');
-  const snapshot = await getDoc(doc(db, STUDENTS_COLLECTION, nameKey));
+  const snapshot = await withFirebaseRetry(() => getDoc(doc(db, STUDENTS_COLLECTION, nameKey)));
   return {
     exists: snapshot.exists(),
     nameKey,
@@ -114,7 +177,7 @@ export const registerStudent = async (name: string, password: string) => {
   if (password.length < 6) throw new Error('Mat khau can it nhat 6 ky tu.');
 
   const studentRef = doc(db, STUDENTS_COLLECTION, nameKey);
-  const existing = await getDoc(studentRef);
+  const existing = await withFirebaseRetry(() => getDoc(studentRef));
   if (existing.exists()) {
     if (existing.data().disabled) throw new Error('Tai khoan nay dang bi khoa trong lop 9/8.');
     throw new Error('Ten nay da co trong lop 9/8. Hay nhap mat khau de tiep tuc.');
@@ -131,7 +194,7 @@ export const registerStudent = async (name: string, password: string) => {
     joinedAt: new Date().toISOString(),
   };
 
-  await setDoc(studentRef, {
+  await withFirebaseRetry(() => setDoc(studentRef, {
     uid: credential.user.uid,
     name: displayName,
     nameKey,
@@ -139,7 +202,7 @@ export const registerStudent = async (name: string, password: string) => {
     disabled: false,
     createdAt: serverTimestamp(),
     lastLoginAt: serverTimestamp(),
-  });
+  }));
 
   return profile;
 };
@@ -150,7 +213,7 @@ export const loginStudent = async (name: string, password: string) => {
 
   const credential = await signInWithEmailAndPassword(auth, makeStudentEmail(nameKey), password);
   const studentRef = doc(db, STUDENTS_COLLECTION, nameKey);
-  const snapshot = await getDoc(studentRef);
+  const snapshot = await withFirebaseRetry(() => getDoc(studentRef));
 
   if (!snapshot.exists()) {
     await signOut(auth);
@@ -162,7 +225,7 @@ export const loginStudent = async (name: string, password: string) => {
     throw new Error('Tai khoan nay dang bi khoa trong lop 9/8.');
   }
 
-  await updateDoc(studentRef, { lastLoginAt: serverTimestamp() });
+  await withFirebaseRetry(() => updateDoc(studentRef, { lastLoginAt: serverTimestamp() }));
   return profileFromData(nameKey, snapshot.data(), credential.user);
 };
 
@@ -174,7 +237,13 @@ export const observeStudentSession = (onProfile: (profile: UserProfile | null) =
     }
 
     const nameKey = user.email.split('@')[0];
-    const snapshot = await getDoc(doc(db, STUDENTS_COLLECTION, nameKey));
+    let snapshot;
+    try {
+      snapshot = await withFirebaseRetry(() => getDoc(doc(db, STUDENTS_COLLECTION, nameKey)));
+    } catch {
+      onProfile(null);
+      return;
+    }
     if (snapshot.exists() && !snapshot.data().disabled) {
       onProfile(profileFromData(nameKey, snapshot.data(), user));
       return;

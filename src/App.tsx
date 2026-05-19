@@ -44,16 +44,19 @@ export default function App() {
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
+    let stopKeepOnline: (() => void) | undefined;
     let isActive = true;
 
     void import('./services/firebaseMemoryBook').then((service) => {
       if (!isActive) return;
+      stopKeepOnline = service.keepFirebaseOnline();
       unsubscribe = service.observeStudentSession(setProfile);
     });
 
     return () => {
       isActive = false;
       unsubscribe?.();
+      stopKeepOnline?.();
     };
   }, []);
 
