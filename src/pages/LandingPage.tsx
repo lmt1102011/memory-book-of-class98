@@ -1,6 +1,7 @@
 import { m } from 'framer-motion';
 import { Camera, Music, Music2, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { LANDING_SLIDES } from '../data/memories';
 import { useAmbientTone } from '../hooks/useAmbientTone';
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
 import { useRafScrollProgress } from '../hooks/useRafScrollProgress';
@@ -16,12 +17,6 @@ const quotes = [
   'We were only students, and somehow that was everything.',
 ];
 
-const slides = [
-  'linear-gradient(120deg, rgba(53,41,31,.48), rgba(247,183,199,.22)), linear-gradient(90deg, rgba(255,255,255,.36) 0 18%, transparent 18% 100%), linear-gradient(135deg, #fbf3e7, #f7b7c7 52%, #a9cde8)',
-  'linear-gradient(120deg, rgba(56,91,88,.55), rgba(251,243,231,.18)), linear-gradient(90deg, transparent 0 16%, rgba(255,250,241,.34) 16% 42%, transparent 42% 100%), linear-gradient(135deg, #f8ead6, #385b58)',
-  'linear-gradient(120deg, rgba(122,86,57,.42), rgba(169,205,232,.28)), linear-gradient(90deg, rgba(255,250,241,.3) 0 24%, transparent 24% 100%), linear-gradient(135deg, #fffaf1, #d8bc98)',
-];
-
 export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
   const [active, setActive] = useState(0);
   const prefersReducedMotion = usePrefersReducedMotion();
@@ -32,7 +27,7 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
   useEffect(() => {
     if (prefersReducedMotion) return undefined;
     const timer = window.setInterval(() => {
-      setActive((current) => (current + 1) % slides.length);
+      setActive((current) => (current + 1) % LANDING_SLIDES.length);
     }, 5200);
     return () => window.clearInterval(timer);
   }, [prefersReducedMotion]);
@@ -41,20 +36,29 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
     <div className="relative">
       <section className="relative min-h-[100svh] overflow-hidden">
         <div className="absolute inset-0">
-          {slides.map((slide, index) => (
+          {LANDING_SLIDES.map((slide, index) => (
             <m.div
-              key={slide}
+              key={slide.src}
               className="absolute inset-0 will-change-transform"
               style={{
-                background: slide,
                 transform: `translate3d(0, ${scrollProgress * 24}px, 0) scale(1.04)`,
               }}
               initial={false}
               animate={{ opacity: active === index ? 1 : 0 }}
               transition={{ duration: prefersReducedMotion ? 0 : 1.2, ease: 'easeOut' }}
-            />
+            >
+              <img
+                src={slide.src}
+                alt={slide.alt}
+                loading={index === 0 ? 'eager' : 'lazy'}
+                decoding="async"
+                fetchPriority={index === 0 ? 'high' : 'auto'}
+                className="h-full w-full object-cover"
+                style={{ objectPosition: slide.position }}
+              />
+            </m.div>
           ))}
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(21,16,12,.10),rgba(21,16,12,.24)_58%,rgba(251,243,231,.94))]" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(21,16,12,.18),rgba(21,16,12,.34)_58%,rgba(251,243,231,.94))]" />
           <div className="absolute inset-0 bg-grain opacity-40 [background-size:16px_16px]" />
         </div>
 

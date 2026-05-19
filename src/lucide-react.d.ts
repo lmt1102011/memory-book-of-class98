@@ -21,6 +21,7 @@ declare module 'lucide-react' {
   export const Home: LucideIcon;
   export const ImagePlus: LucideIcon;
   export const Layers: LucideIcon;
+  export const Lock: LucideIcon;
   export const Menu: LucideIcon;
   export const MessageCircle: LucideIcon;
   export const Music: LucideIcon;

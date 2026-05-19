@@ -3,18 +3,10 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import { BookOpen, Camera, Home, Menu, Sparkles, X } from 'lucide-react';
 import LoadingScreen from './components/LoadingScreen';
 import LandingPage from './pages/LandingPage';
-import JoinPage from './pages/JoinPage';
 import { SEED_GUESTBOOK, SEED_MEMORIES } from './data/memories';
-import {
-  addGuestbookEntry,
-  observeStudentSession,
-  publishMemoryToFirebase,
-  reactToFirebaseMemory,
-  subscribeGuestbook,
-  subscribeMemories,
-} from './services/firebaseMemoryBook';
 import type { AppRoute, GuestbookEntry, MemoryItem, PublishMemoryDraft, UserProfile } from './types';
 
+const JoinPage = lazy(() => import('./pages/JoinPage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
 const PhotobookPage = lazy(() => import('./pages/PhotobookPage'));
 
@@ -43,29 +35,54 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
-  useEffect(() => observeStudentSession(setProfile), []);
-
   useEffect(() => {
-    const unsubscribeMemories = subscribeMemories(
-      (items) => {
-        setRemoteMemories(items);
-        setFirebaseNotice('');
-      },
-      (error) => setFirebaseNotice(error.message),
-    );
-    const unsubscribeGuestbook = subscribeGuestbook(
-      (items) => {
-        setRemoteGuestbook(items);
-        setFirebaseNotice('');
-      },
-      (error) => setFirebaseNotice(error.message),
-    );
+    if (route === 'landing') return undefined;
+
+    let unsubscribe: (() => void) | undefined;
+    let isActive = true;
+
+    void import('./services/firebaseMemoryBook').then((service) => {
+      if (!isActive) return;
+      unsubscribe = service.observeStudentSession(setProfile);
+    });
 
     return () => {
-      unsubscribeMemories();
-      unsubscribeGuestbook();
+      isActive = false;
+      unsubscribe?.();
     };
-  }, []);
+  }, [route]);
+
+  useEffect(() => {
+    if (route === 'landing') return undefined;
+
+    let unsubscribeMemories: (() => void) | undefined;
+    let unsubscribeGuestbook: (() => void) | undefined;
+    let isActive = true;
+
+    void import('./services/firebaseMemoryBook').then((service) => {
+      if (!isActive) return;
+      unsubscribeMemories = service.subscribeMemories(
+        (items) => {
+          setRemoteMemories(items);
+          setFirebaseNotice('');
+        },
+        (error) => setFirebaseNotice(error.message),
+      );
+      unsubscribeGuestbook = service.subscribeGuestbook(
+        (items) => {
+          setRemoteGuestbook(items);
+          setFirebaseNotice('');
+        },
+        (error) => setFirebaseNotice(error.message),
+      );
+    });
+
+    return () => {
+      isActive = false;
+      unsubscribeMemories?.();
+      unsubscribeGuestbook?.();
+    };
+  }, [route]);
 
   const navigate = useCallback((nextRoute: AppRoute) => {
     setRoute(nextRoute);
@@ -94,7 +111,8 @@ export default function App() {
         navigate('join');
         return;
       }
-      await publishMemoryToFirebase(profile, draft);
+      const service = await import('./services/firebaseMemoryBook');
+      await service.publishMemoryToFirebase(profile, draft);
       navigate('home');
     },
     [navigate, profile],
@@ -106,7 +124,8 @@ export default function App() {
         navigate('join');
         return;
       }
-      await reactToFirebaseMemory(memory);
+      const service = await import('./services/firebaseMemoryBook');
+      await service.reactToFirebaseMemory(memory);
     },
     [navigate, profile],
   );
@@ -117,7 +136,8 @@ export default function App() {
         navigate('join');
         return;
       }
-      await addGuestbookEntry(profile, message);
+      const service = await import('./services/firebaseMemoryBook');
+      await service.addGuestbookEntry(profile, message);
     },
     [navigate, profile],
   );
@@ -128,7 +148,11 @@ export default function App() {
     }
 
     if (route === 'join') {
-      return <JoinPage profile={profile} onJoin={handleJoin} onSkip={() => navigate('home')} />;
+      return (
+        <Suspense fallback={<LoadingScreen label="Opening class check-in" />}>
+          <JoinPage profile={profile} onJoin={handleJoin} onSkip={() => navigate('home')} />
+        </Suspense>
+      );
     }
 
     if (route === 'photobook') {

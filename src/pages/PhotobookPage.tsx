@@ -25,18 +25,18 @@ import type {
   ExportQuality,
   GeneratedPhotobook,
   LayoutType,
-  MemoryItem,
   PhotobookConfig,
   PhotoCount,
+  PublishMemoryDraft,
   UserProfile,
 } from '../types';
 import { makeId } from '../utils/ids';
-import { makeFeedThumbnail, renderPhotobook } from '../utils/photobookCanvas';
+import { makeFeedThumbnailBlob, renderPhotobook } from '../utils/photobookCanvas';
 
 interface PhotobookPageProps {
   profile: UserProfile | null;
   onJoinNeeded: () => void;
-  onPublish: (memory: MemoryItem) => void;
+  onPublish: (draft: PublishMemoryDraft) => void | Promise<void>;
 }
 
 type BoothStage = 'setup' | 'camera' | 'final';
@@ -155,6 +155,8 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   const [caption, setCaption] = useState('');
   const [hashtags, setHashtags] = useState('graduation youth photobooth');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishError, setPublishError] = useState('');
   const [generated, setGenerated] = useState<GeneratedPhotobook | null>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
 
@@ -263,19 +265,20 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
 
   const handlePublish = async () => {
     if (!profile || !generated || !objectUrl) return;
-    const thumbnail = await makeFeedThumbnail(objectUrl, 900);
-    onPublish({
-      id: makeId('memory'),
-      name: profile.name,
-      className: profile.className,
-      caption: caption.trim() || 'A new photobook strip from the days we will keep.',
-      hashtags: parseHashtags(hashtags),
-      imageUrl: thumbnail,
-      createdAt: new Date().toISOString(),
-      reactions: 0,
-      rotation: Math.round((Math.random() * 5 - 2.5) * 10) / 10,
-      tone: 'pink',
-    });
+    try {
+      setIsPublishing(true);
+      setPublishError('');
+      const thumbnailBlob = await makeFeedThumbnailBlob(objectUrl, 1200);
+      await onPublish({
+        imageBlob: thumbnailBlob,
+        caption: caption.trim() || 'Một strip photobook mới từ những ngày tụi mình sẽ giữ mãi.',
+        hashtags: parseHashtags(hashtags),
+      });
+    } catch (caught) {
+      setPublishError(caught instanceof Error ? caught.message : 'Không thể đăng photobook lúc này.');
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   useEffect(() => {
@@ -558,10 +561,15 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                     <Download size={18} />
                     Private Download
                   </a>
-                  <button className="primary-button justify-center" onClick={handlePublish}>
+                  <button className="primary-button justify-center" onClick={handlePublish} disabled={isPublishing}>
                     <Send size={18} />
-                    Share Publicly
+                    {isPublishing ? 'Đang đăng...' : 'Share Publicly'}
                   </button>
+                  {publishError && (
+                    <p className="rounded-2xl bg-blush/30 px-4 py-3 text-sm font-semibold text-coffee">
+                      {publishError}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

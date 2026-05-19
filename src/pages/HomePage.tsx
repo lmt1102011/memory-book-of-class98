@@ -27,11 +27,11 @@ export default function HomePage({
   onAddGuestbook,
 }: HomePageProps) {
   const [nameQuery, setNameQuery] = useState('');
-  const [classQuery, setClassQuery] = useState('');
+  const [keywordQuery, setKeywordQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
   const debouncedName = useDebounce(nameQuery);
-  const debouncedClass = useDebounce(classQuery);
+  const debouncedKeyword = useDebounce(keywordQuery);
 
   const tags = useMemo(() => {
     const unique = new Set<string>();
@@ -41,19 +41,22 @@ export default function HomePage({
 
   const filteredMemories = useMemo(() => {
     const name = debouncedName.trim().toLowerCase();
-    const className = debouncedClass.trim().toLowerCase();
+    const keyword = debouncedKeyword.trim().toLowerCase();
 
     return memories.filter((memory) => {
       const byName = !name || memory.name.toLowerCase().includes(name);
-      const byClass = !className || memory.className.toLowerCase().includes(className);
+      const byKeyword =
+        !keyword ||
+        memory.caption.toLowerCase().includes(keyword) ||
+        memory.hashtags.some((tag) => tag.toLowerCase().includes(keyword));
       const byTag = !activeTag || memory.hashtags.includes(activeTag);
-      return byName && byClass && byTag;
+      return byName && byKeyword && byTag;
     });
-  }, [activeTag, memories, debouncedClass, debouncedName]);
+  }, [activeTag, memories, debouncedKeyword, debouncedName]);
 
   const clearFilters = () => {
     setNameQuery('');
-    setClassQuery('');
+    setKeywordQuery('');
     setActiveTag(null);
   };
 
@@ -106,9 +109,9 @@ export default function HomePage({
             <Filter className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-coffee/55" size={17} />
             <input
               className="input-field pl-11"
-              value={classQuery}
-              onChange={(event) => setClassQuery(event.target.value)}
-              placeholder="Search by class"
+              value={keywordQuery}
+              onChange={(event) => setKeywordQuery(event.target.value)}
+              placeholder="Tìm caption hoặc hashtag"
             />
           </label>
           <button className="secondary-button justify-center" onClick={clearFilters}>

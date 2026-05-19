@@ -11,7 +11,9 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
+          'firebase-app': ['firebase/app'],
+          'firebase-auth': ['firebase/auth'],
+          'firebase-data': ['firebase/firestore', 'firebase/storage'],
           react: ['react', 'react-dom'],
           motion: ['framer-motion'],
           webcam: ['react-webcam'],

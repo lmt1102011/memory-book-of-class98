@@ -380,3 +380,22 @@ export const makeFeedThumbnail = async (imageUrl: string, maxWidth = 900) => {
   ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
   return canvas.toDataURL('image/jpeg', 0.82);
 };
+
+export const makeFeedThumbnailBlob = async (imageUrl: string, maxWidth = 1200) => {
+  const image = await loadImage(imageUrl);
+  const scale = Math.min(maxWidth / image.width, 1);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(image.width * scale);
+  canvas.height = Math.round(image.height * scale);
+  const ctx = canvas.getContext('2d', { alpha: false });
+  if (!ctx) throw new Error('Canvas is not supported in this browser.');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.fillStyle = '#fffaf1';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const blob = await canvasToBlob(canvas, 0.86);
+  canvas.width = 1;
+  canvas.height = 1;
+  return blob;
+};

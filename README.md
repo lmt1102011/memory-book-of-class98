@@ -5,7 +5,10 @@ A production-ready responsive React/Vite photobook app inspired by school memori
 ## Features
 
 - Cinematic landing page with ambient music toggle and lightweight motion
-- Photobooth-style join flow for name and class
+- Class 9/8 check-in flow: new name creates a password, existing name requires the saved password
+- Firebase Auth for student passwords
+- Firestore memory feed, reactions, and guestbook shared by everyone
+- Firebase Storage upload for public photobook images
 - Responsive Pinterest/scrapbook memory feed with search, filters, reactions, and guestbook
 - High-quality webcam capture with countdown, flash, retake, and next-photo flow
 - Canvas-generated printable photobook strips in 1080p, 2K, or 4K export widths
@@ -39,6 +42,48 @@ npm run build
 npm run preview
 ```
 
+## Firebase Setup
+
+The app is already configured for Firebase project `memorybook-of-class98`.
+
+In Firebase Console:
+
+1. Enable **Authentication > Sign-in method > Email/Password**.
+2. Create/enable **Cloud Firestore**.
+3. Create/enable **Firebase Storage**.
+4. Publish the included rules:
+
+```bash
+firebase deploy --only firestore:rules,storage
+```
+
+For GitHub Pages, also add your GitHub Pages domain in:
+
+```text
+Firebase Console > Authentication > Settings > Authorized domains
+```
+
+Example:
+
+```text
+your-username.github.io
+```
+
+## GitHub Pages Deploy
+
+This project includes `.github/workflows/deploy.yml`. After pushing to `main` or `master`:
+
+1. Open your GitHub repo settings.
+2. Go to **Pages**.
+3. Set **Source** to **GitHub Actions**.
+4. Push again or run the workflow manually.
+
+Vite uses `base: './'`, so the app works from a GitHub Pages project path.
+
 ## ZIP Export
 
 This folder is already a complete website project. Zip the project directory after installing or before installing dependencies. For a clean handoff, exclude `node_modules` and `dist`; the recipient can run `npm install`.
+
+## Image Sources
+
+The seed and landing images use optimized Pexels CDN links about school life, graduation, and student memories.
