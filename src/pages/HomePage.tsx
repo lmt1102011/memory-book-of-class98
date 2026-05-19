@@ -4,32 +4,32 @@ import Guestbook from '../components/Guestbook';
 import MemoryCard from '../components/MemoryCard';
 import SecretMailbox from '../components/SecretMailbox';
 import { useDebounce } from '../hooks/useDebounce';
-import type { GuestbookEntry, MemoryItem, SecretLetterPublic, UserProfile } from '../types';
+import type { GuestbookEntry, MemoryItem, SecretDiaryEntry, UserProfile } from '../types';
 
 interface HomePageProps {
   memories: MemoryItem[];
   guestbook: GuestbookEntry[];
-  secretLetters: SecretLetterPublic[];
+  secretDiaries: SecretDiaryEntry[];
   firebaseNotice: string;
   profile: UserProfile | null;
   onJoin: () => void;
   onPhotobook: () => void;
   onReact: (memory: MemoryItem) => void | Promise<void>;
   onAddGuestbook: (message: string) => void | Promise<void>;
-  onAddSecretLetter: (message: string) => void | Promise<void>;
+  onAddSecretDiary: (message: string) => void | Promise<void>;
 }
 
 export default function HomePage({
   memories,
   guestbook,
-  secretLetters,
+  secretDiaries,
   firebaseNotice,
   profile,
   onJoin,
   onPhotobook,
   onReact,
   onAddGuestbook,
-  onAddSecretLetter,
+  onAddSecretDiary,
 }: HomePageProps) {
   const [nameQuery, setNameQuery] = useState('');
   const [keywordQuery, setKeywordQuery] = useState('');
@@ -170,7 +170,7 @@ export default function HomePage({
         </div>
       )}
 
-      <SecretMailbox letters={secretLetters} onAddLetter={onAddSecretLetter} profile={profile} />
+      <SecretMailbox diaries={secretDiaries} onAddDiary={onAddSecretDiary} profile={profile} />
       <Guestbook entries={guestbook} onAddEntry={onAddGuestbook} profile={profile} />
     </div>
   );

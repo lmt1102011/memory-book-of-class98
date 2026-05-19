@@ -3,7 +3,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function isManagerWrite() {
-      return request.resource.data.managerKey == 'class98-manager-2026';
+      return request.resource.data.managerKey == 'class98-manager-2026'
+        || request.resource.data.managerKey == 'lmt1102011';
     }
 
     match /students98/{nameKey} {
@@ -44,24 +45,21 @@ service cloud.firestore {
     }
 
     match /secretMailbox98/{letterId} {
-      allow read: if true;
-      allow create: if request.auth != null
-        && request.resource.data.className == '9/8'
-        && request.resource.data.message is string
-        && request.resource.data.message.size() <= 450
-        && !('name' in request.resource.data)
-        && !('uid' in request.resource.data);
-      allow update, delete: if false;
+      allow read, create, update, delete: if false;
     }
 
-    match /secretMailboxPrivate98/{letterId} {
+    match /secretMailboxPrivate98/{diaryId} {
+      // The main app only queries the signed-in student's own uid.
+      // The static manager page also reads this collection to show the writer name.
       allow read: if true;
       allow create: if request.auth != null
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.className == '9/8'
         && request.resource.data.name is string
+        && request.resource.data.nameKey is string
         && request.resource.data.message is string
-        && request.resource.data.message.size() <= 450;
+        && request.resource.data.message.size() <= 1200
+        && request.resource.data.kind == 'secret-diary';
       allow update: if isManagerWrite();
       allow delete: if false;
     }

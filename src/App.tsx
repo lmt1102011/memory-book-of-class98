@@ -8,7 +8,7 @@ import type {
   GuestbookEntry,
   MemoryItem,
   PublishMemoryDraft,
-  SecretLetterPublic,
+  SecretDiaryEntry,
   UserProfile,
 } from './types';
 
@@ -32,7 +32,7 @@ export default function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [remoteMemories, setRemoteMemories] = useState<MemoryItem[]>([]);
   const [remoteGuestbook, setRemoteGuestbook] = useState<GuestbookEntry[]>([]);
-  const [secretLetters, setSecretLetters] = useState<SecretLetterPublic[]>([]);
+  const [secretDiaries, setSecretDiaries] = useState<SecretDiaryEntry[]>([]);
   const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -84,13 +84,18 @@ export default function App() {
         },
         (error) => setFirebaseNotice(error.message),
       );
-      unsubscribeLetters = service.subscribeSecretLetters(
-        (items) => {
-          setSecretLetters(items);
-          setFirebaseNotice('');
-        },
-        (error) => setFirebaseNotice(error.message),
-      );
+      if (profile) {
+        unsubscribeLetters = service.subscribeSecretDiaries(
+          profile,
+          (items) => {
+            setSecretDiaries(items);
+            setFirebaseNotice('');
+          },
+          (error) => setFirebaseNotice(error.message),
+        );
+      } else {
+        setSecretDiaries([]);
+      }
     });
 
     return () => {
@@ -99,7 +104,7 @@ export default function App() {
       unsubscribeGuestbook?.();
       unsubscribeLetters?.();
     };
-  }, [route]);
+  }, [profile, route]);
 
   const navigate = useCallback((nextRoute: AppRoute) => {
     setRoute(nextRoute);
@@ -156,14 +161,15 @@ export default function App() {
     [navigate, profile],
   );
 
-  const handleSecretLetterAdd = useCallback(
+  const handleSecretDiaryAdd = useCallback(
     async (message: string) => {
       if (!profile) {
         navigate('join');
         return;
       }
       const service = await import('./services/firebaseMemoryBook');
-      await service.addSecretLetter(profile, message);
+      const diary = await service.addSecretDiary(profile, message);
+      setSecretDiaries((items) => [diary, ...items]);
     },
     [navigate, profile],
   );
@@ -194,14 +200,14 @@ export default function App() {
         <HomePage
           memories={allMemories}
           guestbook={allGuestbook}
-          secretLetters={secretLetters}
+          secretDiaries={secretDiaries}
           firebaseNotice={firebaseNotice}
           profile={profile}
           onJoin={() => navigate('join')}
           onPhotobook={() => navigate('photobook')}
           onReact={handleReact}
           onAddGuestbook={handleGuestbookAdd}
-          onAddSecretLetter={handleSecretLetterAdd}
+          onAddSecretDiary={handleSecretDiaryAdd}
         />
       </Suspense>
     );

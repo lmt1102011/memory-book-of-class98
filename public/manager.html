@@ -212,7 +212,7 @@
         <div class="topbar">
           <div>
             <h1>Class 9/8 Manager</h1>
-            <p class="muted">Xem tai khoan, them/khoa tai khoan, xem Secret Mailbox kem ten nguoi gui.</p>
+            <p class="muted">Xem tai khoan, them/khoa tai khoan, xem Nhat ky bi mat kem ten nguoi viet.</p>
           </div>
           <button id="lockButton" class="secondary">Khoa manager</button>
         </div>
@@ -234,8 +234,8 @@
           </section>
 
           <section class="card" style="grid-column: 1 / -1">
-            <h2>Secret Mailbox - hien ten nguoi viet</h2>
-            <div id="letters" class="list"></div>
+            <h2>Nhat ky bi mat - hien ten nguoi viet</h2>
+            <div id="diaries" class="list"></div>
           </section>
         </div>
       </section>
@@ -286,7 +286,7 @@
       const managerApp = $('app');
       const status = $('accountStatus');
       let accounts = [];
-      let letters = [];
+      let diaries = [];
       let managerPoll = 0;
       let isLoadingManagerData = false;
 
@@ -307,6 +307,14 @@
         const date = value.toDate ? value.toDate() : new Date(value);
         return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
       };
+
+      const escapeHtml = (value) =>
+        String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
 
       const showManager = () => {
         gate.classList.add('hidden');
@@ -336,11 +344,11 @@
               (account) => `
                 <article class="item">
                   <div class="row">
-                    <strong>${account.name || account.id}</strong>
+                    <strong>${escapeHtml(account.name || account.id)}</strong>
                     <span class="pill">${account.disabled ? 'Da khoa' : 'Dang mo'}</span>
                   </div>
-                  <p class="muted">Class ${account.className || CLASS_NAME} | key: ${account.id}</p>
-                  <p class="muted">UID: ${account.uid || 'manual'}</p>
+                  <p class="muted">Class ${escapeHtml(account.className || CLASS_NAME)} | key: ${escapeHtml(account.id)}</p>
+                  <p class="muted">UID: ${escapeHtml(account.uid || 'manual')}</p>
                   <p class="muted">Joined: ${formatDate(account.createdAt)}</p>
                   <div class="row" style="margin-top: 10px">
                     ${
@@ -355,22 +363,22 @@
             .join('') || '<p class="muted">Chua co tai khoan nao.</p>';
       };
 
-      const renderLetters = () => {
-        $('letters').innerHTML =
-          letters
+      const renderDiaries = () => {
+        $('diaries').innerHTML =
+          diaries
             .map(
-              (letter) => `
+              (diary) => `
                 <article class="item">
                   <div class="row">
-                    <strong>${letter.name || 'Khong ro ten'}</strong>
-                    <span class="pill">${formatDate(letter.createdAt)}</span>
+                    <strong>${escapeHtml(diary.name || 'Khong ro ten')}</strong>
+                    <span class="pill">${formatDate(diary.createdAt)}</span>
                   </div>
-                  <p class="muted">UID: ${letter.uid || ''} | key: ${letter.nameKey || ''}</p>
-                  <p style="white-space: pre-wrap; line-height: 1.65; margin-top: 8px">${letter.message || ''}</p>
+                  <p class="muted">UID: ${escapeHtml(diary.uid || '')} | key: ${escapeHtml(diary.nameKey || '')}</p>
+                  <p style="white-space: pre-wrap; line-height: 1.65; margin-top: 8px">${escapeHtml(diary.message || '')}</p>
                 </article>
               `,
             )
-            .join('') || '<p class="muted">Chua co thu nao trong Secret Mailbox.</p>';
+            .join('') || '<p class="muted">Chua co trang nhat ky bi mat nao.</p>';
       };
 
       $('accounts').addEventListener('click', async (event) => {
@@ -426,15 +434,15 @@
         isLoadingManagerData = true;
 
         try {
-          const [accountSnapshot, letterSnapshot] = await Promise.all([
+          const [accountSnapshot, diarySnapshot] = await Promise.all([
             getDocs(query(collection(db, 'students98'), orderBy('name'))),
             getDocs(query(collection(db, 'secretMailboxPrivate98'), orderBy('createdAt', 'desc'))),
           ]);
 
           accounts = accountSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
-          letters = letterSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+          diaries = diarySnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
           renderAccounts();
-          renderLetters();
+          renderDiaries();
         } catch (error) {
           status.textContent = error.message || 'Khong the tai du lieu manager.';
         } finally {

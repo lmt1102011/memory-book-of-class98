@@ -24,7 +24,7 @@ import {
   type DocumentData,
 } from 'firebase/firestore/lite';
 import { auth, db } from '../firebase';
-import type { GuestbookEntry, MemoryItem, PublishMemoryDraft, SecretLetterPublic, UserProfile } from '../types';
+import type { GuestbookEntry, MemoryItem, PublishMemoryDraft, SecretDiaryEntry, UserProfile } from '../types';
 import { makeId } from '../utils/ids';
 
 export const CLASS_NAME = '9/8';
@@ -32,7 +32,6 @@ export const CLASS_NAME = '9/8';
 const STUDENTS_COLLECTION = 'students98';
 const MEMORIES_COLLECTION = 'memories98';
 const GUESTBOOK_COLLECTION = 'guestbook98';
-const SECRET_MAILBOX_PUBLIC_COLLECTION = 'secretMailbox98';
 const SECRET_MAILBOX_PRIVATE_COLLECTION = 'secretMailboxPrivate98';
 const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
 const FIREBASE_RETRY_DELAYS = [0, 450, 1000, 1800];
@@ -164,8 +163,11 @@ const guestbookFromDoc = (id: string, data: DocumentData): GuestbookEntry => ({
   createdAt: timestampToIso(data.createdAt),
 });
 
-const secretLetterFromDoc = (id: string, data: DocumentData): SecretLetterPublic => ({
+const secretDiaryFromDoc = (id: string, data: DocumentData): SecretDiaryEntry => ({
   id,
+  uid: String(data.uid || ''),
+  name: String(data.name || ''),
+  nameKey: String(data.nameKey || ''),
   message: String(data.message || ''),
   createdAt: timestampToIso(data.createdAt),
 });
@@ -324,15 +326,24 @@ export const subscribeGuestbook = (
   return () => window.clearInterval(interval);
 };
 
-export const subscribeSecretLetters = (
-  onNext: (letters: SecretLetterPublic[]) => void,
+export const subscribeSecretDiaries = (
+  profile: UserProfile,
+  onNext: (diaries: SecretDiaryEntry[]) => void,
   onError: (error: Error) => void,
 ) => {
-  const lettersQuery = query(collection(db, SECRET_MAILBOX_PUBLIC_COLLECTION), orderBy('createdAt', 'desc'), limit(40));
+  const diariesQuery = query(
+    collection(db, SECRET_MAILBOX_PRIVATE_COLLECTION),
+    where('uid', '==', profile.uid),
+    limit(40),
+  );
   const load = async () => {
     try {
-      const snapshot = await withFirebaseRetry(() => getDocs(lettersQuery));
-      onNext(snapshot.docs.map((item) => secretLetterFromDoc(item.id, item.data())));
+      const snapshot = await withFirebaseRetry(() => getDocs(diariesQuery));
+      onNext(
+        snapshot.docs
+          .map((item) => secretDiaryFromDoc(item.id, item.data()))
+          .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()),
+      );
     } catch (error) {
       onError(friendlyFirebaseError(error));
     }
@@ -380,23 +391,28 @@ export const addGuestbookEntry = async (profile: UserProfile, message: string) =
   }));
 };
 
-export const addSecretLetter = async (profile: UserProfile, message: string) => {
-  const id = makeId('letter');
-  await withFirebaseRetry(() => Promise.all([
-    setDoc(doc(db, SECRET_MAILBOX_PUBLIC_COLLECTION, id), {
-      message,
-      className: CLASS_NAME,
-      createdAt: serverTimestamp(),
-    }),
-    setDoc(doc(db, SECRET_MAILBOX_PRIVATE_COLLECTION, id), {
-      uid: profile.uid,
-      name: profile.name,
-      nameKey: profile.nameKey,
-      className: CLASS_NAME,
-      message,
-      createdAt: serverTimestamp(),
-    }),
-  ]));
+export const addSecretDiary = async (profile: UserProfile, message: string) => {
+  const id = makeId('diary');
+  const createdAt = new Date().toISOString();
+
+  await withFirebaseRetry(() => setDoc(doc(db, SECRET_MAILBOX_PRIVATE_COLLECTION, id), {
+    uid: profile.uid,
+    name: profile.name,
+    nameKey: profile.nameKey,
+    className: CLASS_NAME,
+    message,
+    createdAt: serverTimestamp(),
+    kind: 'secret-diary',
+  }));
+
+  return {
+    id,
+    uid: profile.uid,
+    name: profile.name,
+    nameKey: profile.nameKey,
+    message,
+    createdAt,
+  };
 };
 
 export const hasStudentMemory = async (profile: UserProfile) => {

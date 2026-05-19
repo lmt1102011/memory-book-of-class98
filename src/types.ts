@@ -73,8 +73,11 @@ export interface PublishMemoryDraft {
   hashtags: string[];
 }
 
-export interface SecretLetterPublic {
+export interface SecretDiaryEntry {
   id: string;
+  uid?: string;
+  name?: string;
+  nameKey?: string;
   message: string;
   createdAt: string;
 }

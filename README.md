@@ -9,7 +9,7 @@ A production-ready responsive React/Vite photobook app inspired by school memori
 - Firebase Auth for student passwords
 - Firestore memory feed, reactions, and guestbook shared by everyone
 - Firestore-only public photobook images, compressed to fit without Firebase Storage
-- Secret Mailbox: public letters are anonymous, while `manager.html` can show the sender for moderation
+- Nhat ky bi mat: students only see their own diary entries in the app, while `manager.html` can show the writer name
 - Responsive Pinterest/scrapbook memory feed with search, filters, reactions, and guestbook
 - High-quality webcam capture with countdown, flash, retake, and next-photo flow
 - Canvas-generated printable photobook strips in 1080p, 2K, or 4K export widths
@@ -93,7 +93,7 @@ https://your-username.github.io/your-repo/manager.html
 Default manager code:
 
 ```text
-class98-manager-2026
+lmt1102011
 ```
 
 The manager page can:
@@ -101,7 +101,7 @@ The manager page can:
 - View all class accounts from `students98`
 - Add a new account
 - Soft-delete/lock an account from the app
-- View Secret Mailbox letters with the real sender name
+- View Nhat ky bi mat entries with the real writer name
 
 Because this is a no-server static site, the manager code is client-side. Change it in both `public/manager.html` and `firestore.rules` before sharing widely.
 
