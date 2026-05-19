@@ -9,6 +9,7 @@ interface MemoryCardProps {
   profile: UserProfile | null;
   isReacting: boolean;
   onJoin: () => void;
+  onOpenImage: (memory: MemoryItem) => void;
   onReact: (memory: MemoryItem) => void | Promise<void>;
   onAddComment: (memory: MemoryItem, message: string) => void | Promise<void>;
   onDeleteComment: (comment: MemoryComment) => void | Promise<void>;
@@ -29,6 +30,7 @@ function MemoryCard({
   profile,
   isReacting,
   onJoin,
+  onOpenImage,
   onReact,
   onAddComment,
   onDeleteComment,
@@ -69,13 +71,20 @@ function MemoryCard({
       <div className={`rounded-[0.35rem] bg-gradient-to-br p-2 ${toneClass[memory.tone]}`}>
         <div className="scrapbook-tape left-7 top-1 -rotate-6" />
         <div className="scrapbook-tape right-8 top-1 rotate-6 bg-blush/50" />
-        <img
-          src={memory.imageUrl}
-          alt={`Ký ức học trò của ${memory.name}`}
-          loading="lazy"
-          decoding="async"
-          className="aspect-[4/5] w-full rounded-[0.35rem] object-cover transition-transform duration-300 ease-out group-hover:scale-[1.025]"
-        />
+        <button
+          type="button"
+          className="block w-full overflow-hidden rounded-[0.35rem] text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coffee"
+          onClick={() => onOpenImage(memory)}
+          aria-label={`Xem ảnh kỷ niệm của ${memory.name} rõ hơn`}
+        >
+          <img
+            src={memory.imageUrl}
+            alt={`Ký ức học trò của ${memory.name}`}
+            loading="lazy"
+            decoding="async"
+            className="aspect-[4/5] w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.025]"
+          />
+        </button>
       </div>
 
       <div className="px-2 pb-2 pt-4">

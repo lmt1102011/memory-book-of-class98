@@ -82,11 +82,11 @@ export default function App() {
     let unsubscribeDiaries: (() => void) | undefined;
     let isActive = true;
 
-    void import('./services/firebaseMemoryBook').then((service) => {
-      if (!isActive) return;
+    if (route === 'home') {
+      void import('./services/firebaseRealtimeMemoryBook').then((service) => {
+        if (!isActive) return;
 
-      if (route === 'home') {
-        unsubscribeMemories = service.subscribeMemories(
+        unsubscribeMemories = service.subscribeMemoriesRealtime(
           (items) => {
             setRemoteMemories(items);
             setFirebaseNotice('');
@@ -94,40 +94,46 @@ export default function App() {
           (error) => setFirebaseNotice(error.message),
         );
 
-        unsubscribeComments = service.subscribeMemoryComments(
+        unsubscribeComments = service.subscribeMemoryCommentsRealtime(
           (items) => {
             setRemoteComments(sortCommentsNewestFirst(items));
             setFirebaseNotice('');
           },
           (error) => setFirebaseNotice(error.message),
         );
-      }
+      });
+    }
 
-      if (route === 'letters') {
-        unsubscribeGuestbook = service.subscribeGuestbook(
-          (items) => {
-            setRemoteGuestbook(items);
-            setFirebaseNotice('');
-          },
-          (error) => setFirebaseNotice(error.message),
-        );
-      }
+    if (route === 'letters' || route === 'diary') {
+      void import('./services/firebaseMemoryBook').then((service) => {
+        if (!isActive) return;
 
-      if (route === 'diary' && profile) {
-        unsubscribeDiaries = service.subscribeSecretDiaries(
-          profile,
-          (items) => {
-            setSecretDiaries(items);
-            setFirebaseNotice('');
-          },
-          (error) => setFirebaseNotice(error.message),
-        );
-      }
+        if (route === 'letters') {
+          unsubscribeGuestbook = service.subscribeGuestbook(
+            (items) => {
+              setRemoteGuestbook(items);
+              setFirebaseNotice('');
+            },
+            (error) => setFirebaseNotice(error.message),
+          );
+        }
 
-      if (route === 'diary' && !profile) {
-        setSecretDiaries([]);
-      }
-    });
+        if (route === 'diary' && profile) {
+          unsubscribeDiaries = service.subscribeSecretDiaries(
+            profile,
+            (items) => {
+              setSecretDiaries(items);
+              setFirebaseNotice('');
+            },
+            (error) => setFirebaseNotice(error.message),
+          );
+        }
+
+        if (route === 'diary' && !profile) {
+          setSecretDiaries([]);
+        }
+      });
+    }
 
     return () => {
       isActive = false;
