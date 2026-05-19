@@ -23,6 +23,7 @@ interface HomePageProps {
   memories: MemoryItem[];
   commentsByMemory: Record<string, MemoryComment[]>;
   firebaseNotice: string;
+  isLoadingMemories: boolean;
   profile: UserProfile | null;
   pendingReactionIds: string[];
   onJoin: () => void;
@@ -37,6 +38,7 @@ export default function HomePage({
   memories,
   commentsByMemory,
   firebaseNotice,
+  isLoadingMemories,
   profile,
   pendingReactionIds,
   onJoin,
@@ -97,6 +99,8 @@ export default function HomePage({
       return byName && byKeyword && byTag;
     });
   }, [activeTag, memories, debouncedKeyword, debouncedName]);
+
+  const hasActiveFilter = Boolean(nameQuery.trim() || keywordQuery.trim() || activeTag);
 
   const clearFilters = () => {
     setNameQuery('');
@@ -186,7 +190,17 @@ export default function HomePage({
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {filteredMemories.length ? (
+        {isLoadingMemories ? (
+          <div className="grid min-h-80 place-items-center rounded-[1.5rem] bg-white/45 p-8 text-center shadow-paper">
+            <div>
+              <div className="memory-loading-spinner mx-auto mb-5 h-14 w-14 rounded-full border-4 border-coffee/15 border-t-coffee" />
+              <h2 className="font-display text-5xl">Đang tải ảnh...</h2>
+              <p className="mt-2 text-sm text-ink/60">
+                Ký ức đang được lấy từ database, đợi một chút nha.
+              </p>
+            </div>
+          </div>
+        ) : filteredMemories.length ? (
           <div className="masonry-feed">
             {filteredMemories.map((memory) => (
               <MemoryCard
@@ -208,14 +222,23 @@ export default function HomePage({
         ) : (
           <div className="grid min-h-80 place-items-center rounded-[1.5rem] bg-white/45 p-8 text-center shadow-paper">
             <div>
-              <h2 className="font-display text-5xl">Chưa có ảnh nào</h2>
+              <h2 className="font-display text-5xl">{hasActiveFilter ? 'Không tìm thấy ảnh' : 'Chưa có ảnh nào'}</h2>
               <p className="mt-2 text-sm text-ink/60">
-                Khi ai đó đăng photobook lên database, ảnh sẽ hiện ở đây ngay lập tức.
+                {hasActiveFilter
+                  ? 'Thử xóa bộ lọc hoặc tìm bằng tên, caption, hashtag khác.'
+                  : 'Khi ai đó đăng photobook lên database, ảnh sẽ hiện ở đây ngay lập tức.'}
               </p>
-              <button className="primary-button mx-auto mt-5" onClick={onPhotobook}>
-                <Camera size={17} />
-                Đăng ảnh đầu tiên
-              </button>
+              {hasActiveFilter ? (
+                <button className="secondary-button mx-auto mt-5" onClick={clearFilters}>
+                  <X size={16} />
+                  Xóa lọc
+                </button>
+              ) : (
+                <button className="primary-button mx-auto mt-5" onClick={onPhotobook}>
+                  <Camera size={17} />
+                  Đăng ảnh đầu tiên
+                </button>
+              )}
             </div>
           </div>
         )}

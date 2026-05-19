@@ -235,6 +235,10 @@
     contain: paint;
   }
 
+  .memory-loading-spinner {
+    animation: memory-spinner 0.9s linear infinite;
+  }
+
   .board-note {
     position: relative;
     margin-bottom: 0.85rem;
@@ -843,5 +847,11 @@
 
   100% {
     background-position: -120% 0;
+  }
+}
+
+@keyframes memory-spinner {
+  to {
+    transform: rotate(360deg);
   }
 }

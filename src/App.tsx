@@ -40,12 +40,14 @@ export default function App() {
   const [route, setRoute] = useState<AppRoute>(() => routeFromHash());
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [remoteMemories, setRemoteMemories] = useState<MemoryItem[]>([]);
+  const [memoriesLoading, setMemoriesLoading] = useState(false);
   const [remoteComments, setRemoteComments] = useState<MemoryComment[]>([]);
   const [remoteGuestbook, setRemoteGuestbook] = useState<GuestbookEntry[]>([]);
   const [secretDiaries, setSecretDiaries] = useState<SecretDiaryEntry[]>([]);
   const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [pendingReactionIds, setPendingReactionIds] = useState<string[]>([]);
+  const memoriesLoadedOnceRef = useRef(false);
   const pendingReactionIdsRef = useRef(new Set<string>());
   const prefersReducedMotion = usePrefersReducedMotion();
 
@@ -83,25 +85,46 @@ export default function App() {
     let isActive = true;
 
     if (route === 'home') {
-      void import('./services/firebaseRealtimeMemoryBook').then((service) => {
-        if (!isActive) return;
+      setMemoriesLoading(!memoriesLoadedOnceRef.current);
 
-        unsubscribeMemories = service.subscribeMemoriesRealtime(
-          (items) => {
-            setRemoteMemories(items);
-            setFirebaseNotice('');
-          },
-          (error) => setFirebaseNotice(error.message),
-        );
+      void import('./services/firebaseRealtimeMemoryBook')
+        .then((service) => {
+          if (!isActive) return;
 
-        unsubscribeComments = service.subscribeMemoryCommentsRealtime(
-          (items) => {
-            setRemoteComments(sortCommentsNewestFirst(items));
-            setFirebaseNotice('');
-          },
-          (error) => setFirebaseNotice(error.message),
-        );
-      });
+          unsubscribeMemories = service.subscribeMemoriesRealtime(
+            (items) => {
+              if (!isActive) return;
+              memoriesLoadedOnceRef.current = true;
+              setRemoteMemories(items);
+              setMemoriesLoading(false);
+              setFirebaseNotice('');
+            },
+            (error) => {
+              if (!isActive) return;
+              memoriesLoadedOnceRef.current = true;
+              setMemoriesLoading(false);
+              setFirebaseNotice(error.message);
+            },
+          );
+
+          unsubscribeComments = service.subscribeMemoryCommentsRealtime(
+            (items) => {
+              if (!isActive) return;
+              setRemoteComments(sortCommentsNewestFirst(items));
+              setFirebaseNotice('');
+            },
+            (error) => {
+              if (!isActive) return;
+              setFirebaseNotice(error.message);
+            },
+          );
+        })
+        .catch((caught) => {
+          if (!isActive) return;
+          memoriesLoadedOnceRef.current = true;
+          setMemoriesLoading(false);
+          setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể tải ảnh từ database lúc này.');
+        });
     }
 
     if (route === 'letters' || route === 'diary') {
@@ -448,6 +471,7 @@ export default function App() {
           memories={allMemories}
           commentsByMemory={commentsByMemory}
           firebaseNotice={firebaseNotice}
+          isLoadingMemories={memoriesLoading}
           profile={profile}
           pendingReactionIds={pendingReactionIds}
           onJoin={() => navigate('join')}
