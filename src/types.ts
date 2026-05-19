@@ -1,6 +1,6 @@
 export type AppRoute = 'landing' | 'join' | 'home' | 'photobook';
 
-export type PhotoCount = 2 | 4 | 6;
+export type PhotoCount = 1 | 2 | 4 | 6;
 
 export type LayoutType = 'vertical' | 'square' | 'horizontal';
 
@@ -52,12 +52,21 @@ export interface BackgroundOption {
   description: string;
 }
 
+export interface BackgroundEdit {
+  scale: number;
+  x: number;
+  y: number;
+  brightness: number;
+  blur: number;
+}
+
 export interface PhotobookConfig {
   photoCount: PhotoCount;
   layout: LayoutType;
   quality: ExportQuality;
   backgroundId: string;
   customBackground?: string;
+  customBackgroundEdit?: BackgroundEdit;
 }
 
 export interface GeneratedPhotobook {

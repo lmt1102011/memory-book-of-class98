@@ -1,4 +1,5 @@
 import type {
+  BackgroundEdit,
   BackgroundOption,
   CapturedPhoto,
   ExportQuality,
@@ -26,6 +27,20 @@ const layoutHeightRatio: Record<LayoutType, number> = {
   vertical: 3.58,
   square: 1,
   horizontal: 0.48,
+};
+
+const singlePhotoHeightRatio: Record<LayoutType, number> = {
+  vertical: 1.42,
+  square: 1,
+  horizontal: 0.62,
+};
+
+const defaultBackgroundEdit: BackgroundEdit = {
+  scale: 1,
+  x: 0,
+  y: 0,
+  brightness: 100,
+  blur: 0,
 };
 
 const loadImage = (src: string) =>
@@ -93,6 +108,28 @@ const drawCoverImage = (
   ctx.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height);
 };
 
+const drawEditedCoverImage = (
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  width: number,
+  height: number,
+  edit?: BackgroundEdit,
+) => {
+  const settings = { ...defaultBackgroundEdit, ...edit };
+  const coverScale = Math.max(width / image.width, height / image.height) * settings.scale;
+  const drawWidth = image.width * coverScale;
+  const drawHeight = image.height * coverScale;
+  const maxShiftX = Math.max(0, (drawWidth - width) / 2);
+  const maxShiftY = Math.max(0, (drawHeight - height) / 2);
+  const x = (width - drawWidth) / 2 + (settings.x / 100) * maxShiftX;
+  const y = (height - drawHeight) / 2 + (settings.y / 100) * maxShiftY;
+
+  ctx.save();
+  ctx.filter = `brightness(${settings.brightness}%) blur(${settings.blur}px)`;
+  ctx.drawImage(image, x, y, drawWidth, drawHeight);
+  ctx.restore();
+};
+
 const drawStickerTape = (
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -130,10 +167,11 @@ const drawBackground = async (
   height: number,
   background: BackgroundOption,
   customBackground?: string,
+  customBackgroundEdit?: BackgroundEdit,
 ) => {
   if (background.kind === 'custom' && customBackground) {
     const image = await loadImage(customBackground);
-    drawCoverImage(ctx, image, 0, 0, width, height);
+    drawEditedCoverImage(ctx, image, width, height, customBackgroundEdit);
     ctx.fillStyle = 'rgba(255, 250, 241, 0.18)';
     ctx.fillRect(0, 0, width, height);
     return;
@@ -208,7 +246,7 @@ const getFrames = (layout: LayoutType, count: number, width: number, height: num
   }
 
   if (layout === 'square') {
-    const columns = count === 2 ? 2 : count === 4 ? 2 : 3;
+    const columns = count === 1 ? 1 : count === 2 ? 2 : count === 4 ? 2 : 3;
     const rows = Math.ceil(count / columns);
     const titleSpace = height * 0.16;
     const footer = height * 0.13;
@@ -339,7 +377,8 @@ export const renderPhotobook = async ({
   caption,
 }: RenderPhotobookArgs): Promise<GeneratedPhotobook> => {
   const width = qualityWidth[config.quality];
-  const height = Math.round(width * layoutHeightRatio[config.layout]);
+  const heightRatio = config.photoCount === 1 ? singlePhotoHeightRatio[config.layout] : layoutHeightRatio[config.layout];
+  const height = Math.round(width * heightRatio);
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -350,7 +389,7 @@ export const renderPhotobook = async ({
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  await drawBackground(ctx, width, height, background, config.customBackground);
+  await drawBackground(ctx, width, height, background, config.customBackground, config.customBackgroundEdit);
 
   const loadedPhotos = await Promise.all(photos.map((photo) => loadImage(photo.dataUrl)));
   const frames = getFrames(config.layout, loadedPhotos.length, width, height);

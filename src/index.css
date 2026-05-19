@@ -279,17 +279,16 @@
   }
 
   .layout-preview {
-    display: grid;
-    gap: 0.28rem;
+    display: block;
     width: 100%;
-    height: 5.1rem;
+    min-height: 7rem;
     margin-bottom: 0.75rem;
     border-radius: 0.45rem;
     background:
       linear-gradient(135deg, rgba(255, 250, 241, 0.92), rgba(247, 183, 199, 0.24)),
       linear-gradient(90deg, rgba(122, 86, 57, 0.08) 1px, transparent 1px);
     background-size: auto, 12px 12px;
-    padding: 0.45rem;
+    padding: 0.55rem;
     box-shadow: inset 0 0 0 1px rgba(122, 86, 57, 0.12);
     contain: paint;
   }
@@ -300,30 +299,77 @@
       linear-gradient(90deg, rgba(122, 86, 57, 0.12) 1px, transparent 1px);
   }
 
-  .layout-preview-vertical {
+  .layout-preview-paper {
+    display: grid;
+    height: 6rem;
+    width: 100%;
+    gap: 0.32rem;
+    border-radius: 0.35rem;
+    background: #fffdf7;
+    padding: 0.42rem;
+    box-shadow:
+      0 8px 16px rgba(53, 41, 31, 0.12),
+      inset 0 0 0 1px rgba(122, 86, 57, 0.1);
+  }
+
+  .layout-preview-vertical .layout-preview-paper {
     grid-template-columns: 1fr;
-    align-content: stretch;
+    grid-auto-rows: minmax(0, 1fr);
+    width: min(3.7rem, 58%);
+    height: 6.4rem;
+    margin-inline: auto;
   }
 
-  .layout-preview-square {
+  .layout-preview-square .layout-preview-paper {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+    aspect-ratio: 1 / 1;
+    height: auto;
+    width: min(6.3rem, 88%);
+    margin-inline: auto;
   }
 
-  .layout-preview-horizontal {
+  .layout-preview-horizontal .layout-preview-paper {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    align-items: stretch;
+    grid-auto-rows: minmax(0, 1fr);
+    height: 4.1rem;
+    margin-top: 0.95rem;
   }
 
   .layout-frame {
-    display: block;
+    display: grid;
+    min-width: 0;
     min-height: 0;
+    place-items: center;
     border-radius: 0.28rem;
     background:
       linear-gradient(135deg, rgba(169, 205, 232, 0.86), rgba(247, 183, 199, 0.78)),
       #fffaf1;
+    color: rgba(53, 41, 31, 0.72);
+    font-size: 0.76rem;
+    font-weight: 900;
     box-shadow:
       inset 0 0 0 2px rgba(255, 250, 241, 0.9),
       0 4px 10px rgba(53, 41, 31, 0.1);
+  }
+
+  .layout-preview-footer {
+    display: block;
+    min-height: 0.38rem;
+    border-radius: 999px;
+    background: rgba(122, 86, 57, 0.18);
+  }
+
+  .layout-preview-vertical .layout-preview-footer {
+    height: 0.42rem;
+  }
+
+  .layout-preview-square .layout-preview-footer {
+    grid-column: 1 / -1;
+  }
+
+  .layout-preview-horizontal .layout-preview-footer {
+    grid-column: 1 / -1;
   }
 
   .camera-preview-card {

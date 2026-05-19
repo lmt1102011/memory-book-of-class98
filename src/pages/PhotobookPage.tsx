@@ -22,6 +22,7 @@ import {
   QUALITY_OPTIONS,
 } from '../data/backgrounds';
 import type {
+  BackgroundEdit,
   BackgroundOption,
   CapturedPhoto,
   ExportQuality,
@@ -42,6 +43,15 @@ interface PhotobookPageProps {
 }
 
 type BoothStage = 'setup' | 'camera' | 'final';
+type CaptureSource = 'camera' | 'upload';
+
+const defaultBackgroundEdit: BackgroundEdit = {
+  scale: 1,
+  x: 0,
+  y: 0,
+  brightness: 100,
+  blur: 0,
+};
 
 const defaultConfig: PhotobookConfig = {
   photoCount: 4,
@@ -85,13 +95,37 @@ const compressUploadedBackground = async (file: File) => {
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d', { alpha: false });
-    if (!ctx) return objectUrl;
+    if (!ctx) throw new Error('Canvas is not supported in this browser.');
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     ctx.fillStyle = '#fffaf1';
     ctx.fillRect(0, 0, width, height);
     ctx.drawImage(image, 0, 0, width, height);
     return canvas.toDataURL('image/jpeg', 0.9);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+};
+
+const compressUploadedPhoto = async (file: File) => {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await loadImageFromSource(objectUrl);
+    const maxEdge = 3200;
+    const scale = Math.min(maxEdge / Math.max(image.width, image.height), 1);
+    const width = Math.round(image.width * scale);
+    const height = Math.round(image.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) throw new Error('Canvas is not supported in this browser.');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.fillStyle = '#fffaf1';
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(image, 0, 0, width, height);
+    return canvas.toDataURL('image/jpeg', 0.96);
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
@@ -150,8 +184,10 @@ function OptionButton<T extends string | number>({
 export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: PhotobookPageProps) {
   const webcamRef = useRef<Webcam>(null);
   const cameraStageRef = useRef<HTMLDivElement | null>(null);
+  const photoUploadInputRef = useRef<HTMLInputElement | null>(null);
   const countdownFrame = useRef<number | null>(null);
   const [stage, setStage] = useState<BoothStage>('setup');
+  const [captureSource, setCaptureSource] = useState<CaptureSource>('camera');
   const [config, setConfig] = useState<PhotobookConfig>(defaultConfig);
   const [capturedPhotos, setCapturedPhotos] = useState<CapturedPhoto[]>([]);
   const [pendingPhoto, setPendingPhoto] = useState<string | null>(null);
@@ -173,11 +209,31 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   );
 
   const currentIndex = capturedPhotos.length + (pendingPhoto ? 1 : 0);
-  const canCapture = stage === 'camera' && !pendingPhoto && countdown === null;
+  const canCapture = stage === 'camera' && captureSource === 'camera' && !pendingPhoto && countdown === null;
+  const canUploadPhoto = stage === 'camera' && !pendingPhoto && countdown === null && capturedPhotos.length < config.photoCount;
   const videoConstraints = useMemo(() => getVideoConstraints(facingMode), [facingMode]);
 
   const updateConfig = <K extends keyof PhotobookConfig>(key: K, value: PhotobookConfig[K]) => {
     setConfig((current) => ({ ...current, [key]: value }));
+  };
+
+  const updatePhotoCount = (value: PhotoCount) => {
+    setConfig((current) => ({ ...current, photoCount: value }));
+    setCapturedPhotos((current) => current.slice(0, value));
+    setPendingPhoto(null);
+    setGenerated(null);
+  };
+
+  const updateBackgroundEdit = <K extends keyof BackgroundEdit>(key: K, value: BackgroundEdit[K]) => {
+    setConfig((current) => ({
+      ...current,
+      customBackgroundEdit: {
+        ...defaultBackgroundEdit,
+        ...current.customBackgroundEdit,
+        [key]: value,
+      },
+    }));
+    setGenerated(null);
   };
 
   const resetSession = () => {
@@ -192,6 +248,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   };
 
   const openCameraStage = async () => {
+    setCaptureSource('camera');
     setStage('camera');
     window.setTimeout(() => {
       const element = cameraStageRef.current;
@@ -199,6 +256,12 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
         void element.requestFullscreen({ navigationUI: 'hide' }).catch(() => undefined);
       }
     }, 80);
+  };
+
+  const openUploadStage = () => {
+    setCaptureSource('upload');
+    setStage('camera');
+    window.setTimeout(() => photoUploadInputRef.current?.click(), 120);
   };
 
   const leaveCameraStage = () => {
@@ -272,7 +335,28 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
       ...current,
       backgroundId: 'custom-upload',
       customBackground: compressed,
+      customBackgroundEdit: defaultBackgroundEdit,
     }));
+    event.target.value = '';
+  };
+
+  const handleUploadPhoto = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || capturedPhotos.length >= config.photoCount) return;
+
+    try {
+      setCameraError(null);
+      setCaptureSource('upload');
+      setStage('camera');
+      const uploaded = await compressUploadedPhoto(file);
+      setPendingPhoto(uploaded);
+      window.setTimeout(() => setFlash(true), 20);
+      window.setTimeout(() => setFlash(false), 190);
+    } catch {
+      setCameraError('Khong the tai anh nay. Hay thu anh JPG/PNG khac.');
+    } finally {
+      event.target.value = '';
+    }
   };
 
   const handleGenerate = async () => {
@@ -353,6 +437,14 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
     <section className="relative min-h-[calc(100svh-4rem)] overflow-hidden px-4 py-6 sm:px-6 lg:px-8">
       <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(247,183,199,.26),transparent_34%),linear-gradient(245deg,rgba(169,205,232,.24),transparent_40%),linear-gradient(135deg,#fbf3e7,#fffaf1)]" />
       <div className="relative mx-auto max-w-7xl">
+        <input
+          ref={photoUploadInputRef}
+          className="sr-only"
+          type="file"
+          accept="image/*"
+          onChange={handleUploadPhoto}
+        />
+
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="section-kicker">Korean Photobooth</p>
@@ -369,15 +461,15 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
             <div className="rounded-[2rem] border border-white/65 bg-white/52 p-4 shadow-paper backdrop-blur-xl sm:p-6">
               <div className="grid gap-5">
                 <SetupGroup step="1" title="Choose number of photos">
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {PHOTO_COUNT_OPTIONS.map((count) => (
                       <OptionButton<PhotoCount>
                         key={count}
                         active={config.photoCount === count}
                         value={count}
                         label={`${count}`}
-                        description="photos"
-                        onSelect={(value) => updateConfig('photoCount', value)}
+                        description={count === 1 ? 'photo' : 'photos'}
+                        onSelect={updatePhotoCount}
                       />
                     ))}
                   </div>
@@ -392,7 +484,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                         value={layout.id}
                         label={layout.label}
                         description={layout.description}
-                        preview={<LayoutPreview layout={layout.id} />}
+                        preview={<LayoutPreview layout={layout.id} count={config.photoCount} />}
                         onSelect={(value) => updateConfig('layout', value)}
                       />
                     ))}
@@ -433,6 +525,17 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                     Upload custom background
                     <input className="sr-only" type="file" accept="image/*" onChange={handleUploadBackground} />
                   </label>
+                  {config.customBackground && (
+                    <CustomBackgroundEditor
+                      image={config.customBackground}
+                      edit={{ ...defaultBackgroundEdit, ...config.customBackgroundEdit }}
+                      onChange={updateBackgroundEdit}
+                      onReset={() => {
+                        setConfig((current) => ({ ...current, customBackgroundEdit: defaultBackgroundEdit }));
+                        setGenerated(null);
+                      }}
+                    />
+                  )}
                 </SetupGroup>
               </div>
             </div>
@@ -453,6 +556,13 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
               >
                 <Camera size={19} />
                 Open Camera
+              </button>
+              <button
+                className="secondary-button mt-3 min-h-14 w-full justify-center text-base"
+                onClick={openUploadStage}
+              >
+                <Upload size={19} />
+                Upload Photo Instead
               </button>
             </aside>
           </div>
@@ -477,6 +587,24 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                 <div className="camera-frame">
                   {pendingPhoto ? (
                     <img src={pendingPhoto} alt="Captured preview" className="h-full w-full object-cover" />
+                  ) : captureSource === 'upload' ? (
+                    <div className="grid h-full place-items-center bg-[linear-gradient(135deg,#1a1512,#35291f)] p-6 text-center text-paper">
+                      <div className="max-w-sm">
+                        <Upload className="mx-auto mb-4 text-paper/80" size={42} />
+                        <h2 className="font-display text-5xl leading-none">Upload photo</h2>
+                        <p className="mt-3 text-sm leading-6 text-paper/68">
+                          Chon anh tu may cua ban, sau do bam dau tick de dua vao photobook.
+                        </p>
+                        <button
+                          className="camera-secondary-button mx-auto mt-5"
+                          onClick={() => photoUploadInputRef.current?.click()}
+                          disabled={!canUploadPhoto}
+                        >
+                          <Upload size={18} />
+                          Chon anh
+                        </button>
+                      </div>
+                    </div>
                   ) : (
                     <Webcam
                       key={facingMode}
@@ -512,7 +640,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                     <>
                       <button className="camera-secondary-button" onClick={() => setPendingPhoto(null)}>
                         <RefreshCw size={18} />
-                        Retake
+                        Doi anh
                       </button>
                       <button className="camera-shutter-button" onClick={acceptPhoto}>
                         <Check size={28} />
@@ -520,13 +648,42 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                     </>
                   ) : (
                     <>
-                      <button className="camera-secondary-button" onClick={flipCamera}>
-                        <RotateCcw size={18} />
-                        Xoay cam
-                      </button>
-                      <button className="camera-shutter-button" onClick={startCountdown} disabled={!canCapture}>
-                        <CameraIcon size={30} />
-                      </button>
+                      {captureSource === 'camera' ? (
+                        <>
+                          <button className="camera-secondary-button" onClick={flipCamera}>
+                            <RotateCcw size={18} />
+                            Xoay cam
+                          </button>
+                          <button
+                            className="camera-secondary-button"
+                            onClick={() => {
+                              setCaptureSource('upload');
+                              photoUploadInputRef.current?.click();
+                            }}
+                            disabled={!canUploadPhoto}
+                          >
+                            <Upload size={18} />
+                            Up anh
+                          </button>
+                          <button className="camera-shutter-button" onClick={startCountdown} disabled={!canCapture}>
+                            <CameraIcon size={30} />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            className="camera-secondary-button"
+                            onClick={() => photoUploadInputRef.current?.click()}
+                            disabled={!canUploadPhoto}
+                          >
+                            <Upload size={18} />
+                            Chon anh
+                          </button>
+                          <button className="camera-shutter-button" onClick={() => setCaptureSource('camera')}>
+                            <CameraIcon size={30} />
+                          </button>
+                        </>
+                      )}
                     </>
                   )}
                 </div>
@@ -574,15 +731,31 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                     </button>
                     <button className="secondary-button justify-center" onClick={() => setPendingPhoto(null)}>
                       <RefreshCw size={17} />
-                      Retake
+                      Doi anh
                     </button>
                   </>
-                ) : (
+                ) : captureSource === 'camera' ? (
                   <button className="primary-button min-h-14 justify-center" onClick={startCountdown} disabled={!canCapture}>
                     <Camera size={19} />
                     Start 10s Countdown
                   </button>
+                ) : (
+                  <button
+                    className="primary-button min-h-14 justify-center"
+                    onClick={() => photoUploadInputRef.current?.click()}
+                    disabled={!canUploadPhoto}
+                  >
+                    <Upload size={19} />
+                    Upload Photo
+                  </button>
                 )}
+                <button
+                  className="secondary-button justify-center"
+                  onClick={() => setCaptureSource(captureSource === 'camera' ? 'upload' : 'camera')}
+                >
+                  {captureSource === 'camera' ? <Upload size={16} /> : <Camera size={16} />}
+                  {captureSource === 'camera' ? 'Dung anh co san' : 'Dung camera'}
+                </button>
                 <button className="secondary-button justify-center" onClick={leaveCameraStage}>
                   <ArrowLeft size={16} />
                   Back to setup
@@ -702,19 +875,91 @@ function SetupGroup({ step, title, children }: SetupGroupProps) {
   );
 }
 
-function LayoutPreview({ layout }: { layout: LayoutType }) {
-  const frames =
-    layout === 'vertical'
-      ? ['h-5', 'h-5', 'h-5', 'h-5']
-      : layout === 'horizontal'
-        ? ['w-5', 'w-5', 'w-5', 'w-5']
-        : ['square', 'square', 'square', 'square'];
+function LayoutPreview({ layout, count }: { layout: LayoutType; count: PhotoCount }) {
+  const columns = layout === 'vertical' ? 1 : layout === 'square' ? (count === 1 ? 1 : count === 4 ? 2 : Math.min(count, 3)) : count;
 
   return (
     <span className={`layout-preview layout-preview-${layout}`} aria-hidden="true">
-      {frames.map((frame, index) => (
-        <span key={index} className={`layout-frame ${frame}`} />
-      ))}
+      <span className="layout-preview-paper" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+        {Array.from({ length: count }).map((_, index) => (
+          <span key={index} className="layout-frame">
+            {index + 1}
+          </span>
+        ))}
+        <span className="layout-preview-footer" />
+      </span>
     </span>
+  );
+}
+
+interface CustomBackgroundEditorProps {
+  image: string;
+  edit: BackgroundEdit;
+  onChange: <K extends keyof BackgroundEdit>(key: K, value: BackgroundEdit[K]) => void;
+  onReset: () => void;
+}
+
+function CustomBackgroundEditor({ image, edit, onChange, onReset }: CustomBackgroundEditorProps) {
+  const controls: Array<{
+    key: keyof BackgroundEdit;
+    label: string;
+    min: number;
+    max: number;
+    step: number;
+    value: number;
+    suffix?: string;
+  }> = [
+    { key: 'scale', label: 'Zoom', min: 1, max: 2, step: 0.01, value: edit.scale },
+    { key: 'x', label: 'Trai / phai', min: -100, max: 100, step: 1, value: edit.x },
+    { key: 'y', label: 'Len / xuong', min: -100, max: 100, step: 1, value: edit.y },
+    { key: 'brightness', label: 'Sang', min: 70, max: 130, step: 1, value: edit.brightness, suffix: '%' },
+    { key: 'blur', label: 'Mo nen', min: 0, max: 8, step: 0.1, value: edit.blur, suffix: 'px' },
+  ];
+
+  return (
+    <div className="mt-4 grid gap-4 rounded-[1.25rem] bg-paper/72 p-4 shadow-sm lg:grid-cols-[0.9fr_1.1fr]">
+      <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-ink">
+        <img
+          src={image}
+          alt="Custom background preview"
+          className="absolute left-1/2 top-1/2 h-full w-full object-cover"
+          style={{
+            filter: `brightness(${edit.brightness}%) blur(${edit.blur}px)`,
+            transform: `translate(-50%, -50%) translate(${edit.x * 0.35}%, ${edit.y * 0.35}%) scale(${edit.scale})`,
+          }}
+        />
+        <div className="absolute inset-3 rounded-lg border-2 border-dashed border-paper/80" />
+        <div className="absolute bottom-3 left-3 right-3 rounded-full bg-ink/62 px-3 py-2 text-center text-xs font-bold text-paper">
+          Preview background
+        </div>
+      </div>
+
+      <div className="grid gap-3">
+        {controls.map((control) => (
+          <label key={control.key} className="grid gap-1">
+            <span className="flex items-center justify-between gap-3 text-xs font-bold uppercase text-coffee/70">
+              {control.label}
+              <span>
+                {control.value}
+                {control.suffix || ''}
+              </span>
+            </span>
+            <input
+              type="range"
+              min={control.min}
+              max={control.max}
+              step={control.step}
+              value={control.value}
+              onChange={(event) => onChange(control.key, Number(event.target.value))}
+              className="w-full accent-coffee"
+            />
+          </label>
+        ))}
+        <button className="secondary-button justify-center" onClick={onReset}>
+          <RefreshCw size={16} />
+          Reset background
+        </button>
+      </div>
+    </div>
   );
 }
