@@ -14,6 +14,7 @@ declare module 'lucide-react' {
   export const BadgeCheck: LucideIcon;
   export const BookOpen: LucideIcon;
   export const Camera: LucideIcon;
+  export const CameraIcon: LucideIcon;
   export const Check: LucideIcon;
   export const Download: LucideIcon;
   export const Filter: LucideIcon;
@@ -27,6 +28,7 @@ declare module 'lucide-react' {
   export const Music: LucideIcon;
   export const Music2: LucideIcon;
   export const RefreshCw: LucideIcon;
+  export const RotateCcw: LucideIcon;
   export const Search: LucideIcon;
   export const Send: LucideIcon;
   export const Sparkles: LucideIcon;

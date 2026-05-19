@@ -2,11 +2,13 @@ import { m } from 'framer-motion';
 import {
   ArrowLeft,
   Camera,
+  CameraIcon,
   Check,
   Download,
   ImagePlus,
   Layers,
   RefreshCw,
+  RotateCcw,
   Send,
   Sparkles,
   Upload,
@@ -48,13 +50,13 @@ const defaultConfig: PhotobookConfig = {
   backgroundId: 'pastel-dawn',
 };
 
-const videoConstraints: MediaTrackConstraints = {
-  width: { ideal: 3840, min: 1280 },
-  height: { ideal: 2160, min: 720 },
+const getVideoConstraints = (facingMode: 'user' | 'environment'): MediaTrackConstraints => ({
+  width: { ideal: 2560, min: 1280 },
+  height: { ideal: 1440, min: 720 },
   aspectRatio: { ideal: 16 / 9 },
-  frameRate: { ideal: 30, max: 60 },
-  facingMode: 'user',
-};
+  frameRate: { ideal: 30, max: 30 },
+  facingMode,
+});
 
 const parseHashtags = (value: string) =>
   value
@@ -121,6 +123,7 @@ interface OptionButtonProps<T extends string | number> {
   value: T;
   label: string;
   description?: string;
+  preview?: React.ReactNode;
   onSelect: (value: T) => void;
 }
 
@@ -129,10 +132,12 @@ function OptionButton<T extends string | number>({
   value,
   label,
   description,
+  preview,
   onSelect,
 }: OptionButtonProps<T>) {
   return (
     <button className={`option-card ${active ? 'option-card-active' : ''}`} onClick={() => onSelect(value)}>
+      {preview}
       <span className="flex items-center justify-between gap-3">
         <span className="font-bold">{label}</span>
         {active && <Check size={17} />}
@@ -144,6 +149,7 @@ function OptionButton<T extends string | number>({
 
 export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: PhotobookPageProps) {
   const webcamRef = useRef<Webcam>(null);
+  const cameraStageRef = useRef<HTMLDivElement | null>(null);
   const countdownFrame = useRef<number | null>(null);
   const [stage, setStage] = useState<BoothStage>('setup');
   const [config, setConfig] = useState<PhotobookConfig>(defaultConfig);
@@ -157,6 +163,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [generated, setGenerated] = useState<GeneratedPhotobook | null>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
 
@@ -167,6 +174,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
 
   const currentIndex = capturedPhotos.length + (pendingPhoto ? 1 : 0);
   const canCapture = stage === 'camera' && !pendingPhoto && countdown === null;
+  const videoConstraints = useMemo(() => getVideoConstraints(facingMode), [facingMode]);
 
   const updateConfig = <K extends keyof PhotobookConfig>(key: K, value: PhotobookConfig[K]) => {
     setConfig((current) => ({ ...current, [key]: value }));
@@ -181,6 +189,30 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
       URL.revokeObjectURL(objectUrl);
       setObjectUrl(null);
     }
+  };
+
+  const openCameraStage = async () => {
+    setStage('camera');
+    window.setTimeout(() => {
+      const element = cameraStageRef.current;
+      if (element?.requestFullscreen) {
+        void element.requestFullscreen({ navigationUI: 'hide' }).catch(() => undefined);
+      }
+    }, 80);
+  };
+
+  const leaveCameraStage = () => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => undefined);
+    }
+    setStage('setup');
+  };
+
+  const flipCamera = () => {
+    setCameraError(null);
+    setPendingPhoto(null);
+    setCountdown(null);
+    setFacingMode((current) => (current === 'user' ? 'environment' : 'user'));
   };
 
   const captureNow = useCallback(() => {
@@ -293,6 +325,11 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
     };
   }, [objectUrl]);
 
+  useEffect(() => {
+    document.body.classList.toggle('camera-open', stage === 'camera');
+    return () => document.body.classList.remove('camera-open');
+  }, [stage]);
+
   if (!profile) {
     return (
       <section className="grid min-h-[calc(100svh-4rem)] place-items-center px-4 py-12">
@@ -355,6 +392,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                         value={layout.id}
                         label={layout.label}
                         description={layout.description}
+                        preview={<LayoutPreview layout={layout.id} />}
                         onSelect={(value) => updateConfig('layout', value)}
                       />
                     ))}
@@ -411,7 +449,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
               </div>
               <button
                 className="primary-button mt-5 min-h-14 w-full justify-center text-base"
-                onClick={() => setStage('camera')}
+                onClick={openCameraStage}
               >
                 <Camera size={19} />
                 Open Camera
@@ -421,17 +459,30 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
         )}
 
         {stage === 'camera' && (
-          <div className="grid gap-5 xl:grid-cols-[1fr_20rem]">
+          <div ref={cameraStageRef} className="camera-stage">
             <div className="camera-shell">
               <div className="relative mx-auto w-full max-w-6xl">
+                <div className="camera-topbar">
+                  <button className="camera-action-button" onClick={leaveCameraStage} aria-label="Back to setup">
+                    <ArrowLeft size={19} />
+                  </button>
+                  <div className="rounded-full bg-ink/55 px-4 py-2 text-center text-sm font-bold text-paper backdrop-blur-md">
+                    {Math.min(currentIndex + (pendingPhoto ? 0 : 1), config.photoCount)} / {config.photoCount}
+                  </div>
+                  <button className="camera-action-button" onClick={flipCamera} aria-label="Rotate camera">
+                    <RotateCcw size={19} />
+                  </button>
+                </div>
+
                 <div className="camera-frame">
                   {pendingPhoto ? (
                     <img src={pendingPhoto} alt="Captured preview" className="h-full w-full object-cover" />
                   ) : (
                     <Webcam
+                      key={facingMode}
                       ref={webcamRef}
                       audio={false}
-                      mirrored
+                      mirrored={facingMode === 'user'}
                       screenshotFormat="image/jpeg"
                       screenshotQuality={1}
                       forceScreenshotSourceSize
@@ -456,6 +507,30 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                   )}
                 </div>
 
+                <div className="camera-controls-near">
+                  {pendingPhoto ? (
+                    <>
+                      <button className="camera-secondary-button" onClick={() => setPendingPhoto(null)}>
+                        <RefreshCw size={18} />
+                        Retake
+                      </button>
+                      <button className="camera-shutter-button" onClick={acceptPhoto}>
+                        <Check size={28} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="camera-secondary-button" onClick={flipCamera}>
+                        <RotateCcw size={18} />
+                        Xoay cam
+                      </button>
+                      <button className="camera-shutter-button" onClick={startCountdown} disabled={!canCapture}>
+                        <CameraIcon size={30} />
+                      </button>
+                    </>
+                  )}
+                </div>
+
                 {cameraError && (
                   <p className="mt-3 rounded-2xl bg-blush/35 px-4 py-3 text-sm font-semibold text-coffee">
                     {cameraError}
@@ -464,7 +539,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
               </div>
             </div>
 
-            <aside className="rounded-[2rem] border border-white/65 bg-white/52 p-4 shadow-paper backdrop-blur-xl">
+            <aside className="camera-side-panel">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-xs font-bold uppercase text-coffee/65">Capture</p>
@@ -508,7 +583,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                     Start 10s Countdown
                   </button>
                 )}
-                <button className="secondary-button justify-center" onClick={() => setStage('setup')}>
+                <button className="secondary-button justify-center" onClick={leaveCameraStage}>
                   <ArrowLeft size={16} />
                   Back to setup
                 </button>
@@ -624,5 +699,22 @@ function SetupGroup({ step, title, children }: SetupGroupProps) {
       </div>
       {children}
     </section>
+  );
+}
+
+function LayoutPreview({ layout }: { layout: LayoutType }) {
+  const frames =
+    layout === 'vertical'
+      ? ['h-5', 'h-5', 'h-5', 'h-5']
+      : layout === 'horizontal'
+        ? ['w-5', 'w-5', 'w-5', 'w-5']
+        : ['square', 'square', 'square', 'square'];
+
+  return (
+    <span className={`layout-preview layout-preview-${layout}`} aria-hidden="true">
+      {frames.map((frame, index) => (
+        <span key={index} className={`layout-frame ${frame}`} />
+      ))}
+    </span>
   );
 }

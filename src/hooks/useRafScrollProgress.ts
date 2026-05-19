@@ -4,6 +4,12 @@ export const useRafScrollProgress = () => {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
+    const shouldSkipMotion = window.matchMedia('(max-width: 767px), (prefers-reduced-motion: reduce)');
+    if (shouldSkipMotion.matches) {
+      setProgress(0);
+      return undefined;
+    }
+
     let frame = 0;
 
     const update = () => {

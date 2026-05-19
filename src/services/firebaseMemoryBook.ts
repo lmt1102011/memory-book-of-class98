@@ -38,6 +38,7 @@ const SECRET_MAILBOX_PRIVATE_COLLECTION = 'secretMailboxPrivate98';
 const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
 const FIREBASE_RETRY_DELAYS = [0, 450, 1000, 1800];
 const FIREBASE_TIMEOUT_MS = 12_000;
+const FIREBASE_POLL_MS = 20_000;
 
 export const cleanDisplayName = (name: string) => name.trim().replace(/\s+/g, ' ');
 
@@ -135,6 +136,11 @@ const withFirebaseRetry = async <T,>(operation: () => Promise<T>) => {
 
   throw friendlyFirebaseError(lastError);
 };
+
+const createVisiblePolling = (load: () => Promise<void>) =>
+  window.setInterval(() => {
+    if (document.visibilityState === 'visible') void load();
+  }, FIREBASE_POLL_MS);
 
 const timestampToIso = (value: unknown) => {
   if (value instanceof Timestamp) return value.toDate().toISOString();
@@ -311,7 +317,7 @@ export const subscribeMemories = (
     }
   };
   void load();
-  const interval = window.setInterval(load, 12_000);
+  const interval = createVisiblePolling(load);
   return () => window.clearInterval(interval);
 };
 
@@ -329,7 +335,7 @@ export const subscribeGuestbook = (
     }
   };
   void load();
-  const interval = window.setInterval(load, 12_000);
+  const interval = createVisiblePolling(load);
   return () => window.clearInterval(interval);
 };
 
@@ -347,7 +353,7 @@ export const subscribeSecretLetters = (
     }
   };
   void load();
-  const interval = window.setInterval(load, 12_000);
+  const interval = createVisiblePolling(load);
   return () => window.clearInterval(interval);
 };
 
