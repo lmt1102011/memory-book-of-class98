@@ -37,12 +37,7 @@ export interface GuestbookEntry {
   name: string;
   message: string;
   createdAt: string;
-}
-
-export interface AnonymousMessage {
-  id: string;
-  message: string;
-  createdAt: string;
+  anonymous?: boolean;
 }
 
 export interface CapturedPhoto {

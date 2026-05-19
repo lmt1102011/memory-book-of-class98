@@ -4,7 +4,6 @@ import { BookOpen, Camera, Home, Menu, Sparkles, X } from 'lucide-react';
 import LoadingScreen from './components/LoadingScreen';
 import LandingPage from './pages/LandingPage';
 import type {
-  AnonymousMessage,
   AppRoute,
   GuestbookEntry,
   MemoryItem,
@@ -33,7 +32,6 @@ export default function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [remoteMemories, setRemoteMemories] = useState<MemoryItem[]>([]);
   const [remoteGuestbook, setRemoteGuestbook] = useState<GuestbookEntry[]>([]);
-  const [anonymousMessages, setAnonymousMessages] = useState<AnonymousMessage[]>([]);
   const [secretDiaries, setSecretDiaries] = useState<SecretDiaryEntry[]>([]);
   const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -67,7 +65,6 @@ export default function App() {
 
     let unsubscribeMemories: (() => void) | undefined;
     let unsubscribeGuestbook: (() => void) | undefined;
-    let unsubscribeAnonymousMessages: (() => void) | undefined;
     let unsubscribeLetters: (() => void) | undefined;
     let isActive = true;
 
@@ -83,13 +80,6 @@ export default function App() {
       unsubscribeGuestbook = service.subscribeGuestbook(
         (items) => {
           setRemoteGuestbook(items);
-          setFirebaseNotice('');
-        },
-        (error) => setFirebaseNotice(error.message),
-      );
-      unsubscribeAnonymousMessages = service.subscribeAnonymousMessages(
-        (items) => {
-          setAnonymousMessages(items);
           setFirebaseNotice('');
         },
         (error) => setFirebaseNotice(error.message),
@@ -112,7 +102,6 @@ export default function App() {
       isActive = false;
       unsubscribeMemories?.();
       unsubscribeGuestbook?.();
-      unsubscribeAnonymousMessages?.();
       unsubscribeLetters?.();
     };
   }, [profile, route]);
@@ -154,8 +143,12 @@ export default function App() {
         navigate('join');
         return;
       }
-      const service = await import('./services/firebaseMemoryBook');
-      await service.reactToFirebaseMemory(memory);
+      try {
+        const service = await import('./services/firebaseMemoryBook');
+        await service.reactToFirebaseMemory(memory);
+      } catch (caught) {
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Khong the tha tim luc nay.');
+      }
     },
     [navigate, profile],
   );
@@ -166,9 +159,14 @@ export default function App() {
         navigate('join');
         return;
       }
-      const service = await import('./services/firebaseMemoryBook');
-      await service.deleteFirebaseMemory(profile, memory);
-      setRemoteMemories((items) => items.filter((item) => item.id !== memory.id));
+      try {
+        const service = await import('./services/firebaseMemoryBook');
+        await service.deleteFirebaseMemory(profile, memory);
+        setRemoteMemories((items) => items.filter((item) => item.id !== memory.id));
+        setFirebaseNotice('');
+      } catch (caught) {
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Khong the xoa anh luc nay.');
+      }
     },
     [navigate, profile],
   );
@@ -194,7 +192,7 @@ export default function App() {
       }
       const service = await import('./services/firebaseMemoryBook');
       const entry = await service.addAnonymousMessage(profile, message);
-      setAnonymousMessages((items) => [entry, ...items]);
+      setRemoteGuestbook((items) => [entry, ...items]);
     },
     [navigate, profile],
   );
@@ -205,9 +203,14 @@ export default function App() {
         navigate('join');
         return;
       }
-      const service = await import('./services/firebaseMemoryBook');
-      await service.deleteGuestbookEntry(profile, entry);
-      setRemoteGuestbook((items) => items.filter((item) => item.id !== entry.id));
+      try {
+        const service = await import('./services/firebaseMemoryBook');
+        await service.deleteGuestbookEntry(profile, entry);
+        setRemoteGuestbook((items) => items.filter((item) => item.id !== entry.id));
+        setFirebaseNotice('');
+      } catch (caught) {
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Khong the xoa tin nhan luc nay.');
+      }
     },
     [navigate, profile],
   );
@@ -231,9 +234,14 @@ export default function App() {
         navigate('join');
         return;
       }
-      const service = await import('./services/firebaseMemoryBook');
-      await service.deleteSecretDiary(profile, diary);
-      setSecretDiaries((items) => items.filter((item) => item.id !== diary.id));
+      try {
+        const service = await import('./services/firebaseMemoryBook');
+        await service.deleteSecretDiary(profile, diary);
+        setSecretDiaries((items) => items.filter((item) => item.id !== diary.id));
+        setFirebaseNotice('');
+      } catch (caught) {
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Khong the xoa nhat ky luc nay.');
+      }
     },
     [navigate, profile],
   );
@@ -264,7 +272,6 @@ export default function App() {
         <HomePage
           memories={allMemories}
           guestbook={allGuestbook}
-          anonymousMessages={anonymousMessages}
           secretDiaries={secretDiaries}
           firebaseNotice={firebaseNotice}
           profile={profile}

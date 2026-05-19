@@ -4,12 +4,11 @@ import ClassMessageBoard from '../components/ClassMessageBoard';
 import MemoryCard from '../components/MemoryCard';
 import SecretMailbox from '../components/SecretMailbox';
 import { useDebounce } from '../hooks/useDebounce';
-import type { AnonymousMessage, GuestbookEntry, MemoryItem, SecretDiaryEntry, UserProfile } from '../types';
+import type { GuestbookEntry, MemoryItem, SecretDiaryEntry, UserProfile } from '../types';
 
 interface HomePageProps {
   memories: MemoryItem[];
   guestbook: GuestbookEntry[];
-  anonymousMessages: AnonymousMessage[];
   secretDiaries: SecretDiaryEntry[];
   firebaseNotice: string;
   profile: UserProfile | null;
@@ -27,7 +26,6 @@ interface HomePageProps {
 export default function HomePage({
   memories,
   guestbook,
-  anonymousMessages,
   secretDiaries,
   firebaseNotice,
   profile,
@@ -208,7 +206,6 @@ export default function HomePage({
       ) : (
         <ClassMessageBoard
           guestbook={guestbook}
-          anonymousMessages={anonymousMessages}
           profile={profile}
           onJoin={onJoin}
           onAddGuestbook={onAddGuestbook}

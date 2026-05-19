@@ -26,7 +26,6 @@ import {
 } from 'firebase/firestore/lite';
 import { auth, db } from '../firebase';
 import type {
-  AnonymousMessage,
   GuestbookEntry,
   MemoryItem,
   PublishMemoryDraft,
@@ -40,7 +39,6 @@ export const CLASS_NAME = '9/8';
 const STUDENTS_COLLECTION = 'students98';
 const MEMORIES_COLLECTION = 'memories98';
 const GUESTBOOK_COLLECTION = 'guestbook98';
-const ANONYMOUS_MESSAGES_COLLECTION = 'anonymousMessages98';
 const SECRET_MAILBOX_PRIVATE_COLLECTION = 'secretMailboxPrivate98';
 const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
 const FIREBASE_RETRY_DELAYS = [0, 450, 1000, 1800];
@@ -79,6 +77,15 @@ const isOfflineLikeError = (error: unknown) => {
 const friendlyFirebaseError = (error: unknown) => {
   const maybeError = error as { code?: string; message?: string };
   const text = `${maybeError.code || ''} ${maybeError.message || ''}`.toLowerCase();
+
+  if (
+    text.includes('permission-denied') ||
+    text.includes('insufficient permissions')
+  ) {
+    return new Error(
+      'Firebase dang chan quyen thao tac nay. Hay deploy Firestore Rules moi nhat, roi reload lai trang.',
+    );
+  }
 
   if (
     text.includes('offline') ||
@@ -164,19 +171,18 @@ const memoryFromDoc = (id: string, data: DocumentData): MemoryItem => ({
   tone: data.tone || 'pink',
 });
 
-const guestbookFromDoc = (id: string, data: DocumentData): GuestbookEntry => ({
-  id,
-  uid: String(data.uid || ''),
-  name: String(data.name || 'Classmate'),
-  message: String(data.message || ''),
-  createdAt: timestampToIso(data.createdAt),
-});
+const guestbookFromDoc = (id: string, data: DocumentData): GuestbookEntry => {
+  const anonymous = Boolean(data.anonymous || data.kind === 'anonymous-board' || data.name === 'An danh');
 
-const anonymousMessageFromDoc = (id: string, data: DocumentData): AnonymousMessage => ({
-  id,
-  message: String(data.message || ''),
-  createdAt: timestampToIso(data.createdAt),
-});
+  return {
+    id,
+    uid: String(data.uid || ''),
+    name: anonymous ? 'An danh' : String(data.name || 'Classmate'),
+    message: String(data.message || ''),
+    createdAt: timestampToIso(data.createdAt),
+    anonymous,
+  };
+};
 
 const secretDiaryFromDoc = (id: string, data: DocumentData): SecretDiaryEntry => ({
   id,
@@ -341,24 +347,6 @@ export const subscribeGuestbook = (
   return () => window.clearInterval(interval);
 };
 
-export const subscribeAnonymousMessages = (
-  onNext: (messages: AnonymousMessage[]) => void,
-  onError: (error: Error) => void,
-) => {
-  const anonymousQuery = query(collection(db, ANONYMOUS_MESSAGES_COLLECTION), orderBy('createdAt', 'desc'), limit(48));
-  const load = async () => {
-    try {
-      const snapshot = await withFirebaseRetry(() => getDocs(anonymousQuery));
-      onNext(snapshot.docs.map((item) => anonymousMessageFromDoc(item.id, item.data())));
-    } catch (error) {
-      onError(friendlyFirebaseError(error));
-    }
-  };
-  void load();
-  const interval = createVisiblePolling(load);
-  return () => window.clearInterval(interval);
-};
-
 export const subscribeSecretDiaries = (
   profile: UserProfile,
   onNext: (diaries: SecretDiaryEntry[]) => void,
@@ -441,19 +429,25 @@ export const addGuestbookEntry = async (profile: UserProfile, message: string) =
   };
 };
 
-export const addAnonymousMessage = async (_profile: UserProfile, message: string) => {
+export const addAnonymousMessage = async (profile: UserProfile, message: string) => {
   const createdAt = new Date().toISOString();
-  const docRef = await withFirebaseRetry(() => addDoc(collection(db, ANONYMOUS_MESSAGES_COLLECTION), {
+  const safeMessage = message.trim().slice(0, 160);
+  const docRef = await withFirebaseRetry(() => addDoc(collection(db, GUESTBOOK_COLLECTION), {
+    uid: profile.uid,
+    name: 'An danh',
+    nameKey: profile.nameKey,
     className: CLASS_NAME,
-    message,
-    kind: 'anonymous-board',
+    message: safeMessage,
     createdAt: serverTimestamp(),
   }));
 
   return {
     id: docRef.id,
-    message,
+    uid: profile.uid,
+    name: 'An danh',
+    message: safeMessage,
     createdAt,
+    anonymous: true,
   };
 };
 

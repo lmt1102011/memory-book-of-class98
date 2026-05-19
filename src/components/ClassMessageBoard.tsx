@@ -1,11 +1,10 @@
 import { FormEvent, useMemo, useState, type CSSProperties } from 'react';
 import { MessageCircle, Send, Trash2 } from 'lucide-react';
-import type { AnonymousMessage, GuestbookEntry, UserProfile } from '../types';
+import type { GuestbookEntry, UserProfile } from '../types';
 import { formatMemoryDate } from '../utils/date';
 
 interface ClassMessageBoardProps {
   guestbook: GuestbookEntry[];
-  anonymousMessages: AnonymousMessage[];
   profile: UserProfile | null;
   onJoin: () => void;
   onAddGuestbook: (message: string) => void | Promise<void>;
@@ -14,21 +13,14 @@ interface ClassMessageBoardProps {
 }
 
 type BoardNote =
-  | {
-      id: string;
-      type: 'class';
-      name: string;
-      message: string;
-      createdAt: string;
-      entry: GuestbookEntry;
-    }
-  | {
-      id: string;
-      type: 'anonymous';
-      name: 'An danh';
-      message: string;
-      createdAt: string;
-    };
+  {
+    id: string;
+    type: 'class' | 'anonymous';
+    name: string;
+    message: string;
+    createdAt: string;
+    entry: GuestbookEntry;
+  };
 
 const notePalette = [
   'bg-paper text-ink',
@@ -61,7 +53,6 @@ const boardPositions = [
 
 export default function ClassMessageBoard({
   guestbook,
-  anonymousMessages,
   profile,
   onJoin,
   onAddGuestbook,
@@ -75,27 +66,18 @@ export default function ClassMessageBoard({
   const [error, setError] = useState('');
 
   const notes = useMemo<BoardNote[]>(() => {
-    const namedNotes: BoardNote[] = guestbook.map((entry) => ({
-      id: `class-${entry.id}`,
-      type: 'class',
-      name: entry.name,
-      message: entry.message,
-      createdAt: entry.createdAt,
-      entry,
-    }));
-
-    const anonymousNotes: BoardNote[] = anonymousMessages.map((message) => ({
-      id: `anonymous-${message.id}`,
-      type: 'anonymous',
-      name: 'An danh',
-      message: message.message,
-      createdAt: message.createdAt,
-    }));
-
-    return [...namedNotes, ...anonymousNotes]
+    return guestbook
+      .map((entry) => ({
+        id: `${entry.anonymous ? 'anonymous' : 'class'}-${entry.id}`,
+        type: entry.anonymous ? 'anonymous' : 'class',
+        name: entry.anonymous ? 'An danh' : entry.name,
+        message: entry.message,
+        createdAt: entry.createdAt,
+        entry,
+      }) as BoardNote)
       .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
       .slice(0, 18);
-  }, [anonymousMessages, guestbook]);
+  }, [guestbook]);
 
   const submitClassMessage = async (event: FormEvent) => {
     event.preventDefault();
@@ -174,7 +156,7 @@ export default function ClassMessageBoard({
                 value={anonymousMessage}
                 onChange={(event) => setAnonymousMessage(event.target.value)}
                 placeholder={profile ? 'Viet dieu ban muon gui an danh...' : 'Dang nhap de gui an danh...'}
-                maxLength={220}
+                maxLength={160}
               />
             </label>
             <button className="secondary-button justify-center" disabled={isSendingAnonymous}>
@@ -226,11 +208,11 @@ export default function ClassMessageBoard({
                           {formatMemoryDate(note.createdAt)}
                         </time>
                       </div>
-                      {note.type === 'class' && profile?.uid === note.entry.uid && (
+                      {profile?.uid === note.entry.uid && (
                         <button
                           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-coffee/10 text-coffee"
                           onClick={() => {
-                            if (window.confirm('Xoa manh thu co ten nay?')) void onDeleteGuestbook(note.entry);
+                            if (window.confirm('Xoa manh thu nay?')) void onDeleteGuestbook(note.entry);
                           }}
                           aria-label="Xoa tin nhan"
                         >
