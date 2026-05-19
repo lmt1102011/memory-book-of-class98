@@ -31,7 +31,7 @@ service cloud.firestore {
         && request.resource.data.reactions is int
         && request.resource.data.reactions >= resource.data.reactions
         && request.resource.data.reactions <= resource.data.reactions + 1;
-      allow delete: if false;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
     }
 
     match /guestbook98/{entryId} {
@@ -41,7 +41,8 @@ service cloud.firestore {
         && request.resource.data.className == '9/8'
         && request.resource.data.message is string
         && request.resource.data.message.size() <= 160;
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
     }
 
     match /secretMailbox98/{letterId} {
@@ -61,7 +62,7 @@ service cloud.firestore {
         && request.resource.data.message.size() <= 1200
         && request.resource.data.kind == 'secret-diary';
       allow update: if isManagerWrite();
-      allow delete: if false;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
     }
   }
 }

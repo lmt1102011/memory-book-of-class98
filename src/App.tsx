@@ -24,7 +24,7 @@ const routeFromHash = (): AppRoute => {
 const navItems: Array<{ route: AppRoute; label: string; icon: typeof Home }> = [
   { route: 'landing', label: 'Intro', icon: Sparkles },
   { route: 'home', label: 'Memories', icon: Home },
-  { route: 'photobook', label: 'Photobook', icon: Camera },
+  { route: 'photobook', label: 'Dang anh', icon: Camera },
 ];
 
 export default function App() {
@@ -149,6 +149,19 @@ export default function App() {
     [navigate, profile],
   );
 
+  const handleMemoryDelete = useCallback(
+    async (memory: MemoryItem) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+      const service = await import('./services/firebaseMemoryBook');
+      await service.deleteFirebaseMemory(profile, memory);
+      setRemoteMemories((items) => items.filter((item) => item.id !== memory.id));
+    },
+    [navigate, profile],
+  );
+
   const handleGuestbookAdd = useCallback(
     async (message: string) => {
       if (!profile) {
@@ -157,6 +170,19 @@ export default function App() {
       }
       const service = await import('./services/firebaseMemoryBook');
       await service.addGuestbookEntry(profile, message);
+    },
+    [navigate, profile],
+  );
+
+  const handleGuestbookDelete = useCallback(
+    async (entry: GuestbookEntry) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+      const service = await import('./services/firebaseMemoryBook');
+      await service.deleteGuestbookEntry(profile, entry);
+      setRemoteGuestbook((items) => items.filter((item) => item.id !== entry.id));
     },
     [navigate, profile],
   );
@@ -170,6 +196,19 @@ export default function App() {
       const service = await import('./services/firebaseMemoryBook');
       const diary = await service.addSecretDiary(profile, message);
       setSecretDiaries((items) => [diary, ...items]);
+    },
+    [navigate, profile],
+  );
+
+  const handleSecretDiaryDelete = useCallback(
+    async (diary: SecretDiaryEntry) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+      const service = await import('./services/firebaseMemoryBook');
+      await service.deleteSecretDiary(profile, diary);
+      setSecretDiaries((items) => items.filter((item) => item.id !== diary.id));
     },
     [navigate, profile],
   );
@@ -206,8 +245,11 @@ export default function App() {
           onJoin={() => navigate('join')}
           onPhotobook={() => navigate('photobook')}
           onReact={handleReact}
+          onDeleteMemory={handleMemoryDelete}
           onAddGuestbook={handleGuestbookAdd}
+          onDeleteGuestbook={handleGuestbookDelete}
           onAddSecretDiary={handleSecretDiaryAdd}
+          onDeleteSecretDiary={handleSecretDiaryDelete}
         />
       </Suspense>
     );
@@ -253,7 +295,7 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <button className="primary-button hidden sm:inline-flex" onClick={() => navigate('photobook')}>
                   <Camera size={17} />
-                  Photobook
+                  Dang anh
                 </button>
                 <button
                   className="icon-button md:hidden"

@@ -562,7 +562,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                 onClick={openUploadStage}
               >
                 <Upload size={19} />
-                Upload Photo Instead
+                Upload anh co san
               </button>
             </aside>
           </div>
@@ -811,7 +811,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                   </a>
                   <button className="primary-button justify-center" onClick={handlePublish} disabled={isPublishing}>
                     <Send size={18} />
-                    {isPublishing ? 'Đang đăng...' : 'Share Publicly'}
+                    {isPublishing ? 'Dang dang...' : 'Dang anh len feed lop'}
                   </button>
                   {publishError && (
                     <p className="rounded-2xl bg-blush/30 px-4 py-3 text-sm font-semibold text-coffee">

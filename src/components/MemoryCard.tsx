@@ -1,4 +1,4 @@
-import { Heart, MessageCircle } from 'lucide-react';
+import { Heart, MessageCircle, Trash2 } from 'lucide-react';
 import { memo } from 'react';
 import type { MemoryItem } from '../types';
 import { formatUploadTime } from '../utils/date';
@@ -6,6 +6,8 @@ import { formatUploadTime } from '../utils/date';
 interface MemoryCardProps {
   memory: MemoryItem;
   onReact: () => void;
+  canDelete?: boolean;
+  onDelete?: () => void;
 }
 
 const toneClass = {
@@ -15,7 +17,12 @@ const toneClass = {
   chalk: 'from-chalk/20 to-paper',
 };
 
-function MemoryCard({ memory, onReact }: MemoryCardProps) {
+function MemoryCard({ memory, onReact, canDelete = false, onDelete }: MemoryCardProps) {
+  const handleDelete = () => {
+    if (!window.confirm('Xoa anh photobook nay khoi feed lop?')) return;
+    onDelete?.();
+  };
+
   return (
     <article
       className="polaroid group mb-5 break-inside-avoid"
@@ -62,10 +69,22 @@ function MemoryCard({ memory, onReact }: MemoryCardProps) {
             <Heart size={15} fill="currentColor" />
             {memory.reactions}
           </button>
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink/50">
-            <MessageCircle size={14} />
-            Memory
-          </span>
+          <div className="inline-flex items-center gap-2">
+            {canDelete && (
+              <button
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-coffee/10 text-coffee transition hover:bg-coffee/18"
+                onClick={handleDelete}
+                aria-label="Xoa anh da dang"
+                title="Xoa anh da dang"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink/50">
+              <MessageCircle size={14} />
+              Memory
+            </span>
+          </div>
         </div>
       </div>
     </article>

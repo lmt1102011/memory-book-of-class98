@@ -15,8 +15,11 @@ interface HomePageProps {
   onJoin: () => void;
   onPhotobook: () => void;
   onReact: (memory: MemoryItem) => void | Promise<void>;
+  onDeleteMemory: (memory: MemoryItem) => void | Promise<void>;
   onAddGuestbook: (message: string) => void | Promise<void>;
+  onDeleteGuestbook: (entry: GuestbookEntry) => void | Promise<void>;
   onAddSecretDiary: (message: string) => void | Promise<void>;
+  onDeleteSecretDiary: (diary: SecretDiaryEntry) => void | Promise<void>;
 }
 
 export default function HomePage({
@@ -28,8 +31,11 @@ export default function HomePage({
   onJoin,
   onPhotobook,
   onReact,
+  onDeleteMemory,
   onAddGuestbook,
+  onDeleteGuestbook,
   onAddSecretDiary,
+  onDeleteSecretDiary,
 }: HomePageProps) {
   const [nameQuery, setNameQuery] = useState('');
   const [keywordQuery, setKeywordQuery] = useState('');
@@ -87,9 +93,12 @@ export default function HomePage({
               </span>
               <button className="primary-button" onClick={onPhotobook}>
                 <Camera size={17} />
-                Photobook
+                Dang anh
               </button>
             </div>
+            <p className="text-xs leading-5 text-ink/58">
+              Bam Dang anh de chup photobook hoac upload anh co san roi dang len feed cua lop.
+            </p>
             {!profile && (
               <button className="secondary-button justify-center" onClick={onJoin}>
                 Join class 9/8
@@ -147,7 +156,13 @@ export default function HomePage({
         {filteredMemories.length ? (
           <div className="masonry-feed">
             {filteredMemories.map((memory) => (
-              <MemoryCard key={memory.id} memory={memory} onReact={() => void onReact(memory)} />
+              <MemoryCard
+                key={memory.id}
+                memory={memory}
+                onReact={() => void onReact(memory)}
+                canDelete={profile?.uid === memory.uid}
+                onDelete={() => void onDeleteMemory(memory)}
+              />
             ))}
           </div>
         ) : (
@@ -157,6 +172,10 @@ export default function HomePage({
               <p className="mt-2 text-sm text-ink/60">
                 Khi ai do dang photobook len database, anh se hien o day.
               </p>
+              <button className="primary-button mx-auto mt-5" onClick={onPhotobook}>
+                <Camera size={17} />
+                Dang anh dau tien
+              </button>
             </div>
           </div>
         )}
@@ -170,8 +189,13 @@ export default function HomePage({
         </div>
       )}
 
-      <SecretMailbox diaries={secretDiaries} onAddDiary={onAddSecretDiary} profile={profile} />
-      <Guestbook entries={guestbook} onAddEntry={onAddGuestbook} profile={profile} />
+      <SecretMailbox
+        diaries={secretDiaries}
+        onAddDiary={onAddSecretDiary}
+        onDeleteDiary={onDeleteSecretDiary}
+        profile={profile}
+      />
+      <Guestbook entries={guestbook} onAddEntry={onAddGuestbook} onDeleteEntry={onDeleteGuestbook} profile={profile} />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { Lock, Send } from 'lucide-react';
+import { Lock, Send, Trash2 } from 'lucide-react';
 import type { SecretDiaryEntry, UserProfile } from '../types';
 import { formatMemoryDate } from '../utils/date';
 
@@ -7,9 +7,10 @@ interface SecretMailboxProps {
   diaries: SecretDiaryEntry[];
   profile: UserProfile | null;
   onAddDiary: (message: string) => void | Promise<void>;
+  onDeleteDiary: (diary: SecretDiaryEntry) => void | Promise<void>;
 }
 
-export default function SecretMailbox({ diaries, profile, onAddDiary }: SecretMailboxProps) {
+export default function SecretMailbox({ diaries, profile, onAddDiary, onDeleteDiary }: SecretMailboxProps) {
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
@@ -61,16 +62,30 @@ export default function SecretMailbox({ diaries, profile, onAddDiary }: SecretMa
 
           {diaries.length > 0 ? (
             <div className="mt-5 grid gap-3">
-              {diaries.slice(0, 8).map((diary, index) => (
+              {diaries.map((diary, index) => (
                 <article key={diary.id} className="rounded-2xl bg-paper/80 p-4 shadow-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="flex items-center gap-2 font-hand text-2xl font-bold text-coffee">
                       <Lock size={17} />
                       Trang nhat ky #{diaries.length - index}
                     </h3>
-                    <time className="text-[11px] font-semibold uppercase text-ink/45">
-                      {formatMemoryDate(diary.createdAt)}
-                    </time>
+                    <div className="flex items-center gap-2">
+                      <time className="text-[11px] font-semibold uppercase text-ink/45">
+                        {formatMemoryDate(diary.createdAt)}
+                      </time>
+                      {profile?.uid === diary.uid && (
+                        <button
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-coffee/10 text-coffee transition hover:bg-coffee/18"
+                          onClick={() => {
+                            if (window.confirm('Xoa trang nhat ky bi mat nay?')) void onDeleteDiary(diary);
+                          }}
+                          aria-label="Xoa nhat ky"
+                          title="Xoa nhat ky"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink/72">{diary.message}</p>
                 </article>

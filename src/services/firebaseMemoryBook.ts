@@ -9,6 +9,7 @@ import {
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -380,6 +381,14 @@ export const reactToFirebaseMemory = async (memory: MemoryItem) => {
   }));
 };
 
+export const deleteFirebaseMemory = async (profile: UserProfile, memory: MemoryItem) => {
+  if (memory.source !== 'firebase' || memory.uid !== profile.uid) {
+    throw new Error('Ban chi co the xoa anh do chinh minh dang.');
+  }
+
+  await withFirebaseRetry(() => deleteDoc(doc(db, MEMORIES_COLLECTION, memory.id)));
+};
+
 export const addGuestbookEntry = async (profile: UserProfile, message: string) => {
   await withFirebaseRetry(() => addDoc(collection(db, GUESTBOOK_COLLECTION), {
     uid: profile.uid,
@@ -389,6 +398,14 @@ export const addGuestbookEntry = async (profile: UserProfile, message: string) =
     message,
     createdAt: serverTimestamp(),
   }));
+};
+
+export const deleteGuestbookEntry = async (profile: UserProfile, entry: GuestbookEntry) => {
+  if (entry.uid !== profile.uid) {
+    throw new Error('Ban chi co the xoa tin nhan cua chinh minh.');
+  }
+
+  await withFirebaseRetry(() => deleteDoc(doc(db, GUESTBOOK_COLLECTION, entry.id)));
 };
 
 export const addSecretDiary = async (profile: UserProfile, message: string) => {
@@ -413,6 +430,14 @@ export const addSecretDiary = async (profile: UserProfile, message: string) => {
     message,
     createdAt,
   };
+};
+
+export const deleteSecretDiary = async (profile: UserProfile, diary: SecretDiaryEntry) => {
+  if (diary.uid !== profile.uid) {
+    throw new Error('Ban chi co the xoa nhat ky cua chinh minh.');
+  }
+
+  await withFirebaseRetry(() => deleteDoc(doc(db, SECRET_MAILBOX_PRIVATE_COLLECTION, diary.id)));
 };
 
 export const hasStudentMemory = async (profile: UserProfile) => {

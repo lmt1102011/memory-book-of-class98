@@ -1,4 +1,4 @@
-import { Send } from 'lucide-react';
+import { Send, Trash2 } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import type { GuestbookEntry, UserProfile } from '../types';
 import { formatMemoryDate } from '../utils/date';
@@ -6,10 +6,11 @@ import { formatMemoryDate } from '../utils/date';
 interface GuestbookProps {
   entries: GuestbookEntry[];
   onAddEntry: (message: string) => void | Promise<void>;
+  onDeleteEntry: (entry: GuestbookEntry) => void | Promise<void>;
   profile: UserProfile | null;
 }
 
-export default function Guestbook({ entries, onAddEntry, profile }: GuestbookProps) {
+export default function Guestbook({ entries, onAddEntry, onDeleteEntry, profile }: GuestbookProps) {
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
@@ -59,13 +60,27 @@ export default function Guestbook({ entries, onAddEntry, profile }: GuestbookPro
           {error && <p className="mt-3 rounded-2xl bg-blush/30 px-4 py-3 text-sm font-semibold text-coffee">{error}</p>}
 
           <div className="mt-5 grid gap-3">
-            {entries.slice(0, 5).map((entry) => (
+            {entries.map((entry) => (
               <article key={entry.id} className="rounded-2xl bg-paper/80 p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="font-hand text-2xl font-bold text-coffee">{entry.name}</h3>
-                  <time className="text-[11px] font-semibold uppercase text-ink/45">
-                    {formatMemoryDate(entry.createdAt)}
-                  </time>
+                  <div className="flex items-center gap-2">
+                    <time className="text-[11px] font-semibold uppercase text-ink/45">
+                      {formatMemoryDate(entry.createdAt)}
+                    </time>
+                    {profile?.uid === entry.uid && (
+                      <button
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-coffee/10 text-coffee transition hover:bg-coffee/18"
+                        onClick={() => {
+                          if (window.confirm('Xoa tin nhan nay khoi guestbook cua lop?')) void onDeleteEntry(entry);
+                        }}
+                        aria-label="Xoa tin nhan"
+                        title="Xoa tin nhan"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <p className="mt-1 text-sm leading-6 text-ink/72">{entry.message}</p>
               </article>
