@@ -24,8 +24,7 @@ import {
   where,
   type DocumentData,
 } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { auth, db, storage } from '../firebase';
+import { auth, db } from '../firebase';
 import type { GuestbookEntry, MemoryItem, PublishMemoryDraft, SecretLetterPublic, UserProfile } from '../types';
 import { makeId } from '../utils/ids';
 
@@ -36,7 +35,6 @@ const MEMORIES_COLLECTION = 'memories98';
 const GUESTBOOK_COLLECTION = 'guestbook98';
 const SECRET_MAILBOX_PUBLIC_COLLECTION = 'secretMailbox98';
 const SECRET_MAILBOX_PRIVATE_COLLECTION = 'secretMailboxPrivate98';
-const STORAGE_ROOT = 'photobooks98';
 const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
 const FIREBASE_RETRY_DELAYS = [0, 450, 1000, 1800];
 
@@ -142,7 +140,6 @@ const memoryFromDoc = (id: string, data: DocumentData): MemoryItem => ({
   reactions: Number(data.reactions || 0),
   rotation: Number(data.rotation || 0),
   tone: data.tone || 'pink',
-  storagePath: data.storagePath ? String(data.storagePath) : undefined,
 });
 
 const guestbookFromDoc = (id: string, data: DocumentData): GuestbookEntry => ({
@@ -293,16 +290,6 @@ export const subscribeSecretLetters = (
 
 export const publishMemoryToFirebase = async (profile: UserProfile, draft: PublishMemoryDraft) => {
   const id = makeId('memory');
-  const storagePath = `${STORAGE_ROOT}/${profile.uid}/${id}.jpg`;
-  const storageRef = ref(storage, storagePath);
-  const upload = await uploadBytes(storageRef, draft.imageBlob, {
-    contentType: 'image/jpeg',
-    customMetadata: {
-      studentName: profile.name,
-      className: CLASS_NAME,
-    },
-  });
-  const imageUrl = await getDownloadURL(upload.ref);
 
   await setDoc(doc(db, MEMORIES_COLLECTION, id), {
     uid: profile.uid,
@@ -311,8 +298,7 @@ export const publishMemoryToFirebase = async (profile: UserProfile, draft: Publi
     className: CLASS_NAME,
     caption: draft.caption,
     hashtags: draft.hashtags,
-    imageUrl,
-    storagePath,
+    imageUrl: draft.imageDataUrl,
     reactions: 0,
     rotation: Math.round((Math.random() * 5 - 2.5) * 10) / 10,
     tone: 'pink',

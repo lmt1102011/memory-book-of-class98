@@ -31,7 +31,7 @@ import type {
   UserProfile,
 } from '../types';
 import { makeId } from '../utils/ids';
-import { makeFeedThumbnailBlob, renderPhotobook } from '../utils/photobookCanvas';
+import { makeFeedThumbnailDataUrl, renderPhotobook } from '../utils/photobookCanvas';
 
 interface PhotobookPageProps {
   profile: UserProfile | null;
@@ -268,9 +268,9 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
     try {
       setIsPublishing(true);
       setPublishError('');
-      const thumbnailBlob = await makeFeedThumbnailBlob(objectUrl, 1600);
+      const thumbnail = await makeFeedThumbnailDataUrl(objectUrl, 1300);
       await onPublish({
-        imageBlob: thumbnailBlob,
+        imageDataUrl: thumbnail,
         caption: caption.trim() || 'Một strip photobook mới từ những ngày tụi mình sẽ giữ mãi.',
         hashtags: parseHashtags(hashtags),
       });

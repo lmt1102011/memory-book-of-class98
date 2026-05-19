@@ -29,7 +29,6 @@ export interface MemoryItem {
   reactions: number;
   rotation: number;
   tone: 'pink' | 'blue' | 'cream' | 'chalk';
-  storagePath?: string;
 }
 
 export interface GuestbookEntry {
@@ -69,7 +68,7 @@ export interface GeneratedPhotobook {
 }
 
 export interface PublishMemoryDraft {
-  imageBlob: Blob;
+  imageDataUrl: string;
   caption: string;
   hashtags: string[];
 }

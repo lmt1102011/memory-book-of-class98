@@ -381,21 +381,34 @@ export const makeFeedThumbnail = async (imageUrl: string, maxWidth = 900) => {
   return canvas.toDataURL('image/jpeg', 0.82);
 };
 
-export const makeFeedThumbnailBlob = async (imageUrl: string, maxWidth = 1600) => {
+const dataUrlSizeBytes = (dataUrl: string) => Math.ceil((dataUrl.length * 3) / 4);
+
+export const makeFeedThumbnailDataUrl = async (imageUrl: string, maxWidth = 1300) => {
   const image = await loadImage(imageUrl);
-  const scale = Math.min(maxWidth / image.width, 1);
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(image.width * scale);
-  canvas.height = Math.round(image.height * scale);
-  const ctx = canvas.getContext('2d', { alpha: false });
-  if (!ctx) throw new Error('Canvas is not supported in this browser.');
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.fillStyle = '#fffaf1';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-  const blob = await canvasToBlob(canvas, 0.92);
-  canvas.width = 1;
-  canvas.height = 1;
-  return blob;
+  const maxBytes = 850_000;
+  let widthLimit = maxWidth;
+  let quality = 0.88;
+
+  for (let attempt = 0; attempt < 7; attempt += 1) {
+    const scale = Math.min(widthLimit / image.width, 1);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) throw new Error('Canvas is not supported in this browser.');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.fillStyle = '#fffaf1';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    canvas.width = 1;
+    canvas.height = 1;
+
+    if (dataUrlSizeBytes(dataUrl) <= maxBytes || attempt === 6) return dataUrl;
+    widthLimit = Math.round(widthLimit * 0.82);
+    quality = Math.max(0.68, quality - 0.05);
+  }
+
+  throw new Error('Could not compress photobook image for Firestore.');
 };
