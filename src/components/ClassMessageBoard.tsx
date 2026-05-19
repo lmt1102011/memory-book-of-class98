@@ -1,5 +1,5 @@
-import { FormEvent, memo, useMemo, useState, type CSSProperties } from 'react';
-import { MessageCircle, Send, Trash2 } from 'lucide-react';
+import { FormEvent, memo, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { MessageCircle, Send, Trash2, X } from 'lucide-react';
 import type { GuestbookEntry, UserProfile } from '../types';
 import { formatMemoryDate } from '../utils/date';
 
@@ -63,6 +63,7 @@ function ClassMessageBoard({
   const [anonymousMessage, setAnonymousMessage] = useState('');
   const [isSendingClass, setIsSendingClass] = useState(false);
   const [isSendingAnonymous, setIsSendingAnonymous] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<BoardNote | null>(null);
   const [error, setError] = useState('');
 
   const notes = useMemo<BoardNote[]>(() => {
@@ -78,6 +79,22 @@ function ClassMessageBoard({
       .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
       .slice(0, 18);
   }, [guestbook]);
+
+  useEffect(() => {
+    if (!selectedNote) return undefined;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelectedNote(null);
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [selectedNote]);
 
   const submitClassMessage = async (event: FormEvent) => {
     event.preventDefault();
@@ -195,8 +212,17 @@ function ClassMessageBoard({
                 return (
                   <article
                     key={note.id}
-                    className={`board-note rounded-sm p-4 shadow-[0_18px_28px_rgba(18,15,13,.22)] ${notePalette[index % notePalette.length]}`}
+                    className={`board-note cursor-pointer rounded-sm p-4 shadow-[0_18px_28px_rgba(18,15,13,.22)] outline-none transition hover:-translate-y-1 hover:shadow-[0_22px_34px_rgba(18,15,13,.28)] focus-visible:ring-2 focus-visible:ring-paper/90 ${notePalette[index % notePalette.length]}`}
                     style={noteStyle}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedNote(note)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setSelectedNote(note);
+                      }
+                    }}
                   >
                     <span className="absolute -top-2 left-1/2 h-5 w-20 -translate-x-1/2 rotate-[-2deg] rounded-sm bg-[#f4dfbf]/80 shadow-sm" />
                     <div className="flex items-start justify-between gap-2">
@@ -211,7 +237,8 @@ function ClassMessageBoard({
                       {profile?.uid === note.entry.uid && (
                         <button
                           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-coffee/10 text-coffee"
-                          onClick={() => {
+                          onClick={(event) => {
+                            event.stopPropagation();
                             if (window.confirm('Xóa mảnh thư này?')) void onDeleteGuestbook(note.entry);
                           }}
                           aria-label="Xóa tin nhắn"
@@ -220,7 +247,11 @@ function ClassMessageBoard({
                         </button>
                       )}
                     </div>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink/76">{note.message}</p>
+                    <p className="mt-2 line-clamp-5 whitespace-pre-wrap text-sm leading-6 text-ink/76">{note.message}</p>
+                    <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-coffee/10 px-2 py-1 text-[10px] font-black uppercase text-coffee/70">
+                      <MessageCircle size={12} />
+                      Xem thư
+                    </span>
                   </article>
                 );
               })}
@@ -235,6 +266,65 @@ function ClassMessageBoard({
           )}
         </div>
       </div>
+
+      {selectedNote && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-ink/82 p-3 backdrop-blur-sm sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Xem thư trên bảng lớp"
+          onClick={() => setSelectedNote(null)}
+        >
+          <div
+            className="relative max-h-[92svh] w-full max-w-2xl overflow-auto rounded-[1.15rem] bg-paper p-5 text-ink shadow-glass sm:p-7"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-ink text-paper shadow-paper"
+              onClick={() => setSelectedNote(null)}
+              aria-label="Đóng thư"
+            >
+              <X size={19} />
+            </button>
+
+            <div className="pr-12">
+              <p className="section-kicker">{selectedNote.type === 'anonymous' ? 'Thư ẩn danh' : 'Thư gửi lớp'}</p>
+              <h3 className="font-hand text-5xl font-bold leading-none text-coffee">
+                {selectedNote.type === 'anonymous' ? 'Ẩn danh' : selectedNote.name}
+              </h3>
+              <time className="mt-2 block text-xs font-bold uppercase text-ink/45">
+                {formatMemoryDate(selectedNote.createdAt)}
+              </time>
+            </div>
+
+            <div className="relative mt-5 rounded-[0.8rem] bg-white/58 p-5 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.1)]">
+              <span className="absolute -top-2 left-8 h-5 w-24 rotate-[-3deg] rounded-sm bg-[#f4dfbf]/80 shadow-sm" />
+              <p className="whitespace-pre-wrap break-words text-base leading-8 text-ink/78">
+                {selectedNote.message}
+              </p>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <button className="primary-button justify-center" onClick={() => setSelectedNote(null)}>
+                Đóng thư
+              </button>
+              {profile?.uid === selectedNote.entry.uid && (
+                <button
+                  className="secondary-button justify-center text-coffee"
+                  onClick={() => {
+                    if (!window.confirm('Xóa mảnh thư này?')) return;
+                    void onDeleteGuestbook(selectedNote.entry);
+                    setSelectedNote(null);
+                  }}
+                >
+                  <Trash2 size={16} />
+                  Xóa thư
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
