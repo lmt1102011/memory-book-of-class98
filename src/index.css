@@ -229,6 +229,17 @@
     contain: paint;
   }
 
+  .board-note-clickable {
+    transition:
+      box-shadow 180ms ease,
+      filter 180ms ease;
+  }
+
+  .board-note-clickable:hover {
+    filter: brightness(1.025);
+    box-shadow: 0 18px 28px rgba(18, 15, 13, 0.24);
+  }
+
   @media (min-width: 640px) {
     .board-note {
       position: absolute;

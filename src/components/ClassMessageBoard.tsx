@@ -1,5 +1,6 @@
-import { FormEvent, memo, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { m } from 'framer-motion';
 import { MessageCircle, Send, Trash2, X } from 'lucide-react';
+import { FormEvent, memo, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import type { GuestbookEntry, UserProfile } from '../types';
 import { formatMemoryDate } from '../utils/date';
 
@@ -12,15 +13,14 @@ interface ClassMessageBoardProps {
   onAddAnonymousMessage: (message: string) => void | Promise<void>;
 }
 
-type BoardNote =
-  {
-    id: string;
-    type: 'class' | 'anonymous';
-    name: string;
-    message: string;
-    createdAt: string;
-    entry: GuestbookEntry;
-  };
+type BoardNote = {
+  id: string;
+  type: 'class' | 'anonymous';
+  name: string;
+  message: string;
+  createdAt: string;
+  entry: GuestbookEntry;
+};
 
 const notePalette = [
   'bg-paper text-ink',
@@ -68,14 +68,17 @@ function ClassMessageBoard({
 
   const notes = useMemo<BoardNote[]>(() => {
     return guestbook
-      .map((entry) => ({
-        id: `${entry.anonymous ? 'anonymous' : 'class'}-${entry.id}`,
-        type: entry.anonymous ? 'anonymous' : 'class',
-        name: entry.anonymous ? 'Ẩn danh' : entry.name,
-        message: entry.message,
-        createdAt: entry.createdAt,
-        entry,
-      }) as BoardNote)
+      .map(
+        (entry) =>
+          ({
+            id: `${entry.anonymous ? 'anonymous' : 'class'}-${entry.id}`,
+            type: entry.anonymous ? 'anonymous' : 'class',
+            name: entry.anonymous ? 'Ẩn danh' : entry.name,
+            message: entry.message,
+            createdAt: entry.createdAt,
+            entry,
+          }) as BoardNote,
+      )
       .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
       .slice(0, 18);
   }, [guestbook]);
@@ -145,7 +148,8 @@ function ClassMessageBoard({
           <p className="section-kicker">Bảng thư lớp</p>
           <h2 className="font-display text-5xl leading-none">Những mảnh thư trên bảng 9/8</h2>
           <p className="mt-3 text-sm leading-7 text-ink/66">
-            Gửi một lời nhắn có tên cho cả lớp, hoặc để lại một điều ẩn danh như một mảnh giấy nhỏ dán trên bảng học.
+            Gửi một lời nhắn có tên cho cả lớp, hoặc để lại một điều ẩn danh như một mảnh giấy nhỏ dán
+            trên bảng học.
           </p>
 
           <form className="mt-5 grid gap-3" onSubmit={submitClassMessage}>
@@ -212,7 +216,7 @@ function ClassMessageBoard({
                 return (
                   <article
                     key={note.id}
-                    className={`board-note cursor-pointer rounded-sm p-4 shadow-[0_18px_28px_rgba(18,15,13,.22)] outline-none transition hover:-translate-y-1 hover:shadow-[0_22px_34px_rgba(18,15,13,.28)] focus-visible:ring-2 focus-visible:ring-paper/90 ${notePalette[index % notePalette.length]}`}
+                    className={`board-note board-note-clickable rounded-sm p-4 shadow-[0_16px_24px_rgba(18,15,13,.2)] outline-none focus-visible:ring-2 focus-visible:ring-paper/80 ${notePalette[index % notePalette.length]}`}
                     style={noteStyle}
                     role="button"
                     tabIndex={0}
@@ -236,7 +240,7 @@ function ClassMessageBoard({
                       </div>
                       {profile?.uid === note.entry.uid && (
                         <button
-                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-coffee/10 text-coffee"
+                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-coffee/10 text-coffee transition hover:bg-coffee/18"
                           onClick={(event) => {
                             event.stopPropagation();
                             if (window.confirm('Xóa mảnh thư này?')) void onDeleteGuestbook(note.entry);
@@ -248,7 +252,7 @@ function ClassMessageBoard({
                       )}
                     </div>
                     <p className="mt-2 line-clamp-5 whitespace-pre-wrap text-sm leading-6 text-ink/76">{note.message}</p>
-                    <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-coffee/10 px-2 py-1 text-[10px] font-black uppercase text-coffee/70">
+                    <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-coffee/8 px-2 py-1 text-[10px] font-black uppercase text-coffee/60">
                       <MessageCircle size={12} />
                       Xem thư
                     </span>
@@ -268,19 +272,26 @@ function ClassMessageBoard({
       </div>
 
       {selectedNote && (
-        <div
-          className="fixed inset-0 z-50 grid place-items-center bg-ink/82 p-3 backdrop-blur-sm sm:p-6"
+        <m.div
+          className="fixed inset-0 z-50 grid place-items-center bg-ink/62 p-3 sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label="Xem thư trên bảng lớp"
           onClick={() => setSelectedNote(null)}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.16, ease: 'easeOut' }}
         >
-          <div
-            className="relative max-h-[92svh] w-full max-w-2xl overflow-auto rounded-[1.15rem] bg-paper p-5 text-ink shadow-glass sm:p-7"
+          <m.div
+            className="relative max-h-[92svh] w-full max-w-2xl overflow-auto rounded-[0.85rem] border border-white/70 bg-[#fffaf1] p-5 text-ink shadow-[0_24px_70px_rgba(18,15,13,.28)] sm:p-7"
             onClick={(event) => event.stopPropagation()}
+            initial={{ opacity: 0, y: 18, scale: 0.985, rotate: -0.35 }}
+            animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
           >
             <button
-              className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-ink text-paper shadow-paper"
+              className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-ink/88 text-paper shadow-paper transition hover:bg-ink"
               onClick={() => setSelectedNote(null)}
               aria-label="Đóng thư"
             >
@@ -297,7 +308,7 @@ function ClassMessageBoard({
               </time>
             </div>
 
-            <div className="relative mt-5 rounded-[0.8rem] bg-white/58 p-5 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.1)]">
+            <div className="relative mt-5 rounded-[0.65rem] bg-white/62 p-5 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.08)]">
               <span className="absolute -top-2 left-8 h-5 w-24 rotate-[-3deg] rounded-sm bg-[#f4dfbf]/80 shadow-sm" />
               <p className="whitespace-pre-wrap break-words text-base leading-8 text-ink/78">
                 {selectedNote.message}
@@ -322,8 +333,8 @@ function ClassMessageBoard({
                 </button>
               )}
             </div>
-          </div>
-        </div>
+          </m.div>
+        </m.div>
       )}
     </section>
   );
