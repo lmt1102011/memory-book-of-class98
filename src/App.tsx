@@ -3,8 +3,14 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import { BookOpen, Camera, Home, Menu, Sparkles, X } from 'lucide-react';
 import LoadingScreen from './components/LoadingScreen';
 import LandingPage from './pages/LandingPage';
-import { SEED_GUESTBOOK, SEED_MEMORIES } from './data/memories';
-import type { AppRoute, GuestbookEntry, MemoryItem, PublishMemoryDraft, UserProfile } from './types';
+import type {
+  AppRoute,
+  GuestbookEntry,
+  MemoryItem,
+  PublishMemoryDraft,
+  SecretLetterPublic,
+  UserProfile,
+} from './types';
 
 const JoinPage = lazy(() => import('./pages/JoinPage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -26,6 +32,7 @@ export default function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [remoteMemories, setRemoteMemories] = useState<MemoryItem[]>([]);
   const [remoteGuestbook, setRemoteGuestbook] = useState<GuestbookEntry[]>([]);
+  const [secretLetters, setSecretLetters] = useState<SecretLetterPublic[]>([]);
   const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -36,8 +43,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (route === 'landing') return undefined;
-
     let unsubscribe: (() => void) | undefined;
     let isActive = true;
 
@@ -50,13 +55,14 @@ export default function App() {
       isActive = false;
       unsubscribe?.();
     };
-  }, [route]);
+  }, []);
 
   useEffect(() => {
     if (route === 'landing') return undefined;
 
     let unsubscribeMemories: (() => void) | undefined;
     let unsubscribeGuestbook: (() => void) | undefined;
+    let unsubscribeLetters: (() => void) | undefined;
     let isActive = true;
 
     void import('./services/firebaseMemoryBook').then((service) => {
@@ -75,12 +81,20 @@ export default function App() {
         },
         (error) => setFirebaseNotice(error.message),
       );
+      unsubscribeLetters = service.subscribeSecretLetters(
+        (items) => {
+          setSecretLetters(items);
+          setFirebaseNotice('');
+        },
+        (error) => setFirebaseNotice(error.message),
+      );
     });
 
     return () => {
       isActive = false;
       unsubscribeMemories?.();
       unsubscribeGuestbook?.();
+      unsubscribeLetters?.();
     };
   }, [route]);
 
@@ -99,11 +113,8 @@ export default function App() {
     [navigate, setProfile],
   );
 
-  const allMemories = useMemo(() => [...remoteMemories, ...SEED_MEMORIES], [remoteMemories]);
-  const allGuestbook = useMemo(
-    () => (remoteGuestbook.length ? remoteGuestbook : SEED_GUESTBOOK),
-    [remoteGuestbook],
-  );
+  const allMemories = useMemo(() => remoteMemories, [remoteMemories]);
+  const allGuestbook = useMemo(() => remoteGuestbook, [remoteGuestbook]);
 
   const publishMemory = useCallback(
     async (draft: PublishMemoryDraft) => {
@@ -142,6 +153,18 @@ export default function App() {
     [navigate, profile],
   );
 
+  const handleSecretLetterAdd = useCallback(
+    async (message: string) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+      const service = await import('./services/firebaseMemoryBook');
+      await service.addSecretLetter(profile, message);
+    },
+    [navigate, profile],
+  );
+
   const renderRoute = () => {
     if (route === 'landing') {
       return <LandingPage onJoin={() => navigate(profile ? 'home' : 'join')} onExplore={() => navigate('home')} />;
@@ -168,12 +191,14 @@ export default function App() {
         <HomePage
           memories={allMemories}
           guestbook={allGuestbook}
+          secretLetters={secretLetters}
           firebaseNotice={firebaseNotice}
           profile={profile}
           onJoin={() => navigate('join')}
           onPhotobook={() => navigate('photobook')}
           onReact={handleReact}
           onAddGuestbook={handleGuestbookAdd}
+          onAddSecretLetter={handleSecretLetterAdd}
         />
       </Suspense>
     );
@@ -198,7 +223,7 @@ export default function App() {
                 <span>
                   <span className="block font-display text-2xl leading-none">Memory Book</span>
                   <span className="block text-[11px] font-semibold uppercase text-coffee/70">
-                    {profile ? `${profile.name} · ${profile.className}` : 'School Youth Archive'}
+                    {profile ? `${profile.name} - ${profile.className}` : 'School Youth Archive'}
                   </span>
                 </span>
               </button>

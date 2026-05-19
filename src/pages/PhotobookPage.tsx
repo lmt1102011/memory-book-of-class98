@@ -49,10 +49,10 @@ const defaultConfig: PhotobookConfig = {
 };
 
 const videoConstraints: MediaTrackConstraints = {
-  width: { ideal: 2560 },
-  height: { ideal: 1440 },
+  width: { ideal: 3840, min: 1280 },
+  height: { ideal: 2160, min: 720 },
   aspectRatio: { ideal: 16 / 9 },
-  frameRate: { ideal: 30, max: 30 },
+  frameRate: { ideal: 30, max: 60 },
   facingMode: 'user',
 };
 
@@ -185,7 +185,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
 
   const captureNow = useCallback(() => {
     setCountdown(null);
-    const screenshot = webcamRef.current?.getScreenshot({ width: 1920, height: 1080 });
+    const screenshot = webcamRef.current?.getScreenshot();
     if (!screenshot) {
       setCameraError('The camera could not capture a frame. Check browser permissions and try again.');
       return;
@@ -268,7 +268,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
     try {
       setIsPublishing(true);
       setPublishError('');
-      const thumbnailBlob = await makeFeedThumbnailBlob(objectUrl, 1200);
+      const thumbnailBlob = await makeFeedThumbnailBlob(objectUrl, 1600);
       await onPublish({
         imageBlob: thumbnailBlob,
         caption: caption.trim() || 'Một strip photobook mới từ những ngày tụi mình sẽ giữ mãi.',

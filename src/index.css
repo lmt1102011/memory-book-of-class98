@@ -36,6 +36,13 @@
     font: inherit;
   }
 
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+  }
+
   button:disabled {
     cursor: not-allowed;
     opacity: 0.58;
@@ -78,11 +85,15 @@
   .nav-pill,
   .tag-button {
     min-width: 0;
+    max-width: 100%;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     border: 0;
     line-height: 1;
+    text-align: center;
+    white-space: normal;
     transition:
       transform 180ms ease,
       background-color 180ms ease,
@@ -146,6 +157,7 @@
 
   .input-field {
     width: 100%;
+    min-width: 0;
     border: 0;
     border-radius: 0.5rem;
     background: rgba(255, 250, 241, 0.82);
@@ -210,6 +222,7 @@
   .masonry-feed {
     columns: 1;
     column-gap: 1.2rem;
+    width: 100%;
   }
 
   .tag-button {
@@ -269,6 +282,7 @@
   .camera-shell {
     display: grid;
     min-height: min(72svh, 48rem);
+    width: 100%;
     place-items: center;
     border-radius: 0.5rem;
     border: 1px solid rgba(255, 255, 255, 0.68);
@@ -281,6 +295,7 @@
     position: relative;
     aspect-ratio: 16 / 9;
     width: 100%;
+    min-height: 18rem;
     max-height: min(76svh, 48rem);
     overflow: hidden;
     border-radius: 0.5rem;
@@ -323,6 +338,22 @@
   }
 
   @media (max-width: 640px) {
+    .primary-button,
+    .secondary-button {
+      width: 100%;
+      min-height: 2.85rem;
+      padding-inline: 0.95rem;
+    }
+
+    .nav-pill {
+      width: 100%;
+      justify-content: flex-start;
+    }
+
+    .floating-polaroid {
+      display: none;
+    }
+
     .camera-shell {
       min-height: auto;
       padding: 0.4rem;
@@ -330,7 +361,14 @@
 
     .camera-frame {
       aspect-ratio: 3 / 4;
+      min-height: min(76svh, 34rem);
       max-height: 72svh;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .camera-frame {
+      min-height: 25rem;
     }
   }
 }

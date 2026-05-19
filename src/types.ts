@@ -73,3 +73,9 @@ export interface PublishMemoryDraft {
   caption: string;
   hashtags: string[];
 }
+
+export interface SecretLetterPublic {
+  id: string;
+  message: string;
+  createdAt: string;
+}

@@ -2,29 +2,34 @@ import { useMemo, useState } from 'react';
 import { Camera, Filter, Search, X } from 'lucide-react';
 import Guestbook from '../components/Guestbook';
 import MemoryCard from '../components/MemoryCard';
+import SecretMailbox from '../components/SecretMailbox';
 import { useDebounce } from '../hooks/useDebounce';
-import type { GuestbookEntry, MemoryItem, UserProfile } from '../types';
+import type { GuestbookEntry, MemoryItem, SecretLetterPublic, UserProfile } from '../types';
 
 interface HomePageProps {
   memories: MemoryItem[];
   guestbook: GuestbookEntry[];
+  secretLetters: SecretLetterPublic[];
   firebaseNotice: string;
   profile: UserProfile | null;
   onJoin: () => void;
   onPhotobook: () => void;
   onReact: (memory: MemoryItem) => void | Promise<void>;
   onAddGuestbook: (message: string) => void | Promise<void>;
+  onAddSecretLetter: (message: string) => void | Promise<void>;
 }
 
 export default function HomePage({
   memories,
   guestbook,
+  secretLetters,
   firebaseNotice,
   profile,
   onJoin,
   onPhotobook,
   onReact,
   onAddGuestbook,
+  onAddSecretLetter,
 }: HomePageProps) {
   const [nameQuery, setNameQuery] = useState('');
   const [keywordQuery, setKeywordQuery] = useState('');
@@ -87,7 +92,7 @@ export default function HomePage({
             </div>
             {!profile && (
               <button className="secondary-button justify-center" onClick={onJoin}>
-                Join with name and class
+                Join class 9/8
               </button>
             )}
           </div>
@@ -142,14 +147,16 @@ export default function HomePage({
         {filteredMemories.length ? (
           <div className="masonry-feed">
             {filteredMemories.map((memory) => (
-                <MemoryCard key={memory.id} memory={memory} onReact={() => void onReact(memory)} />
+              <MemoryCard key={memory.id} memory={memory} onReact={() => void onReact(memory)} />
             ))}
           </div>
         ) : (
           <div className="grid min-h-80 place-items-center rounded-[1.5rem] bg-white/45 p-8 text-center shadow-paper">
             <div>
-              <h2 className="font-display text-5xl">No memories found</h2>
-              <p className="mt-2 text-sm text-ink/60">Try another name, class, or hashtag.</p>
+              <h2 className="font-display text-5xl">Chua co anh nao</h2>
+              <p className="mt-2 text-sm text-ink/60">
+                Khi ai do dang photobook len database, anh se hien o day.
+              </p>
             </div>
           </div>
         )}
@@ -163,6 +170,7 @@ export default function HomePage({
         </div>
       )}
 
+      <SecretMailbox letters={secretLetters} onAddLetter={onAddSecretLetter} profile={profile} />
       <Guestbook entries={guestbook} onAddEntry={onAddGuestbook} profile={profile} />
     </div>
   );

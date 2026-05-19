@@ -381,7 +381,7 @@ export const makeFeedThumbnail = async (imageUrl: string, maxWidth = 900) => {
   return canvas.toDataURL('image/jpeg', 0.82);
 };
 
-export const makeFeedThumbnailBlob = async (imageUrl: string, maxWidth = 1200) => {
+export const makeFeedThumbnailBlob = async (imageUrl: string, maxWidth = 1600) => {
   const image = await loadImage(imageUrl);
   const scale = Math.min(maxWidth / image.width, 1);
   const canvas = document.createElement('canvas');
@@ -394,7 +394,7 @@ export const makeFeedThumbnailBlob = async (imageUrl: string, maxWidth = 1200) =
   ctx.fillStyle = '#fffaf1';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-  const blob = await canvasToBlob(canvas, 0.86);
+  const blob = await canvasToBlob(canvas, 0.92);
   canvas.width = 1;
   canvas.height = 1;
   return blob;

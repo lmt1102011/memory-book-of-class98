@@ -2,6 +2,7 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  signOut,
   updateProfile,
   type User,
 } from 'firebase/auth';
@@ -24,7 +25,7 @@ import {
 } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { auth, db, storage } from '../firebase';
-import type { GuestbookEntry, MemoryItem, PublishMemoryDraft, UserProfile } from '../types';
+import type { GuestbookEntry, MemoryItem, PublishMemoryDraft, SecretLetterPublic, UserProfile } from '../types';
 import { makeId } from '../utils/ids';
 
 export const CLASS_NAME = '9/8';
@@ -32,6 +33,8 @@ export const CLASS_NAME = '9/8';
 const STUDENTS_COLLECTION = 'students98';
 const MEMORIES_COLLECTION = 'memories98';
 const GUESTBOOK_COLLECTION = 'guestbook98';
+const SECRET_MAILBOX_PUBLIC_COLLECTION = 'secretMailbox98';
+const SECRET_MAILBOX_PRIVATE_COLLECTION = 'secretMailboxPrivate98';
 const STORAGE_ROOT = 'photobooks98';
 const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
 
@@ -42,7 +45,8 @@ export const makeNameKey = (name: string) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-    .replace(/đ/g, 'd')
+    .replace(/\u0111/g, 'd')
+    .replace(/\u0110/g, 'd')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 
@@ -86,22 +90,35 @@ const guestbookFromDoc = (id: string, data: DocumentData): GuestbookEntry => ({
   createdAt: timestampToIso(data.createdAt),
 });
 
+const secretLetterFromDoc = (id: string, data: DocumentData): SecretLetterPublic => ({
+  id,
+  message: String(data.message || ''),
+  createdAt: timestampToIso(data.createdAt),
+});
+
 export const checkStudentName = async (name: string) => {
   const nameKey = makeNameKey(name);
-  if (!nameKey) throw new Error('Hãy nhập họ tên hợp lệ.');
+  if (!nameKey) throw new Error('Hay nhap ho ten hop le.');
   const snapshot = await getDoc(doc(db, STUDENTS_COLLECTION, nameKey));
-  return { exists: snapshot.exists(), nameKey, profile: snapshot.exists() ? profileFromData(nameKey, snapshot.data()) : null };
+  return {
+    exists: snapshot.exists(),
+    nameKey,
+    profile: snapshot.exists() ? profileFromData(nameKey, snapshot.data()) : null,
+  };
 };
 
 export const registerStudent = async (name: string, password: string) => {
   const displayName = cleanDisplayName(name);
   const nameKey = makeNameKey(displayName);
-  if (!nameKey) throw new Error('Hãy nhập họ tên hợp lệ.');
-  if (password.length < 6) throw new Error('Mật khẩu cần ít nhất 6 ký tự.');
+  if (!nameKey) throw new Error('Hay nhap ho ten hop le.');
+  if (password.length < 6) throw new Error('Mat khau can it nhat 6 ky tu.');
 
   const studentRef = doc(db, STUDENTS_COLLECTION, nameKey);
   const existing = await getDoc(studentRef);
-  if (existing.exists()) throw new Error('Tên này đã có trong lớp 9/8. Hãy nhập mật khẩu để tiếp tục.');
+  if (existing.exists()) {
+    if (existing.data().disabled) throw new Error('Tai khoan nay dang bi khoa trong lop 9/8.');
+    throw new Error('Ten nay da co trong lop 9/8. Hay nhap mat khau de tiep tuc.');
+  }
 
   const credential = await createUserWithEmailAndPassword(auth, makeStudentEmail(nameKey), password);
   await updateProfile(credential.user, { displayName });
@@ -119,6 +136,7 @@ export const registerStudent = async (name: string, password: string) => {
     name: displayName,
     nameKey,
     className: CLASS_NAME,
+    disabled: false,
     createdAt: serverTimestamp(),
     lastLoginAt: serverTimestamp(),
   });
@@ -128,29 +146,20 @@ export const registerStudent = async (name: string, password: string) => {
 
 export const loginStudent = async (name: string, password: string) => {
   const nameKey = makeNameKey(name);
-  if (!nameKey) throw new Error('Hãy nhập họ tên hợp lệ.');
+  if (!nameKey) throw new Error('Hay nhap ho ten hop le.');
 
   const credential = await signInWithEmailAndPassword(auth, makeStudentEmail(nameKey), password);
   const studentRef = doc(db, STUDENTS_COLLECTION, nameKey);
   const snapshot = await getDoc(studentRef);
 
   if (!snapshot.exists()) {
-    const displayName = cleanDisplayName(name);
-    await setDoc(studentRef, {
-      uid: credential.user.uid,
-      name: displayName,
-      nameKey,
-      className: CLASS_NAME,
-      createdAt: serverTimestamp(),
-      lastLoginAt: serverTimestamp(),
-    });
-    return {
-      uid: credential.user.uid,
-      name: displayName,
-      nameKey,
-      className: CLASS_NAME,
-      joinedAt: new Date().toISOString(),
-    };
+    await signOut(auth);
+    throw new Error('Tai khoan nay khong con trong database lop 9/8.');
+  }
+
+  if (snapshot.data().disabled) {
+    await signOut(auth);
+    throw new Error('Tai khoan nay dang bi khoa trong lop 9/8.');
   }
 
   await updateDoc(studentRef, { lastLoginAt: serverTimestamp() });
@@ -166,18 +175,15 @@ export const observeStudentSession = (onProfile: (profile: UserProfile | null) =
 
     const nameKey = user.email.split('@')[0];
     const snapshot = await getDoc(doc(db, STUDENTS_COLLECTION, nameKey));
-    if (snapshot.exists()) {
+    if (snapshot.exists() && !snapshot.data().disabled) {
       onProfile(profileFromData(nameKey, snapshot.data(), user));
       return;
     }
 
-    onProfile({
-      uid: user.uid,
-      name: user.displayName || nameKey,
-      nameKey,
-      className: CLASS_NAME,
-      joinedAt: new Date().toISOString(),
-    });
+    if (snapshot.exists() && snapshot.data().disabled) {
+      await signOut(auth);
+    }
+    onProfile(null);
   });
 
 export const subscribeMemories = (
@@ -200,6 +206,18 @@ export const subscribeGuestbook = (
   return onSnapshot(
     guestbookQuery,
     (snapshot) => onNext(snapshot.docs.map((item) => guestbookFromDoc(item.id, item.data()))),
+    onError,
+  );
+};
+
+export const subscribeSecretLetters = (
+  onNext: (letters: SecretLetterPublic[]) => void,
+  onError: (error: Error) => void,
+) => {
+  const lettersQuery = query(collection(db, SECRET_MAILBOX_PUBLIC_COLLECTION), orderBy('createdAt', 'desc'), limit(40));
+  return onSnapshot(
+    lettersQuery,
+    (snapshot) => onNext(snapshot.docs.map((item) => secretLetterFromDoc(item.id, item.data()))),
     onError,
   );
 };
@@ -251,6 +269,25 @@ export const addGuestbookEntry = async (profile: UserProfile, message: string) =
     message,
     createdAt: serverTimestamp(),
   });
+};
+
+export const addSecretLetter = async (profile: UserProfile, message: string) => {
+  const id = makeId('letter');
+  await Promise.all([
+    setDoc(doc(db, SECRET_MAILBOX_PUBLIC_COLLECTION, id), {
+      message,
+      className: CLASS_NAME,
+      createdAt: serverTimestamp(),
+    }),
+    setDoc(doc(db, SECRET_MAILBOX_PRIVATE_COLLECTION, id), {
+      uid: profile.uid,
+      name: profile.name,
+      nameKey: profile.nameKey,
+      className: CLASS_NAME,
+      message,
+      createdAt: serverTimestamp(),
+    }),
+  ]);
 };
 
 export const hasStudentMemory = async (profile: UserProfile) => {

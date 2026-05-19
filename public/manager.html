@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Class 9/8 Manager</title>
+    <style>
+      :root {
+        --cream: #fbf3e7;
+        --paper: #fffaf1;
+        --ink: #35291f;
+        --coffee: #7a5639;
+        --pink: #f7b7c7;
+        --blue: #a9cde8;
+        --green: #385b58;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        background:
+          linear-gradient(115deg, rgba(247, 183, 199, 0.28), transparent 34%),
+          linear-gradient(245deg, rgba(169, 205, 232, 0.24), transparent 40%),
+          var(--cream);
+        color: var(--ink);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      button,
+      input,
+      textarea {
+        font: inherit;
+      }
+
+      .shell {
+        width: min(1180px, 100%);
+        margin: 0 auto;
+        padding: 22px 14px 42px;
+      }
+
+      .topbar,
+      .card {
+        border: 1px solid rgba(255, 255, 255, 0.72);
+        background: rgba(255, 250, 241, 0.78);
+        box-shadow: 0 18px 45px rgba(84, 57, 35, 0.14);
+        backdrop-filter: blur(18px);
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-radius: 0 0 18px 18px;
+        padding: 14px;
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: clamp(28px, 7vw, 62px);
+        line-height: 0.9;
+        text-transform: uppercase;
+        letter-spacing: 0;
+      }
+
+      h2 {
+        font-size: 24px;
+        margin-bottom: 12px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+        gap: 14px;
+        margin-top: 14px;
+      }
+
+      .card {
+        border-radius: 8px;
+        padding: 16px;
+        overflow: hidden;
+      }
+
+      .form {
+        display: grid;
+        gap: 10px;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        min-width: 0;
+        border: 0;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.78);
+        padding: 12px 13px;
+        color: var(--ink);
+        box-shadow: inset 0 0 0 1px rgba(122, 86, 57, 0.14);
+        outline: none;
+      }
+
+      textarea {
+        min-height: 118px;
+        resize: vertical;
+      }
+
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 11px 14px;
+        font-weight: 800;
+        color: var(--paper);
+        background: var(--ink);
+        cursor: pointer;
+      }
+
+      button.secondary {
+        color: var(--ink);
+        background: rgba(169, 205, 232, 0.45);
+      }
+
+      button.danger {
+        background: #9d3b4b;
+      }
+
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .status {
+        margin-top: 10px;
+        color: var(--coffee);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .list {
+        display: grid;
+        gap: 10px;
+        max-height: 68vh;
+        overflow: auto;
+        padding-right: 4px;
+      }
+
+      .item {
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.62);
+        padding: 12px;
+      }
+
+      .muted {
+        color: rgba(53, 41, 31, 0.62);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .pill {
+        display: inline-flex;
+        border-radius: 999px;
+        background: rgba(56, 91, 88, 0.12);
+        padding: 5px 8px;
+        font-size: 12px;
+        font-weight: 800;
+        color: var(--green);
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      @media (max-width: 820px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section id="gate" class="card">
+        <h1>Manager</h1>
+        <p class="status">
+          Nhap ma quan ly. File nay chay tinh tren GitHub Pages, khong can may chu rieng.
+        </p>
+        <form id="gateForm" class="form" style="margin-top: 14px">
+          <input id="managerCode" type="password" placeholder="Manager code" autocomplete="current-password" />
+          <button>Mo manager</button>
+        </form>
+      </section>
+
+      <section id="app" class="hidden">
+        <div class="topbar">
+          <div>
+            <h1>Class 9/8 Manager</h1>
+            <p class="muted">Xem tai khoan, them/khoa tai khoan, xem Secret Mailbox kem ten nguoi gui.</p>
+          </div>
+          <button id="lockButton" class="secondary">Khoa manager</button>
+        </div>
+
+        <div class="grid">
+          <section class="card">
+            <h2>Them tai khoan</h2>
+            <form id="addAccountForm" class="form">
+              <input id="studentName" placeholder="Ho ten hoc sinh" autocomplete="name" />
+              <input id="studentPassword" type="password" placeholder="Mat khau toi thieu 6 ky tu" autocomplete="new-password" />
+              <button>Them tai khoan</button>
+            </form>
+            <p id="accountStatus" class="status"></p>
+          </section>
+
+          <section class="card">
+            <h2>Tat ca tai khoan</h2>
+            <div id="accounts" class="list"></div>
+          </section>
+
+          <section class="card" style="grid-column: 1 / -1">
+            <h2>Secret Mailbox - hien ten nguoi viet</h2>
+            <div id="letters" class="list"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <script type="module">
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
+      import {
+        createUserWithEmailAndPassword,
+        getAuth,
+        signOut,
+        updateProfile,
+      } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js';
+      import {
+        collection,
+        doc,
+        getFirestore,
+        onSnapshot,
+        orderBy,
+        query,
+        serverTimestamp,
+        setDoc,
+        updateDoc,
+      } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
+
+      const firebaseConfig = {
+        apiKey: 'AIzaSyCxCn9rXklHcVlW20NN3q4KAx5KhnnBoRM',
+        authDomain: 'memorybook-of-class98.firebaseapp.com',
+        projectId: 'memorybook-of-class98',
+        storageBucket: 'memorybook-of-class98.firebasestorage.app',
+        messagingSenderId: '661004126531',
+        appId: '1:661004126531:web:5d3b394ef2e9839b7e87f6',
+        measurementId: 'G-Q7EXKD9G7B',
+      };
+
+      const MANAGER_KEY = 'class98-manager-2026';
+      const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
+      const CLASS_NAME = '9/8';
+
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const creatorApp = initializeApp(firebaseConfig, 'creator');
+      const creatorAuth = getAuth(creatorApp);
+      const creatorDb = getFirestore(creatorApp);
+
+      const $ = (id) => document.getElementById(id);
+      const gate = $('gate');
+      const managerApp = $('app');
+      const status = $('accountStatus');
+      let accounts = [];
+      let letters = [];
+
+      const cleanDisplayName = (name) => name.trim().replace(/\s+/g, ' ');
+      const makeNameKey = (name) =>
+        cleanDisplayName(name)
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .replace(/\u0111/g, 'd')
+          .replace(/\u0110/g, 'd')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+
+      const makeStudentEmail = (nameKey) => `${nameKey}@${AUTH_DOMAIN}`;
+      const formatDate = (value) => {
+        if (!value) return '';
+        const date = value.toDate ? value.toDate() : new Date(value);
+        return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+      };
+
+      const showManager = () => {
+        gate.classList.add('hidden');
+        managerApp.classList.remove('hidden');
+        startStreams();
+      };
+
+      $('gateForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        if ($('managerCode').value === MANAGER_KEY) {
+          localStorage.setItem('class98-manager', MANAGER_KEY);
+          showManager();
+        } else {
+          alert('Sai ma quan ly.');
+        }
+      });
+
+      $('lockButton').addEventListener('click', () => {
+        localStorage.removeItem('class98-manager');
+        window.location.reload();
+      });
+
+      const renderAccounts = () => {
+        $('accounts').innerHTML =
+          accounts
+            .map(
+              (account) => `
+                <article class="item">
+                  <div class="row">
+                    <strong>${account.name || account.id}</strong>
+                    <span class="pill">${account.disabled ? 'Da khoa' : 'Dang mo'}</span>
+                  </div>
+                  <p class="muted">Class ${account.className || CLASS_NAME} | key: ${account.id}</p>
+                  <p class="muted">UID: ${account.uid || 'manual'}</p>
+                  <p class="muted">Joined: ${formatDate(account.createdAt)}</p>
+                  <div class="row" style="margin-top: 10px">
+                    ${
+                      account.disabled
+                        ? `<button class="secondary" data-action="restore" data-id="${account.id}">Mo lai</button>`
+                        : `<button class="danger" data-action="disable" data-id="${account.id}">Xoa / khoa</button>`
+                    }
+                  </div>
+                </article>
+              `,
+            )
+            .join('') || '<p class="muted">Chua co tai khoan nao.</p>';
+      };
+
+      const renderLetters = () => {
+        $('letters').innerHTML =
+          letters
+            .map(
+              (letter) => `
+                <article class="item">
+                  <div class="row">
+                    <strong>${letter.name || 'Khong ro ten'}</strong>
+                    <span class="pill">${formatDate(letter.createdAt)}</span>
+                  </div>
+                  <p class="muted">UID: ${letter.uid || ''} | key: ${letter.nameKey || ''}</p>
+                  <p style="white-space: pre-wrap; line-height: 1.65; margin-top: 8px">${letter.message || ''}</p>
+                </article>
+              `,
+            )
+            .join('') || '<p class="muted">Chua co thu nao trong Secret Mailbox.</p>';
+      };
+
+      $('accounts').addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+
+        const id = button.dataset.id;
+        const disabled = button.dataset.action === 'disable';
+        await updateDoc(doc(db, 'students98', id), {
+          disabled,
+          managerKey: MANAGER_KEY,
+          managerUpdatedAt: serverTimestamp(),
+        });
+      });
+
+      $('addAccountForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const name = cleanDisplayName($('studentName').value);
+        const password = $('studentPassword').value;
+        const nameKey = makeNameKey(name);
+        if (!nameKey || password.length < 6) {
+          status.textContent = 'Hay nhap ten hop le va mat khau toi thieu 6 ky tu.';
+          return;
+        }
+
+        try {
+          status.textContent = 'Dang tao tai khoan...';
+          const credential = await createUserWithEmailAndPassword(creatorAuth, makeStudentEmail(nameKey), password);
+          await updateProfile(credential.user, { displayName: name });
+          await setDoc(doc(creatorDb, 'students98', nameKey), {
+            uid: credential.user.uid,
+            name,
+            nameKey,
+            className: CLASS_NAME,
+            disabled: false,
+            createdAt: serverTimestamp(),
+            lastLoginAt: serverTimestamp(),
+            managerCreatedAt: serverTimestamp(),
+          });
+          await signOut(creatorAuth);
+          $('studentName').value = '';
+          $('studentPassword').value = '';
+          status.textContent = `Da them tai khoan ${name}.`;
+        } catch (error) {
+          status.textContent = error.message || 'Khong the them tai khoan.';
+        }
+      });
+
+      const startStreams = () => {
+        onSnapshot(query(collection(db, 'students98'), orderBy('name')), (snapshot) => {
+          accounts = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+          renderAccounts();
+        });
+
+        onSnapshot(query(collection(db, 'secretMailboxPrivate98'), orderBy('createdAt', 'desc')), (snapshot) => {
+          letters = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+          renderLetters();
+        });
+      };
+
+      if (localStorage.getItem('class98-manager') === MANAGER_KEY) {
+        showManager();
+      }
+    </script>
+  </body>
+</html>

@@ -9,6 +9,7 @@ A production-ready responsive React/Vite photobook app inspired by school memori
 - Firebase Auth for student passwords
 - Firestore memory feed, reactions, and guestbook shared by everyone
 - Firebase Storage upload for public photobook images
+- Secret Mailbox: public letters are anonymous, while `manager.html` can show the sender for moderation
 - Responsive Pinterest/scrapbook memory feed with search, filters, reactions, and guestbook
 - High-quality webcam capture with countdown, flash, retake, and next-photo flow
 - Canvas-generated printable photobook strips in 1080p, 2K, or 4K export widths
@@ -79,6 +80,30 @@ This project includes `.github/workflows/deploy.yml`. After pushing to `main` or
 4. Push again or run the workflow manually.
 
 Vite uses `base: './'`, so the app works from a GitHub Pages project path.
+The app is a static client. It stays online through GitHub Pages and Firebase, so it does not need your computer or a Node server to stay on.
+
+## Manager Page
+
+After deploy, open:
+
+```text
+https://your-username.github.io/your-repo/manager.html
+```
+
+Default manager code:
+
+```text
+class98-manager-2026
+```
+
+The manager page can:
+
+- View all class accounts from `students98`
+- Add a new account
+- Soft-delete/lock an account from the app
+- View Secret Mailbox letters with the real sender name
+
+Because this is a no-server static site, the manager code is client-side. Change it in both `public/manager.html` and `firestore.rules` before sharing widely.
 
 ## ZIP Export
 
