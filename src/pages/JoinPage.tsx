@@ -22,6 +22,7 @@ export default function JoinPage({ profile, onJoin, onSkip }: JoinPageProps) {
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    if (isChecking) return;
     setError('');
 
     try {

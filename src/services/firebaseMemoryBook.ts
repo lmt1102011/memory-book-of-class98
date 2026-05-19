@@ -11,10 +11,10 @@ import {
   collection,
   doc,
   enableNetwork,
-  getDoc,
+  getDocFromServer,
+  getDocsFromServer,
   increment,
   limit,
-  onSnapshot,
   orderBy,
   query,
   serverTimestamp,
@@ -37,6 +37,7 @@ const SECRET_MAILBOX_PUBLIC_COLLECTION = 'secretMailbox98';
 const SECRET_MAILBOX_PRIVATE_COLLECTION = 'secretMailboxPrivate98';
 const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
 const FIREBASE_RETRY_DELAYS = [0, 450, 1000, 1800];
+const FIREBASE_TIMEOUT_MS = 12_000;
 
 export const cleanDisplayName = (name: string) => name.trim().replace(/\s+/g, ' ');
 
@@ -57,16 +58,30 @@ const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve
 const isOfflineLikeError = (error: unknown) => {
   const maybeError = error as { code?: string; message?: string };
   const text = `${maybeError.code || ''} ${maybeError.message || ''}`.toLowerCase();
-  return text.includes('offline') || text.includes('unavailable') || text.includes('network');
+  return (
+    text.includes('offline') ||
+    text.includes('unavailable') ||
+    text.includes('network') ||
+    text.includes('timeout') ||
+    text.includes('timed out') ||
+    text.includes('target id already')
+  );
 };
 
 const friendlyFirebaseError = (error: unknown) => {
   const maybeError = error as { code?: string; message?: string };
   const text = `${maybeError.code || ''} ${maybeError.message || ''}`.toLowerCase();
 
-  if (text.includes('offline') || text.includes('unavailable') || text.includes('network')) {
+  if (
+    text.includes('offline') ||
+    text.includes('unavailable') ||
+    text.includes('network') ||
+    text.includes('timeout') ||
+    text.includes('timed out') ||
+    text.includes('target id already')
+  ) {
     return new Error(
-      'Chua ket noi duoc Firebase. Hay kiem tra internet, Firestore da duoc bat, va domain GitHub Pages da nam trong Authorized domains.',
+      'Ket noi Firebase chua on dinh. Hay doi vai giay roi thu lai; neu van loi, kiem tra Firestore da bat va domain GitHub Pages da nam trong Authorized domains.',
     );
   }
 
@@ -79,6 +94,14 @@ export const forceFirebaseOnline = async () => {
   }
   await enableNetwork(db);
 };
+
+const withTimeout = async <T,>(promise: Promise<T>, label: string) =>
+  Promise.race<T>([
+    promise,
+    new Promise<T>((_, reject) => {
+      window.setTimeout(() => reject(new Error(`${label} timeout`)), FIREBASE_TIMEOUT_MS);
+    }),
+  ]);
 
 export const keepFirebaseOnline = () => {
   const wake = () => {
@@ -103,7 +126,7 @@ const withFirebaseRetry = async <T,>(operation: () => Promise<T>) => {
 
     try {
       await forceFirebaseOnline();
-      return await operation();
+      return await withTimeout(operation(), 'Firestore');
     } catch (error) {
       lastError = error;
       if (!isOfflineLikeError(error)) throw friendlyFirebaseError(error);
@@ -159,7 +182,7 @@ const secretLetterFromDoc = (id: string, data: DocumentData): SecretLetterPublic
 export const checkStudentName = async (name: string) => {
   const nameKey = makeNameKey(name);
   if (!nameKey) throw new Error('Hay nhap ho ten hop le.');
-  const snapshot = await withFirebaseRetry(() => getDoc(doc(db, STUDENTS_COLLECTION, nameKey)));
+  const snapshot = await withFirebaseRetry(() => getDocFromServer(doc(db, STUDENTS_COLLECTION, nameKey)));
   return {
     exists: snapshot.exists(),
     nameKey,
@@ -174,14 +197,17 @@ export const registerStudent = async (name: string, password: string) => {
   if (password.length < 6) throw new Error('Mat khau can it nhat 6 ky tu.');
 
   const studentRef = doc(db, STUDENTS_COLLECTION, nameKey);
-  const existing = await withFirebaseRetry(() => getDoc(studentRef));
+  const existing = await withFirebaseRetry(() => getDocFromServer(studentRef));
   if (existing.exists()) {
     if (existing.data().disabled) throw new Error('Tai khoan nay dang bi khoa trong lop 9/8.');
     throw new Error('Ten nay da co trong lop 9/8. Hay nhap mat khau de tiep tuc.');
   }
 
-  const credential = await createUserWithEmailAndPassword(auth, makeStudentEmail(nameKey), password);
-  await updateProfile(credential.user, { displayName });
+  const credential = await withTimeout(
+    createUserWithEmailAndPassword(auth, makeStudentEmail(nameKey), password),
+    'Auth register',
+  );
+  await withTimeout(updateProfile(credential.user, { displayName }), 'Auth profile');
 
   const profile: UserProfile = {
     uid: credential.user.uid,
@@ -208,13 +234,32 @@ export const loginStudent = async (name: string, password: string) => {
   const nameKey = makeNameKey(name);
   if (!nameKey) throw new Error('Hay nhap ho ten hop le.');
 
-  const credential = await signInWithEmailAndPassword(auth, makeStudentEmail(nameKey), password);
+  const credential = await withTimeout(
+    signInWithEmailAndPassword(auth, makeStudentEmail(nameKey), password),
+    'Auth login',
+  );
   const studentRef = doc(db, STUDENTS_COLLECTION, nameKey);
-  const snapshot = await withFirebaseRetry(() => getDoc(studentRef));
+  const snapshot = await withFirebaseRetry(() => getDocFromServer(studentRef));
 
   if (!snapshot.exists()) {
-    await signOut(auth);
-    throw new Error('Tai khoan nay khong con trong database lop 9/8.');
+    const displayName = cleanDisplayName(name);
+    await withFirebaseRetry(() => setDoc(studentRef, {
+      uid: credential.user.uid,
+      name: displayName,
+      nameKey,
+      className: CLASS_NAME,
+      disabled: false,
+      repairedAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+      lastLoginAt: serverTimestamp(),
+    }));
+    return {
+      uid: credential.user.uid,
+      name: displayName,
+      nameKey,
+      className: CLASS_NAME,
+      joinedAt: new Date().toISOString(),
+    };
   }
 
   if (snapshot.data().disabled) {
@@ -236,7 +281,7 @@ export const observeStudentSession = (onProfile: (profile: UserProfile | null) =
     const nameKey = user.email.split('@')[0];
     let snapshot;
     try {
-      snapshot = await withFirebaseRetry(() => getDoc(doc(db, STUDENTS_COLLECTION, nameKey)));
+      snapshot = await withFirebaseRetry(() => getDocFromServer(doc(db, STUDENTS_COLLECTION, nameKey)));
     } catch {
       onProfile(null);
       return;
@@ -257,11 +302,17 @@ export const subscribeMemories = (
   onError: (error: Error) => void,
 ) => {
   const memoriesQuery = query(collection(db, MEMORIES_COLLECTION), orderBy('createdAt', 'desc'), limit(48));
-  return onSnapshot(
-    memoriesQuery,
-    (snapshot) => onNext(snapshot.docs.map((item) => memoryFromDoc(item.id, item.data())).filter((item) => item.imageUrl)),
-    onError,
-  );
+  const load = async () => {
+    try {
+      const snapshot = await withFirebaseRetry(() => getDocsFromServer(memoriesQuery));
+      onNext(snapshot.docs.map((item) => memoryFromDoc(item.id, item.data())).filter((item) => item.imageUrl));
+    } catch (error) {
+      onError(friendlyFirebaseError(error));
+    }
+  };
+  void load();
+  const interval = window.setInterval(load, 12_000);
+  return () => window.clearInterval(interval);
 };
 
 export const subscribeGuestbook = (
@@ -269,11 +320,17 @@ export const subscribeGuestbook = (
   onError: (error: Error) => void,
 ) => {
   const guestbookQuery = query(collection(db, GUESTBOOK_COLLECTION), orderBy('createdAt', 'desc'), limit(24));
-  return onSnapshot(
-    guestbookQuery,
-    (snapshot) => onNext(snapshot.docs.map((item) => guestbookFromDoc(item.id, item.data()))),
-    onError,
-  );
+  const load = async () => {
+    try {
+      const snapshot = await withFirebaseRetry(() => getDocsFromServer(guestbookQuery));
+      onNext(snapshot.docs.map((item) => guestbookFromDoc(item.id, item.data())));
+    } catch (error) {
+      onError(friendlyFirebaseError(error));
+    }
+  };
+  void load();
+  const interval = window.setInterval(load, 12_000);
+  return () => window.clearInterval(interval);
 };
 
 export const subscribeSecretLetters = (
@@ -281,17 +338,23 @@ export const subscribeSecretLetters = (
   onError: (error: Error) => void,
 ) => {
   const lettersQuery = query(collection(db, SECRET_MAILBOX_PUBLIC_COLLECTION), orderBy('createdAt', 'desc'), limit(40));
-  return onSnapshot(
-    lettersQuery,
-    (snapshot) => onNext(snapshot.docs.map((item) => secretLetterFromDoc(item.id, item.data()))),
-    onError,
-  );
+  const load = async () => {
+    try {
+      const snapshot = await withFirebaseRetry(() => getDocsFromServer(lettersQuery));
+      onNext(snapshot.docs.map((item) => secretLetterFromDoc(item.id, item.data())));
+    } catch (error) {
+      onError(friendlyFirebaseError(error));
+    }
+  };
+  void load();
+  const interval = window.setInterval(load, 12_000);
+  return () => window.clearInterval(interval);
 };
 
 export const publishMemoryToFirebase = async (profile: UserProfile, draft: PublishMemoryDraft) => {
   const id = makeId('memory');
 
-  await setDoc(doc(db, MEMORIES_COLLECTION, id), {
+  await withFirebaseRetry(() => setDoc(doc(db, MEMORIES_COLLECTION, id), {
     uid: profile.uid,
     name: profile.name,
     nameKey: profile.nameKey,
@@ -304,31 +367,31 @@ export const publishMemoryToFirebase = async (profile: UserProfile, draft: Publi
     tone: 'pink',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  });
+  }));
 };
 
 export const reactToFirebaseMemory = async (memory: MemoryItem) => {
   if (memory.source !== 'firebase') return;
-  await updateDoc(doc(db, MEMORIES_COLLECTION, memory.id), {
+  await withFirebaseRetry(() => updateDoc(doc(db, MEMORIES_COLLECTION, memory.id), {
     reactions: increment(1),
     updatedAt: serverTimestamp(),
-  });
+  }));
 };
 
 export const addGuestbookEntry = async (profile: UserProfile, message: string) => {
-  await addDoc(collection(db, GUESTBOOK_COLLECTION), {
+  await withFirebaseRetry(() => addDoc(collection(db, GUESTBOOK_COLLECTION), {
     uid: profile.uid,
     name: profile.name,
     nameKey: profile.nameKey,
     className: CLASS_NAME,
     message,
     createdAt: serverTimestamp(),
-  });
+  }));
 };
 
 export const addSecretLetter = async (profile: UserProfile, message: string) => {
   const id = makeId('letter');
-  await Promise.all([
+  await withFirebaseRetry(() => Promise.all([
     setDoc(doc(db, SECRET_MAILBOX_PUBLIC_COLLECTION, id), {
       message,
       className: CLASS_NAME,
@@ -342,7 +405,7 @@ export const addSecretLetter = async (profile: UserProfile, message: string) => 
       message,
       createdAt: serverTimestamp(),
     }),
-  ]);
+  ]));
 };
 
 export const hasStudentMemory = async (profile: UserProfile) => {
@@ -353,17 +416,6 @@ export const hasStudentMemory = async (profile: UserProfile) => {
     limit(1),
   );
 
-  return new Promise<boolean>((resolve, reject) => {
-    const unsubscribe = onSnapshot(
-      studentMemories,
-      (snapshot) => {
-        unsubscribe();
-        resolve(!snapshot.empty);
-      },
-      (error) => {
-        unsubscribe();
-        reject(error);
-      },
-    );
-  });
+  const snapshot = await withFirebaseRetry(() => getDocsFromServer(studentMemories));
+  return !snapshot.empty;
 };
