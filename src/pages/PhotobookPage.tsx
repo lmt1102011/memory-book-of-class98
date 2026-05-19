@@ -34,6 +34,7 @@ import type {
   UserProfile,
 } from '../types';
 import { makeId } from '../utils/ids';
+import { beautifyPhotoDataUrl } from '../utils/photoEnhance';
 import { makeFeedThumbnailDataUrl, renderPhotobook } from '../utils/photobookCanvas';
 
 interface PhotobookPageProps {
@@ -204,6 +205,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   const [caption, setCaption] = useState('');
   const [hashtags, setHashtags] = useState('graduation youth photobooth');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
@@ -216,8 +218,9 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   );
 
   const currentIndex = capturedPhotos.length + (pendingPhoto ? 1 : 0);
-  const canCapture = stage === 'camera' && captureSource === 'camera' && !pendingPhoto && countdown === null;
-  const canUploadPhoto = stage === 'camera' && !pendingPhoto && countdown === null && capturedPhotos.length < config.photoCount;
+  const canCapture = stage === 'camera' && captureSource === 'camera' && !pendingPhoto && countdown === null && !isEnhancing;
+  const canUploadPhoto =
+    stage === 'camera' && !pendingPhoto && countdown === null && !isEnhancing && capturedPhotos.length < config.photoCount;
   const videoConstraints = useMemo(() => getVideoConstraints(facingMode), [facingMode]);
 
   const updateConfig = <K extends keyof PhotobookConfig>(key: K, value: PhotobookConfig[K]) => {
@@ -272,6 +275,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   };
 
   const leaveCameraStage = () => {
+    if (isEnhancing) return;
     if (document.fullscreenElement) {
       void document.exitFullscreen().catch(() => undefined);
     }
@@ -279,13 +283,14 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   };
 
   const flipCamera = () => {
+    if (isEnhancing) return;
     setCameraError(null);
     setPendingPhoto(null);
     setCountdown(null);
     setFacingMode((current) => (current === 'user' ? 'environment' : 'user'));
   };
 
-  const captureNow = useCallback(() => {
+  const captureNow = useCallback(async () => {
     setCountdown(null);
     const screenshot = webcamRef.current?.getScreenshot();
     if (!screenshot) {
@@ -296,7 +301,18 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
     playShutterSound();
     setFlash(true);
     window.setTimeout(() => setFlash(false), 170);
-    setPendingPhoto(screenshot);
+    setIsEnhancing(true);
+
+    try {
+      const enhanced = await beautifyPhotoDataUrl(screenshot);
+      setPendingPhoto(enhanced);
+      setCameraError(null);
+    } catch {
+      setPendingPhoto(screenshot);
+      setCameraError('Không thể làm đẹp ảnh tự động, app đã giữ ảnh gốc để bạn tiếp tục.');
+    } finally {
+      setIsEnhancing(false);
+    }
   }, []);
 
   const startCountdown = () => {
@@ -323,7 +339,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   };
 
   const acceptPhoto = () => {
-    if (!pendingPhoto) return;
+    if (!pendingPhoto || isEnhancing) return;
     const nextPhotos = [...capturedPhotos, { id: makeId('photo'), dataUrl: pendingPhoto }];
     setCapturedPhotos(nextPhotos);
     setPendingPhoto(null);
@@ -349,19 +365,31 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
 
   const handleUploadPhoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || capturedPhotos.length >= config.photoCount) return;
+    if (!file || isEnhancing || capturedPhotos.length >= config.photoCount) {
+      event.target.value = '';
+      return;
+    }
 
+    let uploaded = '';
     try {
       setCameraError(null);
       setCaptureSource('upload');
       setStage('camera');
-      const uploaded = await compressUploadedPhoto(file);
-      setPendingPhoto(uploaded);
+      setIsEnhancing(true);
+      uploaded = await compressUploadedPhoto(file);
+      const enhanced = await beautifyPhotoDataUrl(uploaded);
+      setPendingPhoto(enhanced);
       window.setTimeout(() => setFlash(true), 20);
       window.setTimeout(() => setFlash(false), 190);
     } catch {
-      setCameraError('Không thể tải ảnh này. Hãy thử ảnh JPG/PNG khác.');
+      if (uploaded) {
+        setPendingPhoto(uploaded);
+        setCameraError('Không thể làm đẹp ảnh tự động, app đã giữ ảnh gốc để bạn tiếp tục.');
+      } else {
+        setCameraError('Không thể tải ảnh này. Hãy thử ảnh JPG/PNG khác.');
+      }
     } finally {
+      setIsEnhancing(false);
       event.target.value = '';
     }
   };
@@ -581,13 +609,13 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
             <div className="camera-shell">
               <div className="relative mx-auto w-full max-w-6xl">
                 <div className="camera-topbar">
-                  <button className="camera-action-button" onClick={leaveCameraStage} aria-label="Back to setup">
+                  <button className="camera-action-button" onClick={leaveCameraStage} disabled={isEnhancing} aria-label="Back to setup">
                     <ArrowLeft size={19} />
                   </button>
                   <div className="rounded-full bg-ink/55 px-4 py-2 text-center text-sm font-bold text-paper backdrop-blur-md">
                     {Math.min(currentIndex + (pendingPhoto ? 0 : 1), config.photoCount)} / {config.photoCount}
                   </div>
-                  <button className="camera-action-button" onClick={flipCamera} aria-label="Rotate camera">
+                  <button className="camera-action-button" onClick={flipCamera} disabled={isEnhancing} aria-label="Rotate camera">
                     <RotateCcw size={19} />
                   </button>
                 </div>
@@ -641,6 +669,21 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                       <span className="font-display text-8xl leading-none sm:text-[12rem] lg:text-[16rem]">{countdown}</span>
                     </m.div>
                   )}
+                  {isEnhancing && (
+                    <m.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="absolute inset-0 grid place-items-center bg-ink/48 text-center text-paper backdrop-blur-[2px]"
+                    >
+                      <div className="rounded-[1rem] bg-ink/58 px-5 py-4 shadow-paper">
+                        <Sparkles className="mx-auto mb-2 text-blush" size={30} />
+                        <p className="font-display text-4xl leading-none">Đang làm đẹp ảnh...</p>
+                        <p className="mt-2 text-xs font-semibold text-paper/68">
+                          Làm mịn nhẹ, giữ ảnh tự nhiên và sắc nét.
+                        </p>
+                      </div>
+                    </m.div>
+                  )}
                 </div>
 
                 <div className="camera-controls-near">
@@ -658,7 +701,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                     <>
                       {captureSource === 'camera' ? (
                         <>
-                          <button className="camera-secondary-button" onClick={flipCamera}>
+                          <button className="camera-secondary-button" onClick={flipCamera} disabled={isEnhancing}>
                             <RotateCcw size={18} />
                             Xoay cam
                           </button>
@@ -687,7 +730,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                             <Upload size={18} />
                             Chọn ảnh
                           </button>
-                          <button className="camera-shutter-button" onClick={() => setCaptureSource('camera')}>
+                          <button className="camera-shutter-button" onClick={() => setCaptureSource('camera')} disabled={isEnhancing}>
                             <CameraIcon size={30} />
                           </button>
                         </>
@@ -760,6 +803,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                 <button
                   className="secondary-button justify-center"
                   onClick={() => setCaptureSource(captureSource === 'camera' ? 'upload' : 'camera')}
+                  disabled={isEnhancing}
                 >
                   {captureSource === 'camera' ? <Upload size={16} /> : <Camera size={16} />}
                   {captureSource === 'camera' ? 'Dùng ảnh có sẵn' : 'Dùng camera'}
