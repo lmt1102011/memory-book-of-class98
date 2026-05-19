@@ -1,5 +1,5 @@
 import { Heart, MessageCircle, Send, Trash2 } from 'lucide-react';
-import { memo, useCallback, useMemo, useState, type FormEvent } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { MemoryComment, MemoryItem, UserProfile } from '../types';
 import { formatUploadTime } from '../utils/date';
 
@@ -39,8 +39,15 @@ function MemoryCard({
 }: MemoryCardProps) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [draft, setDraft] = useState('');
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
   const hasLiked = Boolean(profile?.uid && memory.likedBy.includes(profile.uid));
   const visibleComments = useMemo(() => (commentsOpen ? comments : comments.slice(0, 2)), [comments, commentsOpen]);
+
+  useEffect(() => {
+    setImageLoaded(false);
+    setImageFailed(false);
+  }, [memory.imageUrl]);
 
   const handleReact = useCallback(() => {
     if (hasLiked || isReacting) return;
@@ -73,16 +80,30 @@ function MemoryCard({
         <div className="scrapbook-tape right-8 top-1 rotate-6 bg-blush/50" />
         <button
           type="button"
-          className="block w-full overflow-hidden rounded-[0.35rem] text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coffee"
+          className="relative block aspect-[4/5] w-full overflow-hidden rounded-[0.35rem] bg-paper text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coffee"
           onClick={() => onOpenImage(memory)}
           aria-label={`Xem ảnh kỷ niệm của ${memory.name} rõ hơn`}
         >
+          {!imageLoaded && !imageFailed && (
+            <span className="memory-image-placeholder absolute inset-0 grid place-items-center text-xs font-bold text-coffee/62">
+              Đang tải ảnh...
+            </span>
+          )}
+          {imageFailed && (
+            <span className="absolute inset-0 grid place-items-center bg-paper px-4 text-center text-xs font-bold text-coffee/70">
+              Không thể tải ảnh
+            </span>
+          )}
           <img
             src={memory.imageUrl}
             alt={`Ký ức học trò của ${memory.name}`}
             loading="lazy"
             decoding="async"
-            className="aspect-[4/5] w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.025]"
+            onLoad={() => setImageLoaded(true)}
+            onError={() => setImageFailed(true)}
+            className={`h-full w-full object-cover transition duration-300 ease-out group-hover:scale-[1.025] ${
+              imageLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
           />
         </button>
       </div>

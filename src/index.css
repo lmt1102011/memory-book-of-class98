@@ -220,6 +220,21 @@
     box-shadow: 0 28px 58px rgba(84, 57, 35, 0.2);
   }
 
+  .memory-image-placeholder {
+    background:
+      linear-gradient(
+        110deg,
+        rgba(255, 250, 241, 0.76) 0%,
+        rgba(247, 183, 199, 0.36) 38%,
+        rgba(169, 205, 232, 0.34) 52%,
+        rgba(255, 250, 241, 0.76) 72%
+      ),
+      #fffaf1;
+    background-size: 220% 100%;
+    animation: memory-image-loading 1.35s ease-in-out infinite;
+    contain: paint;
+  }
+
   .board-note {
     position: relative;
     margin-bottom: 0.85rem;
@@ -818,5 +833,15 @@
   }
   100% {
     opacity: 0;
+  }
+}
+
+@keyframes memory-image-loading {
+  0% {
+    background-position: 120% 0;
+  }
+
+  100% {
+    background-position: -120% 0;
   }
 }

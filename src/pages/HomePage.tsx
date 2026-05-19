@@ -1,11 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Camera, Filter, Heart, Search, X } from 'lucide-react';
+import { Camera, Download, Filter, Heart, Search, X } from 'lucide-react';
 import FirebaseNotice from '../components/FirebaseNotice';
 import MemoryCard from '../components/MemoryCard';
 import { useDebounce } from '../hooks/useDebounce';
 import type { MemoryComment, MemoryItem, UserProfile } from '../types';
 
 const EMPTY_COMMENTS: MemoryComment[] = [];
+
+const safeFilePart = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48) || 'ky-uc';
+
+const getMemoryDownloadName = (memory: MemoryItem) =>
+  `ky-uc-lop-9-8-${safeFilePart(memory.name)}-${safeFilePart(memory.id).slice(0, 24)}.jpg`;
 
 interface HomePageProps {
   memories: MemoryItem[];
@@ -38,6 +50,8 @@ export default function HomePage({
   const [keywordQuery, setKeywordQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [selectedMemory, setSelectedMemory] = useState<MemoryItem | null>(null);
+  const [selectedImageLoaded, setSelectedImageLoaded] = useState(false);
+  const [selectedImageFailed, setSelectedImageFailed] = useState(false);
 
   const debouncedName = useDebounce(nameQuery);
   const debouncedKeyword = useDebounce(keywordQuery);
@@ -57,6 +71,11 @@ export default function HomePage({
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [selectedMemory]);
+
+  useEffect(() => {
+    setSelectedImageLoaded(false);
+    setSelectedImageFailed(false);
+  }, [selectedMemory?.imageUrl]);
 
   const tags = useMemo(() => {
     const unique = new Set<string>();
@@ -95,14 +114,14 @@ export default function HomePage({
               Scrapbook của những ngày mình sắp nhớ mãi
             </h1>
             <p className="mt-5 max-w-2xl text-sm leading-7 text-ink/66 sm:text-base">
-              Dữ liệu trên feed cập nhật theo thời gian thực. Tìm bạn trong lớp 9/8, thả tim một lần cho
-              ký ức yêu thích, bấm vào ảnh để xem rõ hơn và để lại vài dòng bình luận.
+              Dữ liệu trên feed cập nhật theo thời gian thực. Tìm bạn trong lớp 9/8, thả tim một lần cho ký ức yêu
+              thích, bấm vào ảnh để xem rõ hơn, tải ảnh về máy và để lại vài dòng bình luận.
             </p>
           </div>
 
           <div className="flex flex-col gap-3 rounded-[1.5rem] border border-white/60 bg-white/45 p-4 shadow-paper backdrop-blur-xl">
-            <div className="flex items-center justify-between gap-3">
-              <span className="font-hand text-3xl font-bold text-coffee">
+            <div className="flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
+              <span className="min-w-0 break-words font-hand text-3xl font-bold text-coffee">
                 {profile ? `Chào ${profile.name}` : 'Bạn lớp 9/8'}
               </span>
               <button className="primary-button" onClick={onPhotobook}>
@@ -222,12 +241,26 @@ export default function HomePage({
               <X size={19} />
             </button>
 
-            <div className="grid min-h-0 place-items-center overflow-hidden rounded-[0.75rem] bg-ink">
+            <div className="relative grid min-h-0 place-items-center overflow-hidden rounded-[0.75rem] bg-ink">
+              {!selectedImageLoaded && !selectedImageFailed && (
+                <span className="memory-image-placeholder absolute inset-0 grid place-items-center text-xs font-bold text-coffee/70">
+                  Đang tải ảnh...
+                </span>
+              )}
+              {selectedImageFailed && (
+                <span className="absolute inset-0 grid place-items-center px-4 text-center text-sm font-bold text-paper/82">
+                  Không thể tải ảnh này
+                </span>
+              )}
               <img
                 src={selectedMemory.imageUrl}
                 alt={`Ảnh kỷ niệm của ${selectedMemory.name}`}
-                className="max-h-[72svh] w-auto max-w-full object-contain sm:max-h-[86svh]"
+                className={`max-h-[72svh] w-auto max-w-full object-contain transition-opacity duration-300 sm:max-h-[86svh] ${
+                  selectedImageLoaded ? 'opacity-100' : 'opacity-0'
+                }`}
                 decoding="async"
+                onLoad={() => setSelectedImageLoaded(true)}
+                onError={() => setSelectedImageFailed(true)}
               />
             </div>
 
@@ -243,7 +276,15 @@ export default function HomePage({
                   </span>
                 ))}
               </div>
-              <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-blush/35 px-3 py-2 text-xs font-bold text-coffee">
+              <a
+                className="primary-button mt-5"
+                href={selectedMemory.imageUrl}
+                download={getMemoryDownloadName(selectedMemory)}
+              >
+                <Download size={17} />
+                Tải ảnh
+              </a>
+              <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-blush/35 px-3 py-2 text-xs font-bold text-coffee">
                 <Heart size={14} fill="currentColor" />
                 {selectedMemory.reactions} tim
               </p>
