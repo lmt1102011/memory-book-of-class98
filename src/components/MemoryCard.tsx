@@ -85,10 +85,10 @@ function MemoryCard({
           aria-label={`Xem ảnh kỷ niệm của ${memory.name} rõ hơn`}
         >
           {!imageLoaded && !imageFailed && (
-            <span className="memory-image-placeholder absolute inset-0" aria-hidden="true" />
+            <span className="memory-image-placeholder absolute inset-0 z-0" aria-hidden="true" />
           )}
           {imageFailed && (
-            <span className="absolute inset-0 grid place-items-center bg-paper px-4 text-center text-xs font-bold text-coffee/70">
+            <span className="absolute inset-0 z-[2] grid place-items-center bg-paper px-4 text-center text-xs font-bold text-coffee/70">
               Không thể tải ảnh
             </span>
           )}
@@ -99,9 +99,7 @@ function MemoryCard({
             decoding="async"
             onLoad={() => setImageLoaded(true)}
             onError={() => setImageFailed(true)}
-            className={`h-full w-full object-cover transition duration-300 ease-out group-hover:scale-[1.025] ${
-              imageLoaded ? 'opacity-100' : 'opacity-0'
-            }`}
+            className="relative z-[1] h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.025]"
           />
         </button>
       </div>

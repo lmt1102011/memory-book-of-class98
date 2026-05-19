@@ -266,19 +266,17 @@ export default function HomePage({
 
             <div className="relative grid min-h-0 place-items-center overflow-hidden rounded-[0.75rem] bg-ink">
               {!selectedImageLoaded && !selectedImageFailed && (
-                <span className="memory-image-placeholder absolute inset-0" aria-hidden="true" />
+                <span className="memory-image-placeholder absolute inset-0 z-0" aria-hidden="true" />
               )}
               {selectedImageFailed && (
-                <span className="absolute inset-0 grid place-items-center px-4 text-center text-sm font-bold text-paper/82">
+                <span className="absolute inset-0 z-[2] grid place-items-center px-4 text-center text-sm font-bold text-paper/82">
                   Không thể tải ảnh này
                 </span>
               )}
               <img
                 src={selectedMemory.imageUrl}
                 alt={`Ảnh kỷ niệm của ${selectedMemory.name}`}
-                className={`max-h-[72svh] w-auto max-w-full object-contain transition-opacity duration-300 sm:max-h-[86svh] ${
-                  selectedImageLoaded ? 'opacity-100' : 'opacity-0'
-                }`}
+                className="relative z-[1] max-h-[72svh] w-auto max-w-full object-contain sm:max-h-[86svh]"
                 decoding="async"
                 onLoad={() => setSelectedImageLoaded(true)}
                 onError={() => setSelectedImageFailed(true)}
