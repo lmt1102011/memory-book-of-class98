@@ -246,25 +246,34 @@ export default function HomePage({
 
       {selectedMemory && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-ink/84 p-3 backdrop-blur-sm sm:p-6"
+          className="fixed inset-0 z-50 grid place-items-center bg-ink/92 p-0 backdrop-blur-sm sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label={`Xem ảnh của ${selectedMemory.name}`}
           onClick={() => setSelectedMemory(null)}
         >
           <div
-            className="relative grid max-h-[92svh] w-full max-w-6xl gap-4 overflow-hidden rounded-[1rem] bg-paper p-3 shadow-glass sm:grid-cols-[minmax(0,1fr)_20rem] sm:p-4"
+            className="relative flex h-[100svh] w-full flex-col overflow-hidden bg-ink shadow-glass sm:grid sm:max-h-[92svh] sm:max-w-6xl sm:grid-cols-[minmax(0,1fr)_20rem] sm:gap-4 sm:rounded-[1rem] sm:bg-paper sm:p-4"
             onClick={(event) => event.stopPropagation()}
           >
             <button
-              className="absolute right-3 top-3 z-10 grid h-10 w-10 place-items-center rounded-full bg-ink/78 text-paper shadow-paper"
+              className="absolute right-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-full bg-ink/78 text-paper shadow-paper"
               onClick={() => setSelectedMemory(null)}
               aria-label="Đóng ảnh"
             >
               <X size={19} />
             </button>
 
-            <div className="relative grid min-h-0 place-items-center overflow-hidden rounded-[0.75rem] bg-ink">
+            <a
+              className="absolute left-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-full bg-paper/92 text-ink shadow-paper sm:hidden"
+              href={selectedMemory.imageUrl}
+              download={getMemoryDownloadName(selectedMemory)}
+              aria-label="Tải ảnh"
+            >
+              <Download size={18} />
+            </a>
+
+            <div className="relative grid min-h-0 flex-1 place-items-center overflow-hidden bg-ink sm:rounded-[0.75rem]">
               {!selectedImageLoaded && !selectedImageFailed && (
                 <span className="memory-image-placeholder absolute inset-0 z-0" aria-hidden="true" />
               )}
@@ -276,14 +285,14 @@ export default function HomePage({
               <img
                 src={selectedMemory.imageUrl}
                 alt={`Ảnh kỷ niệm của ${selectedMemory.name}`}
-                className="relative z-[1] max-h-[72svh] w-auto max-w-full object-contain sm:max-h-[86svh]"
+                className="relative z-[1] max-h-[calc(100svh-13rem)] w-auto max-w-full object-contain sm:max-h-[86svh]"
                 decoding="async"
                 onLoad={() => setSelectedImageLoaded(true)}
                 onError={() => setSelectedImageFailed(true)}
               />
             </div>
 
-            <aside className="min-w-0 overflow-auto px-1 pb-1 sm:pr-2">
+            <aside className="max-h-[42svh] min-w-0 shrink-0 overflow-auto rounded-t-[1.15rem] bg-paper px-4 pb-4 pt-4 sm:max-h-none sm:rounded-none sm:bg-transparent sm:px-1 sm:pb-1 sm:pt-0 sm:pr-2">
               <p className="section-kicker">Xem ảnh rõ hơn</p>
               <h2 className="break-words font-display text-5xl leading-none text-ink">{selectedMemory.name}</h2>
               <p className="mt-1 text-xs font-bold uppercase text-coffee/70">Lớp {selectedMemory.className}</p>
@@ -296,7 +305,7 @@ export default function HomePage({
                 ))}
               </div>
               <a
-                className="primary-button mt-5"
+                className="primary-button mt-4 w-full sm:mt-5"
                 href={selectedMemory.imageUrl}
                 download={getMemoryDownloadName(selectedMemory)}
               >

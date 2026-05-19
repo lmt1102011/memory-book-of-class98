@@ -27,10 +27,13 @@ import {
 } from 'firebase/firestore/lite';
 import { auth, db } from '../firebase';
 import type {
+  ClassmateProfile,
   GuestbookEntry,
   MemoryComment,
   MemoryItem,
   PublishMemoryDraft,
+  RememberNote,
+  RememberNoteDraft,
   SecretDiaryEntry,
   UserProfile,
 } from '../types';
@@ -43,6 +46,7 @@ const MEMORIES_COLLECTION = 'memories98';
 const MEMORY_COMMENTS_COLLECTION = 'memoryComments98';
 const GUESTBOOK_COLLECTION = 'guestbook98';
 const SECRET_MAILBOX_PRIVATE_COLLECTION = 'secretMailboxPrivate98';
+const REMEMBER_NOTES_COLLECTION = 'rememberNotes98';
 const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
 const FIREBASE_RETRY_DELAYS = [0, 450, 1000, 1800];
 const FIREBASE_TIMEOUT_MS = 12_000;
@@ -206,6 +210,25 @@ const secretDiaryFromDoc = (id: string, data: DocumentData): SecretDiaryEntry =>
   name: String(data.name || ''),
   nameKey: String(data.nameKey || ''),
   message: String(data.message || ''),
+  createdAt: timestampToIso(data.createdAt),
+});
+
+const classmateFromDoc = (id: string, data: DocumentData): ClassmateProfile => ({
+  uid: String(data.uid || ''),
+  name: String(data.name || id),
+  nameKey: String(data.nameKey || id),
+  className: String(data.className || CLASS_NAME),
+});
+
+const rememberNoteFromDoc = (id: string, data: DocumentData): RememberNote => ({
+  id,
+  fromUid: String(data.fromUid || ''),
+  fromName: String(data.fromName || 'Bạn cùng lớp'),
+  fromNameKey: String(data.fromNameKey || ''),
+  toName: String(data.toName || ''),
+  toNameKey: String(data.toNameKey || ''),
+  message: String(data.message || ''),
+  anonymous: Boolean(data.anonymous),
   createdAt: timestampToIso(data.createdAt),
 });
 
@@ -408,6 +431,56 @@ export const subscribeSecretDiaries = (
   return () => window.clearInterval(interval);
 };
 
+export const subscribeClassmates = (
+  onNext: (classmates: ClassmateProfile[]) => void,
+  onError: (error: Error) => void,
+) => {
+  const classmatesQuery = query(collection(db, STUDENTS_COLLECTION), orderBy('name'), limit(80));
+  const load = async () => {
+    try {
+      const snapshot = await withFirebaseRetry(() => getDocs(classmatesQuery));
+      onNext(
+        snapshot.docs
+          .filter((item) => !item.data().disabled)
+          .map((item) => classmateFromDoc(item.id, item.data()))
+          .filter((item) => item.nameKey && item.className === CLASS_NAME),
+      );
+    } catch (error) {
+      onError(friendlyFirebaseError(error));
+    }
+  };
+  void load();
+  const interval = createVisiblePolling(load);
+  return () => window.clearInterval(interval);
+};
+
+export const subscribeRememberNotes = (
+  profile: UserProfile,
+  onNext: (notes: RememberNote[]) => void,
+  onError: (error: Error) => void,
+) => {
+  const notesQuery = query(
+    collection(db, REMEMBER_NOTES_COLLECTION),
+    where('toNameKey', '==', profile.nameKey),
+    limit(80),
+  );
+  const load = async () => {
+    try {
+      const snapshot = await withFirebaseRetry(() => getDocs(notesQuery));
+      onNext(
+        snapshot.docs
+          .map((item) => rememberNoteFromDoc(item.id, item.data()))
+          .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()),
+      );
+    } catch (error) {
+      onError(friendlyFirebaseError(error));
+    }
+  };
+  void load();
+  const interval = createVisiblePolling(load);
+  return () => window.clearInterval(interval);
+};
+
 export const publishMemoryToFirebase = async (profile: UserProfile, draft: PublishMemoryDraft) => {
   const id = makeId('memory');
 
@@ -568,6 +641,52 @@ export const deleteSecretDiary = async (profile: UserProfile, diary: SecretDiary
   }
 
   await withFirebaseRetry(() => deleteDoc(doc(db, SECRET_MAILBOX_PRIVATE_COLLECTION, diary.id)));
+};
+
+export const addRememberNote = async (profile: UserProfile, draft: RememberNoteDraft) => {
+  const safeMessage = draft.message.trim().slice(0, 420);
+  const toName = cleanDisplayName(draft.toName);
+  const toNameKey = makeNameKey(draft.toNameKey || draft.toName);
+
+  if (!toName || !toNameKey) throw new Error('Hãy chọn đúng một bạn trong lớp để gửi.');
+  if (!safeMessage) throw new Error('Hãy viết điều bạn muốn giữ lại cho bạn ấy.');
+  if (toNameKey === profile.nameKey) throw new Error('Hãy gửi cho một bạn khác trong lớp nha.');
+
+  const id = makeId('remember');
+  const createdAt = new Date().toISOString();
+
+  await withFirebaseRetry(() => setDoc(doc(db, REMEMBER_NOTES_COLLECTION, id), {
+    fromUid: profile.uid,
+    fromName: profile.name,
+    fromNameKey: profile.nameKey,
+    toName,
+    toNameKey,
+    className: CLASS_NAME,
+    message: safeMessage,
+    anonymous: Boolean(draft.anonymous),
+    kind: 'remember-note',
+    createdAt: serverTimestamp(),
+  }));
+
+  return {
+    id,
+    fromUid: profile.uid,
+    fromName: profile.name,
+    fromNameKey: profile.nameKey,
+    toName,
+    toNameKey,
+    message: safeMessage,
+    anonymous: Boolean(draft.anonymous),
+    createdAt,
+  };
+};
+
+export const deleteRememberNote = async (profile: UserProfile, note: RememberNote) => {
+  if (note.toNameKey !== profile.nameKey && note.fromUid !== profile.uid) {
+    throw new Error('Bạn chỉ có thể xóa lời nhắn liên quan đến mình.');
+  }
+
+  await withFirebaseRetry(() => deleteDoc(doc(db, REMEMBER_NOTES_COLLECTION, note.id)));
 };
 
 export const hasStudentMemory = async (profile: UserProfile) => {

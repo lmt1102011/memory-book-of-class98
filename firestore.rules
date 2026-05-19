@@ -91,6 +91,28 @@ service cloud.firestore {
       allow read, create, update, delete: if false;
     }
 
+    match /rememberNotes98/{noteId} {
+      allow read: if request.auth != null
+        && request.auth.token.email == resource.data.toNameKey + '@memorybook-of-class98.firebaseapp.com';
+      allow create: if request.auth != null
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.className == '9/8'
+        && request.resource.data.fromName is string
+        && request.resource.data.fromNameKey is string
+        && request.resource.data.toName is string
+        && request.resource.data.toNameKey is string
+        && request.resource.data.message is string
+        && request.resource.data.message.size() <= 420
+        && request.resource.data.anonymous is bool
+        && request.resource.data.kind == 'remember-note';
+      allow update: if false;
+      allow delete: if request.auth != null
+        && (
+          resource.data.fromUid == request.auth.uid
+          || request.auth.token.email == resource.data.toNameKey + '@memorybook-of-class98.firebaseapp.com'
+        );
+    }
+
     match /secretMailboxPrivate98/{diaryId} {
       // The main app only queries the signed-in student's own uid.
       // The static manager page also reads this collection to show the writer name.

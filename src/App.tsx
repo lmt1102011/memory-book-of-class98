@@ -1,15 +1,18 @@
 import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion';
-import { BookOpen, Camera, Home, Lock, Menu, MessageCircle, Sparkles, X } from 'lucide-react';
+import { BookOpen, Camera, Heart, Home, Lock, Menu, MessageCircle, Sparkles, X } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LoadingScreen from './components/LoadingScreen';
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion';
 import LandingPage from './pages/LandingPage';
 import type {
   AppRoute,
+  ClassmateProfile,
   GuestbookEntry,
   MemoryComment,
   MemoryItem,
   PublishMemoryDraft,
+  RememberNote,
+  RememberNoteDraft,
   SecretDiaryEntry,
   UserProfile,
 } from './types';
@@ -17,16 +20,18 @@ import type {
 const JoinPage = lazy(() => import('./pages/JoinPage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
 const LettersPage = lazy(() => import('./pages/LettersPage'));
+const RememberPage = lazy(() => import('./pages/RememberPage'));
 const DiaryPage = lazy(() => import('./pages/DiaryPage'));
 const PhotobookPage = lazy(() => import('./pages/PhotobookPage'));
 
 const routeFromHash = (): AppRoute => {
   const route = window.location.hash.replace('#/', '') as AppRoute;
-  return ['landing', 'join', 'home', 'letters', 'diary', 'photobook'].includes(route) ? route : 'landing';
+  return ['landing', 'join', 'home', 'letters', 'remember', 'diary', 'photobook'].includes(route) ? route : 'landing';
 };
 
 const navItems: Array<{ route: AppRoute; label: string; icon: typeof Home }> = [
   { route: 'landing', label: 'Intro', icon: Sparkles },
+  { route: 'remember', label: 'Nhớ về cậu', icon: Heart },
   { route: 'home', label: 'Ký ức', icon: Home },
   { route: 'letters', label: 'Thư lớp', icon: MessageCircle },
   { route: 'diary', label: 'Nhật ký', icon: Lock },
@@ -43,6 +48,9 @@ export default function App() {
   const [memoriesLoading, setMemoriesLoading] = useState(false);
   const [remoteComments, setRemoteComments] = useState<MemoryComment[]>([]);
   const [remoteGuestbook, setRemoteGuestbook] = useState<GuestbookEntry[]>([]);
+  const [classmates, setClassmates] = useState<ClassmateProfile[]>([]);
+  const [rememberNotes, setRememberNotes] = useState<RememberNote[]>([]);
+  const [rememberNotesLoading, setRememberNotesLoading] = useState(false);
   const [secretDiaries, setSecretDiaries] = useState<SecretDiaryEntry[]>([]);
   const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -81,6 +89,8 @@ export default function App() {
     let unsubscribeMemories: (() => void) | undefined;
     let unsubscribeComments: (() => void) | undefined;
     let unsubscribeGuestbook: (() => void) | undefined;
+    let unsubscribeClassmates: (() => void) | undefined;
+    let unsubscribeRememberNotes: (() => void) | undefined;
     let unsubscribeDiaries: (() => void) | undefined;
     let isActive = true;
 
@@ -127,6 +137,52 @@ export default function App() {
         });
     }
 
+    if (route === 'remember') {
+      setRememberNotesLoading(Boolean(profile));
+
+      void import('./services/firebaseMemoryBook')
+        .then((service) => {
+          if (!isActive) return;
+
+          unsubscribeClassmates = service.subscribeClassmates(
+            (items) => {
+              if (!isActive) return;
+              setClassmates(items);
+              setFirebaseNotice('');
+            },
+            (error) => {
+              if (!isActive) return;
+              setFirebaseNotice(error.message);
+            },
+          );
+
+          if (profile) {
+            unsubscribeRememberNotes = service.subscribeRememberNotes(
+              profile,
+              (items) => {
+                if (!isActive) return;
+                setRememberNotes(items);
+                setRememberNotesLoading(false);
+                setFirebaseNotice('');
+              },
+              (error) => {
+                if (!isActive) return;
+                setRememberNotesLoading(false);
+                setFirebaseNotice(error.message);
+              },
+            );
+          } else {
+            setRememberNotes([]);
+            setRememberNotesLoading(false);
+          }
+        })
+        .catch((caught) => {
+          if (!isActive) return;
+          setRememberNotesLoading(false);
+          setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể mở hộp ký ức lúc này.');
+        });
+    }
+
     if (route === 'letters' || route === 'diary') {
       void import('./services/firebaseMemoryBook').then((service) => {
         if (!isActive) return;
@@ -163,6 +219,8 @@ export default function App() {
       unsubscribeMemories?.();
       unsubscribeComments?.();
       unsubscribeGuestbook?.();
+      unsubscribeClassmates?.();
+      unsubscribeRememberNotes?.();
       unsubscribeDiaries?.();
     };
   }, [profile, route]);
@@ -413,6 +471,44 @@ export default function App() {
     [navigate, profile],
   );
 
+  const handleRememberNoteAdd = useCallback(
+    async (draft: RememberNoteDraft) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+
+      const service = await import('./services/firebaseMemoryBook');
+      const note = await service.addRememberNote(profile, draft);
+
+      if (note.toNameKey === profile.nameKey) {
+        setRememberNotes((items) => [note, ...items]);
+      }
+    },
+    [navigate, profile],
+  );
+
+  const handleRememberNoteDelete = useCallback(
+    async (note: RememberNote) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+
+      setRememberNotes((items) => items.filter((item) => item.id !== note.id));
+
+      try {
+        const service = await import('./services/firebaseMemoryBook');
+        await service.deleteRememberNote(profile, note);
+        setFirebaseNotice('');
+      } catch (caught) {
+        setRememberNotes((items) => [note, ...items]);
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể xóa lời nhắn lúc này.');
+      }
+    },
+    [navigate, profile],
+  );
+
   const renderRoute = () => {
     if (route === 'landing') {
       return <LandingPage onJoin={() => navigate(profile ? 'home' : 'join')} onExplore={() => navigate('home')} />;
@@ -445,6 +541,23 @@ export default function App() {
             onAddGuestbook={handleGuestbookAdd}
             onDeleteGuestbook={handleGuestbookDelete}
             onAddAnonymousMessage={handleAnonymousMessageAdd}
+          />
+        </Suspense>
+      );
+    }
+
+    if (route === 'remember') {
+      return (
+        <Suspense fallback={<LoadingScreen label="Đang mở hộp ký ức" />}>
+          <RememberPage
+            classmates={classmates}
+            notes={rememberNotes}
+            isLoading={rememberNotesLoading}
+            firebaseNotice={firebaseNotice}
+            profile={profile}
+            onJoin={() => navigate('join')}
+            onAddNote={handleRememberNoteAdd}
+            onDeleteNote={handleRememberNoteDelete}
           />
         </Suspense>
       );

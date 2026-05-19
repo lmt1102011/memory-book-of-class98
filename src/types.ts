@@ -1,4 +1,4 @@
-export type AppRoute = 'landing' | 'join' | 'home' | 'letters' | 'diary' | 'photobook';
+export type AppRoute = 'landing' | 'join' | 'home' | 'letters' | 'remember' | 'diary' | 'photobook';
 
 export type PhotoCount = 1 | 2 | 4 | 6;
 
@@ -14,6 +14,13 @@ export interface UserProfile {
   nameKey: string;
   className: string;
   joinedAt: string;
+}
+
+export interface ClassmateProfile {
+  uid: string;
+  name: string;
+  nameKey: string;
+  className: string;
 }
 
 export interface MemoryItem {
@@ -102,4 +109,23 @@ export interface SecretDiaryEntry {
   nameKey?: string;
   message: string;
   createdAt: string;
+}
+
+export interface RememberNote {
+  id: string;
+  fromUid?: string;
+  fromName: string;
+  fromNameKey?: string;
+  toName: string;
+  toNameKey: string;
+  message: string;
+  anonymous: boolean;
+  createdAt: string;
+}
+
+export interface RememberNoteDraft {
+  toName: string;
+  toNameKey: string;
+  message: string;
+  anonymous: boolean;
 }
