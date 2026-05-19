@@ -1,4 +1,4 @@
-import { m } from 'framer-motion';
+﻿import { m } from 'framer-motion';
 import {
   ArrowLeft,
   Camera,
@@ -353,7 +353,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
       window.setTimeout(() => setFlash(true), 20);
       window.setTimeout(() => setFlash(false), 190);
     } catch {
-      setCameraError('Khong the tai anh nay. Hay thu anh JPG/PNG khac.');
+      setCameraError('Không thể tải ảnh này. Hãy thử ảnh JPG/PNG khác.');
     } finally {
       event.target.value = '';
     }
@@ -562,7 +562,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                 onClick={openUploadStage}
               >
                 <Upload size={19} />
-                Upload anh co san
+                Upload ảnh có sẵn
               </button>
             </aside>
           </div>
@@ -593,7 +593,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                         <Upload className="mx-auto mb-4 text-paper/80" size={42} />
                         <h2 className="font-display text-5xl leading-none">Upload photo</h2>
                         <p className="mt-3 text-sm leading-6 text-paper/68">
-                          Chon anh tu may cua ban, sau do bam dau tick de dua vao photobook.
+                          Chọn ảnh từ máy của bạn, sau đó bấm dấu tick để đưa vào photobook.
                         </p>
                         <button
                           className="camera-secondary-button mx-auto mt-5"
@@ -601,7 +601,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                           disabled={!canUploadPhoto}
                         >
                           <Upload size={18} />
-                          Chon anh
+                          Chọn ảnh
                         </button>
                       </div>
                     </div>
@@ -640,7 +640,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                     <>
                       <button className="camera-secondary-button" onClick={() => setPendingPhoto(null)}>
                         <RefreshCw size={18} />
-                        Doi anh
+                        Đổi ảnh
                       </button>
                       <button className="camera-shutter-button" onClick={acceptPhoto}>
                         <Check size={28} />
@@ -663,7 +663,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                             disabled={!canUploadPhoto}
                           >
                             <Upload size={18} />
-                            Up anh
+                            Up ảnh
                           </button>
                           <button className="camera-shutter-button" onClick={startCountdown} disabled={!canCapture}>
                             <CameraIcon size={30} />
@@ -677,7 +677,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                             disabled={!canUploadPhoto}
                           >
                             <Upload size={18} />
-                            Chon anh
+                            Chọn ảnh
                           </button>
                           <button className="camera-shutter-button" onClick={() => setCaptureSource('camera')}>
                             <CameraIcon size={30} />
@@ -731,7 +731,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                     </button>
                     <button className="secondary-button justify-center" onClick={() => setPendingPhoto(null)}>
                       <RefreshCw size={17} />
-                      Doi anh
+                      Đổi ảnh
                     </button>
                   </>
                 ) : captureSource === 'camera' ? (
@@ -754,7 +754,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                   onClick={() => setCaptureSource(captureSource === 'camera' ? 'upload' : 'camera')}
                 >
                   {captureSource === 'camera' ? <Upload size={16} /> : <Camera size={16} />}
-                  {captureSource === 'camera' ? 'Dung anh co san' : 'Dung camera'}
+                  {captureSource === 'camera' ? 'Dùng ảnh có sẵn' : 'Dùng camera'}
                 </button>
                 <button className="secondary-button justify-center" onClick={leaveCameraStage}>
                   <ArrowLeft size={16} />
@@ -811,7 +811,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                   </a>
                   <button className="primary-button justify-center" onClick={handlePublish} disabled={isPublishing}>
                     <Send size={18} />
-                    {isPublishing ? 'Dang dang...' : 'Dang anh len feed lop'}
+                    {isPublishing ? 'Đang đăng...' : 'Đăng ảnh lên feed lớp'}
                   </button>
                   {publishError && (
                     <p className="rounded-2xl bg-blush/30 px-4 py-3 text-sm font-semibold text-coffee">
@@ -910,10 +910,10 @@ function CustomBackgroundEditor({ image, edit, onChange, onReset }: CustomBackgr
     suffix?: string;
   }> = [
     { key: 'scale', label: 'Zoom', min: 1, max: 2, step: 0.01, value: edit.scale },
-    { key: 'x', label: 'Trai / phai', min: -100, max: 100, step: 1, value: edit.x },
-    { key: 'y', label: 'Len / xuong', min: -100, max: 100, step: 1, value: edit.y },
-    { key: 'brightness', label: 'Sang', min: 70, max: 130, step: 1, value: edit.brightness, suffix: '%' },
-    { key: 'blur', label: 'Mo nen', min: 0, max: 8, step: 0.1, value: edit.blur, suffix: 'px' },
+    { key: 'x', label: 'Trái / phải', min: -100, max: 100, step: 1, value: edit.x },
+    { key: 'y', label: 'Lên / xuống', min: -100, max: 100, step: 1, value: edit.y },
+    { key: 'brightness', label: 'Sáng', min: 70, max: 130, step: 1, value: edit.brightness, suffix: '%' },
+    { key: 'blur', label: 'Mờ nền', min: 0, max: 8, step: 0.1, value: edit.blur, suffix: 'px' },
   ];
 
   return (

@@ -72,10 +72,10 @@ export default function Guestbook({ entries, onAddEntry, onDeleteEntry, profile 
                       <button
                         className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-coffee/10 text-coffee transition hover:bg-coffee/18"
                         onClick={() => {
-                          if (window.confirm('Xoa tin nhan nay khoi guestbook cua lop?')) void onDeleteEntry(entry);
+                          if (window.confirm('Xóa tin nhắn này khỏi guestbook của lớp?')) void onDeleteEntry(entry);
                         }}
-                        aria-label="Xoa tin nhan"
-                        title="Xoa tin nhan"
+                        aria-label="Xóa tin nhắn"
+                        title="Xóa tin nhắn"
                       >
                         <Trash2 size={14} />
                       </button>

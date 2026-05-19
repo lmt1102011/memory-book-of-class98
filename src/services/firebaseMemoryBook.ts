@@ -83,7 +83,7 @@ const friendlyFirebaseError = (error: unknown) => {
     text.includes('insufficient permissions')
   ) {
     return new Error(
-      'Firebase dang chan quyen thao tac nay. Hay deploy Firestore Rules moi nhat, roi reload lai trang.',
+      'Firebase đang chặn quyền thao tác này. Hãy deploy Firestore Rules mới nhất, rồi reload lại trang.',
     );
   }
 
@@ -96,16 +96,16 @@ const friendlyFirebaseError = (error: unknown) => {
     text.includes('target id already')
   ) {
     return new Error(
-      'Ket noi Firebase chua on dinh. Hay doi vai giay roi thu lai; neu van loi, kiem tra Firestore da bat va domain GitHub Pages da nam trong Authorized domains.',
+      'Kết nối Firebase chưa ổn định. Hãy đợi vài giây rồi thử lại; nếu vẫn lỗi, kiểm tra Firestore đã bật và domain GitHub Pages đã nằm trong Authorized domains.',
     );
   }
 
-  return error instanceof Error ? error : new Error('Khong the ket noi Firebase luc nay.');
+  return error instanceof Error ? error : new Error('Không thể kết nối Firebase lúc này.');
 };
 
 export const forceFirebaseOnline = async () => {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    throw new Error('Thiet bi dang mat internet, nen Firebase khong the online.');
+    throw new Error('Thiết bị đang mất internet, nên Firebase không thể online.');
   }
 };
 
@@ -172,12 +172,14 @@ const memoryFromDoc = (id: string, data: DocumentData): MemoryItem => ({
 });
 
 const guestbookFromDoc = (id: string, data: DocumentData): GuestbookEntry => {
-  const anonymous = Boolean(data.anonymous || data.kind === 'anonymous-board' || data.name === 'An danh');
+  const anonymous = Boolean(
+    data.anonymous || data.kind === 'anonymous-board' || data.name === 'An danh' || data.name === 'Ẩn danh',
+  );
 
   return {
     id,
     uid: String(data.uid || ''),
-    name: anonymous ? 'An danh' : String(data.name || 'Classmate'),
+    name: anonymous ? 'Ẩn danh' : String(data.name || 'Classmate'),
     message: String(data.message || ''),
     createdAt: timestampToIso(data.createdAt),
     anonymous,
@@ -195,7 +197,7 @@ const secretDiaryFromDoc = (id: string, data: DocumentData): SecretDiaryEntry =>
 
 export const checkStudentName = async (name: string) => {
   const nameKey = makeNameKey(name);
-  if (!nameKey) throw new Error('Hay nhap ho ten hop le.');
+  if (!nameKey) throw new Error('Hãy nhập họ tên hợp lệ.');
   const snapshot = await withFirebaseRetry(() => getDoc(doc(db, STUDENTS_COLLECTION, nameKey)));
   return {
     exists: snapshot.exists(),
@@ -207,14 +209,14 @@ export const checkStudentName = async (name: string) => {
 export const registerStudent = async (name: string, password: string) => {
   const displayName = cleanDisplayName(name);
   const nameKey = makeNameKey(displayName);
-  if (!nameKey) throw new Error('Hay nhap ho ten hop le.');
-  if (password.length < 6) throw new Error('Mat khau can it nhat 6 ky tu.');
+  if (!nameKey) throw new Error('Hãy nhập họ tên hợp lệ.');
+  if (password.length < 6) throw new Error('Mật khẩu cần ít nhất 6 ký tự.');
 
   const studentRef = doc(db, STUDENTS_COLLECTION, nameKey);
   const existing = await withFirebaseRetry(() => getDoc(studentRef));
   if (existing.exists()) {
-    if (existing.data().disabled) throw new Error('Tai khoan nay dang bi khoa trong lop 9/8.');
-    throw new Error('Ten nay da co trong lop 9/8. Hay nhap mat khau de tiep tuc.');
+    if (existing.data().disabled) throw new Error('Tài khoản này đang bị khóa trong lớp 9/8.');
+    throw new Error('Tên này đã có trong lớp 9/8. Hãy nhập mật khẩu để tiếp tục.');
   }
 
   const credential = await withTimeout(
@@ -246,7 +248,7 @@ export const registerStudent = async (name: string, password: string) => {
 
 export const loginStudent = async (name: string, password: string) => {
   const nameKey = makeNameKey(name);
-  if (!nameKey) throw new Error('Hay nhap ho ten hop le.');
+  if (!nameKey) throw new Error('Hãy nhập họ tên hợp lệ.');
 
   const credential = await withTimeout(
     signInWithEmailAndPassword(auth, makeStudentEmail(nameKey), password),
@@ -278,7 +280,7 @@ export const loginStudent = async (name: string, password: string) => {
 
   if (snapshot.data().disabled) {
     await signOut(auth);
-    throw new Error('Tai khoan nay dang bi khoa trong lop 9/8.');
+    throw new Error('Tài khoản này đang bị khóa trong lớp 9/8.');
   }
 
   await withFirebaseRetry(() => updateDoc(studentRef, { lastLoginAt: serverTimestamp() }));
@@ -403,7 +405,7 @@ export const reactToFirebaseMemory = async (memory: MemoryItem) => {
 
 export const deleteFirebaseMemory = async (profile: UserProfile, memory: MemoryItem) => {
   if (memory.source !== 'firebase' || memory.uid !== profile.uid) {
-    throw new Error('Ban chi co the xoa anh do chinh minh dang.');
+    throw new Error('Bạn chỉ có thể xóa ảnh do chính mình đăng.');
   }
 
   await withFirebaseRetry(() => deleteDoc(doc(db, MEMORIES_COLLECTION, memory.id)));
@@ -434,7 +436,7 @@ export const addAnonymousMessage = async (profile: UserProfile, message: string)
   const safeMessage = message.trim().slice(0, 160);
   const docRef = await withFirebaseRetry(() => addDoc(collection(db, GUESTBOOK_COLLECTION), {
     uid: profile.uid,
-    name: 'An danh',
+    name: 'Ẩn danh',
     nameKey: profile.nameKey,
     className: CLASS_NAME,
     message: safeMessage,
@@ -444,7 +446,7 @@ export const addAnonymousMessage = async (profile: UserProfile, message: string)
   return {
     id: docRef.id,
     uid: profile.uid,
-    name: 'An danh',
+    name: 'Ẩn danh',
     message: safeMessage,
     createdAt,
     anonymous: true,
@@ -453,7 +455,7 @@ export const addAnonymousMessage = async (profile: UserProfile, message: string)
 
 export const deleteGuestbookEntry = async (profile: UserProfile, entry: GuestbookEntry) => {
   if (entry.uid !== profile.uid) {
-    throw new Error('Ban chi co the xoa tin nhan cua chinh minh.');
+    throw new Error('Bạn chỉ có thể xóa tin nhắn của chính mình.');
   }
 
   await withFirebaseRetry(() => deleteDoc(doc(db, GUESTBOOK_COLLECTION, entry.id)));
@@ -485,7 +487,7 @@ export const addSecretDiary = async (profile: UserProfile, message: string) => {
 
 export const deleteSecretDiary = async (profile: UserProfile, diary: SecretDiaryEntry) => {
   if (diary.uid !== profile.uid) {
-    throw new Error('Ban chi co the xoa nhat ky cua chinh minh.');
+    throw new Error('Bạn chỉ có thể xóa nhật ký của chính mình.');
   }
 
   await withFirebaseRetry(() => deleteDoc(doc(db, SECRET_MAILBOX_PRIVATE_COLLECTION, diary.id)));

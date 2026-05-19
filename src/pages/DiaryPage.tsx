@@ -24,7 +24,7 @@ export default function DiaryPage({
       {!profile && (
         <section className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
           <button className="secondary-button" onClick={onJoin}>
-            Dang nhap de mo nhat ky rieng
+            Đăng nhập để mở nhật ký riêng
           </button>
         </section>
       )}

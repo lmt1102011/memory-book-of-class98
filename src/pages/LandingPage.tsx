@@ -1,4 +1,4 @@
-import { m } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import { Camera, Music, Music2, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { LANDING_SLIDES } from '../data/memories';
@@ -23,6 +23,7 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
   const scrollProgress = useRafScrollProgress();
   const { enabled, toggle } = useAmbientTone();
   const activeQuote = useMemo(() => quotes[active % quotes.length], [active]);
+  const activeSlide = LANDING_SLIDES[active % LANDING_SLIDES.length];
 
   useEffect(() => {
     if (prefersReducedMotion) return undefined;
@@ -32,32 +33,41 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
     return () => window.clearInterval(timer);
   }, [prefersReducedMotion]);
 
+  useEffect(() => {
+    const nextSlide = LANDING_SLIDES[(active + 1) % LANDING_SLIDES.length];
+    const image = new Image();
+    image.decoding = 'async';
+    image.src = nextSlide.src;
+  }, [active]);
+
   return (
     <div className="relative">
       <section className="relative min-h-[100svh] overflow-hidden">
         <div className="absolute inset-0">
-          {LANDING_SLIDES.map((slide, index) => (
+          <AnimatePresence initial={false} mode="sync">
             <m.div
-              key={slide.src}
+              key={activeSlide.src}
               className="absolute inset-0 will-change-transform"
               style={{
                 transform: `translate3d(0, ${scrollProgress * 24}px, 0) scale(1.04)`,
               }}
-              initial={false}
-              animate={{ opacity: active === index ? 1 : 0 }}
+              initial={{ opacity: prefersReducedMotion ? 1 : 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               transition={{ duration: prefersReducedMotion ? 0 : 1.2, ease: 'easeOut' }}
             >
               <img
-                src={slide.src}
-                alt={slide.alt}
-                loading={index === 0 ? 'eager' : 'lazy'}
+                src={activeSlide.src}
+                alt={activeSlide.alt}
+                loading={active === 0 ? 'eager' : 'lazy'}
                 decoding="async"
-                fetchPriority={index === 0 ? 'high' : 'auto'}
+                fetchPriority={active === 0 ? 'high' : 'auto'}
+                sizes="100vw"
                 className="h-full w-full object-cover"
-                style={{ objectPosition: slide.position }}
+                style={{ objectPosition: activeSlide.position }}
               />
             </m.div>
-          ))}
+          </AnimatePresence>
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(21,16,12,.18),rgba(21,16,12,.34)_58%,rgba(251,243,231,.94))]" />
           <div className="absolute inset-0 bg-grain opacity-40 [background-size:16px_16px]" />
         </div>

@@ -10,7 +10,7 @@ A production-ready responsive React/Vite photobook app inspired by school memori
 - Separate feature routes for the memory feed, class letters board, private diary, and photobook camera
 - Firestore memory feed, reactions, named class messages, and anonymous class messages
 - Firestore-only public photobook images, compressed to fit without Firebase Storage
-- Nhat ky bi mat: students only see their own diary entries in the app, while `manager.html` can show the writer name
+- Nhật ký bí mật: students only see their own diary entries in the app, while `manager.html` can show the writer name
 - Responsive Pinterest/scrapbook memory feed with search, filters, reactions, and guestbook
 - High-quality webcam capture with countdown, flash, retake, and next-photo flow
 - Canvas-generated printable photobook strips in 1080p, 2K, or 4K export widths
@@ -47,10 +47,10 @@ npm run preview
 ## App Sections
 
 ```text
-#/home       Anh ky uc da dang len lop
-#/letters    Bang thu lop, gom tin nhan co ten va tin nhan an danh
-#/diary      Nhat ky bi mat rieng cua tung hoc sinh
-#/photobook  Chup photobook hoac upload anh de dang
+#/home       Ảnh ký ức đã đăng lên lớp
+#/letters    Bảng thư lớp, gồm tin nhắn có tên và tin nhắn ẩn danh
+#/diary      Nhật ký bí mật riêng của từng học sinh
+#/photobook  Chụp photobook hoặc upload ảnh để đăng
 ```
 
 ## Firebase Setup
@@ -111,7 +111,7 @@ The manager page can:
 - View all class accounts from `students98`
 - Add a new account
 - Soft-delete/lock an account from the app
-- View Nhat ky bi mat entries with the real writer name
+- View Nhật ký bí mật entries with the real writer name
 
 Because this is a no-server static site, the manager code is client-side. Change it in both `public/manager.html` and `firestore.rules` before sharing widely.
 

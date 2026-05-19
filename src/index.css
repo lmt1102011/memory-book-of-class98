@@ -79,12 +79,12 @@
     position: fixed;
     inset: 0;
     z-index: 60;
-    opacity: 0.18;
-    mix-blend-mode: multiply;
+    opacity: 0.12;
     background-image:
       linear-gradient(90deg, rgba(255, 255, 255, 0.17) 1px, transparent 1px),
       linear-gradient(0deg, rgba(53, 41, 31, 0.08) 1px, transparent 1px);
     background-size: 3px 3px, 5px 5px;
+    contain: strict;
   }
 
   .primary-button,
@@ -199,6 +199,7 @@
     box-shadow: 0 24px 48px rgba(53, 41, 31, 0.18);
     backdrop-filter: blur(10px);
     contain: paint;
+    transform: translateZ(0);
   }
 
   .polaroid {
@@ -212,6 +213,7 @@
       box-shadow 220ms ease;
     contain: paint;
     backface-visibility: hidden;
+    transform: translateZ(0);
   }
 
   .polaroid:hover {
@@ -222,7 +224,7 @@
     position: relative;
     margin-bottom: 0.85rem;
     width: 100%;
-    transform: rotate(var(--note-rotate));
+    transform: translateZ(0) rotate(var(--note-rotate));
     backface-visibility: hidden;
     contain: paint;
   }
@@ -664,8 +666,22 @@
 
   @media (max-width: 768px) {
     .film-grain {
-      opacity: 0.08;
-      background-size: 4px 4px, 7px 7px;
+      display: none;
+    }
+
+    .backdrop-blur-xl,
+    .backdrop-blur-md,
+    .backdrop-blur-sm {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+    }
+
+    .shadow-paper {
+      box-shadow: 0 10px 24px rgba(84, 57, 35, 0.12) !important;
+    }
+
+    .shadow-glass {
+      box-shadow: 0 10px 26px rgba(72, 48, 31, 0.1) !important;
     }
 
     .floating-polaroid,

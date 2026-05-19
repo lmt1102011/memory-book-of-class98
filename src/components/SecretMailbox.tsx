@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, memo, useState } from 'react';
 import { Lock, Send, Trash2 } from 'lucide-react';
 import type { SecretDiaryEntry, UserProfile } from '../types';
 import { formatMemoryDate } from '../utils/date';
@@ -10,7 +10,7 @@ interface SecretMailboxProps {
   onDeleteDiary: (diary: SecretDiaryEntry) => void | Promise<void>;
 }
 
-export default function SecretMailbox({ diaries, profile, onAddDiary, onDeleteDiary }: SecretMailboxProps) {
+function SecretMailbox({ diaries, profile, onAddDiary, onDeleteDiary }: SecretMailboxProps) {
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
@@ -26,7 +26,7 @@ export default function SecretMailbox({ diaries, profile, onAddDiary, onDeleteDi
       await onAddDiary(trimmed);
       setMessage('');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Khong the luu nhat ky luc nay.');
+      setError(caught instanceof Error ? caught.message : 'Không thể lưu nhật ký lúc này.');
     } finally {
       setIsSending(false);
     }
@@ -36,11 +36,11 @@ export default function SecretMailbox({ diaries, profile, onAddDiary, onDeleteDi
     <section className="mx-auto max-w-7xl px-4 pb-14 pt-6 sm:px-6 lg:px-8">
       <div className="grid gap-6 lg:grid-cols-[0.82fr_1.18fr]">
         <div>
-          <p className="section-kicker">Nhat ky bi mat</p>
-          <h2 className="font-display text-5xl leading-none sm:text-6xl">Nhung dieu chua kip noi</h2>
+          <p className="section-kicker">Nhật ký bí mật</p>
+          <h2 className="font-display text-5xl leading-none sm:text-6xl">Những điều chưa kịp nói</h2>
           <p className="mt-4 max-w-xl text-sm leading-7 text-ink/68">
-            Mot goc rieng de gui lai nhung tiec nuoi, nhung cau xin loi, nhung loi cam on chua kip bay to o lua tuoi
-            hoc tro. Tren website chinh, chi ban nhin thay nhat ky cua minh.
+            Một góc riêng để gửi lại những tiếc nuối, những câu xin lỗi, những lời cảm ơn chưa kịp bày tỏ ở lứa tuổi
+            học trò. Trên website chính, chỉ bạn nhìn thấy nhật ký của mình.
           </p>
         </div>
 
@@ -49,13 +49,13 @@ export default function SecretMailbox({ diaries, profile, onAddDiary, onDeleteDi
             <textarea
               value={message}
               onChange={(event) => setMessage(event.target.value)}
-              placeholder={profile ? 'Viet vao nhat ky bi mat cua ban...' : 'Dang nhap de viet nhat ky bi mat...'}
+              placeholder={profile ? 'Viết vào nhật ký bí mật của bạn...' : 'Đăng nhập để viết nhật ký bí mật...'}
               className="input-field min-h-36 resize-none"
               maxLength={1200}
             />
             <button className="primary-button justify-center" disabled={isSending}>
               <Send size={18} />
-              {isSending ? 'Dang luu...' : 'Luu nhat ky'}
+              {isSending ? 'Đang lưu...' : 'Lưu nhật ký'}
             </button>
           </form>
           {error && <p className="mt-3 rounded-2xl bg-blush/30 px-4 py-3 text-sm font-semibold text-coffee">{error}</p>}
@@ -67,7 +67,7 @@ export default function SecretMailbox({ diaries, profile, onAddDiary, onDeleteDi
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="flex items-center gap-2 font-hand text-2xl font-bold text-coffee">
                       <Lock size={17} />
-                      Trang nhat ky #{diaries.length - index}
+                      Trang nhật ký #{diaries.length - index}
                     </h3>
                     <div className="flex items-center gap-2">
                       <time className="text-[11px] font-semibold uppercase text-ink/45">
@@ -77,10 +77,10 @@ export default function SecretMailbox({ diaries, profile, onAddDiary, onDeleteDi
                         <button
                           className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-coffee/10 text-coffee transition hover:bg-coffee/18"
                           onClick={() => {
-                            if (window.confirm('Xoa trang nhat ky bi mat nay?')) void onDeleteDiary(diary);
+                            if (window.confirm('Xóa trang nhật ký bí mật này?')) void onDeleteDiary(diary);
                           }}
-                          aria-label="Xoa nhat ky"
-                          title="Xoa nhat ky"
+                          aria-label="Xóa nhật ký"
+                          title="Xóa nhật ký"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -94,8 +94,8 @@ export default function SecretMailbox({ diaries, profile, onAddDiary, onDeleteDi
           ) : (
             <div className="mt-5 rounded-2xl bg-paper/70 p-4 text-sm leading-6 text-ink/62">
               {profile
-                ? 'Nhat ky cua ban dang trong. Khi co dieu gi chua kip noi, hay de lai o day.'
-                : 'Dang nhap bang ten lop 9/8 de mo goc nhat ky rieng cua ban.'}
+                ? 'Nhật ký của bạn đang trống. Khi có điều gì chưa kịp nói, hãy để lại ở đây.'
+                : 'Đăng nhập bằng tên lớp 9/8 để mở góc nhật ký riêng của bạn.'}
             </div>
           )}
         </div>
@@ -103,3 +103,5 @@ export default function SecretMailbox({ diaries, profile, onAddDiary, onDeleteDi
     </section>
   );
 }
+
+export default memo(SecretMailbox);

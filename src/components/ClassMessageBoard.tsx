@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState, type CSSProperties } from 'react';
+import { FormEvent, memo, useMemo, useState, type CSSProperties } from 'react';
 import { MessageCircle, Send, Trash2 } from 'lucide-react';
 import type { GuestbookEntry, UserProfile } from '../types';
 import { formatMemoryDate } from '../utils/date';
@@ -51,7 +51,7 @@ const boardPositions = [
   { left: 48, top: 80, rotate: 2, width: 18 },
 ];
 
-export default function ClassMessageBoard({
+function ClassMessageBoard({
   guestbook,
   profile,
   onJoin,
@@ -70,7 +70,7 @@ export default function ClassMessageBoard({
       .map((entry) => ({
         id: `${entry.anonymous ? 'anonymous' : 'class'}-${entry.id}`,
         type: entry.anonymous ? 'anonymous' : 'class',
-        name: entry.anonymous ? 'An danh' : entry.name,
+        name: entry.anonymous ? 'Ẩn danh' : entry.name,
         message: entry.message,
         createdAt: entry.createdAt,
         entry,
@@ -94,7 +94,7 @@ export default function ClassMessageBoard({
       await onAddGuestbook(trimmed);
       setClassMessage('');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Khong the gui tin nhan cho lop luc nay.');
+      setError(caught instanceof Error ? caught.message : 'Không thể gửi tin nhắn cho lớp lúc này.');
     } finally {
       setIsSendingClass(false);
     }
@@ -115,7 +115,7 @@ export default function ClassMessageBoard({
       await onAddAnonymousMessage(trimmed);
       setAnonymousMessage('');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Khong the gui tin nhan an danh luc nay.');
+      setError(caught instanceof Error ? caught.message : 'Không thể gửi tin nhắn ẩn danh lúc này.');
     } finally {
       setIsSendingAnonymous(false);
     }
@@ -125,43 +125,43 @@ export default function ClassMessageBoard({
     <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="grid gap-5 lg:grid-cols-[0.78fr_1.22fr]">
         <aside className="rounded-[1.5rem] border border-white/60 bg-white/50 p-4 shadow-paper backdrop-blur-xl sm:p-5">
-          <p className="section-kicker">Bang thu lop</p>
-          <h2 className="font-display text-5xl leading-none">Nhung manh thu tren bang 9/8</h2>
+          <p className="section-kicker">Bảng thư lớp</p>
+          <h2 className="font-display text-5xl leading-none">Những mảnh thư trên bảng 9/8</h2>
           <p className="mt-3 text-sm leading-7 text-ink/66">
-            Gui mot loi nhan co ten cho ca lop, hoac de lai mot dieu an danh nhu mot manh giay nho dan tren bang hoc.
+            Gửi một lời nhắn có tên cho cả lớp, hoặc để lại một điều ẩn danh như một mảnh giấy nhỏ dán trên bảng học.
           </p>
 
           <form className="mt-5 grid gap-3" onSubmit={submitClassMessage}>
             <label className="grid gap-2">
-              <span className="text-xs font-black uppercase text-coffee/70">Tin nhan cho lop</span>
+              <span className="text-xs font-black uppercase text-coffee/70">Tin nhắn cho lớp</span>
               <textarea
                 className="input-field min-h-24 resize-none"
                 value={classMessage}
                 onChange={(event) => setClassMessage(event.target.value)}
-                placeholder={profile ? 'Viet loi nhan co ten cua ban...' : 'Dang nhap de gui tin nhan cho lop...'}
+                placeholder={profile ? 'Viết lời nhắn có tên của bạn...' : 'Đăng nhập để gửi tin nhắn cho lớp...'}
                 maxLength={160}
               />
             </label>
             <button className="primary-button justify-center" disabled={isSendingClass}>
               <Send size={17} />
-              {isSendingClass ? 'Dang gui...' : 'Gui co ten'}
+              {isSendingClass ? 'Đang gửi...' : 'Gửi có tên'}
             </button>
           </form>
 
           <form className="mt-4 grid gap-3 rounded-[1rem] bg-ink/5 p-3" onSubmit={submitAnonymousMessage}>
             <label className="grid gap-2">
-              <span className="text-xs font-black uppercase text-coffee/70">Tin nhan an danh</span>
+              <span className="text-xs font-black uppercase text-coffee/70">Tin nhắn ẩn danh</span>
               <textarea
                 className="input-field min-h-24 resize-none"
                 value={anonymousMessage}
                 onChange={(event) => setAnonymousMessage(event.target.value)}
-                placeholder={profile ? 'Viet dieu ban muon gui an danh...' : 'Dang nhap de gui an danh...'}
+                placeholder={profile ? 'Viết điều bạn muốn gửi ẩn danh...' : 'Đăng nhập để gửi ẩn danh...'}
                 maxLength={160}
               />
             </label>
             <button className="secondary-button justify-center" disabled={isSendingAnonymous}>
               <MessageCircle size={17} />
-              {isSendingAnonymous ? 'Dang gui...' : 'Gui an danh'}
+              {isSendingAnonymous ? 'Đang gửi...' : 'Gửi ẩn danh'}
             </button>
           </form>
 
@@ -177,7 +177,7 @@ export default function ClassMessageBoard({
               <h3 className="font-display text-5xl leading-none">Letters Wall</h3>
             </div>
             <span className="rounded-full bg-paper/12 px-4 py-2 text-xs font-bold text-paper/80">
-              {notes.length} manh thu
+              {notes.length} mảnh thư
             </span>
           </div>
 
@@ -202,7 +202,7 @@ export default function ClassMessageBoard({
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="font-hand text-2xl font-bold text-coffee">
-                          {note.type === 'anonymous' ? 'An danh' : note.name}
+                          {note.type === 'anonymous' ? 'Ẩn danh' : note.name}
                         </p>
                         <time className="text-[10px] font-bold uppercase text-ink/42">
                           {formatMemoryDate(note.createdAt)}
@@ -212,9 +212,9 @@ export default function ClassMessageBoard({
                         <button
                           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-coffee/10 text-coffee"
                           onClick={() => {
-                            if (window.confirm('Xoa manh thu nay?')) void onDeleteGuestbook(note.entry);
+                            if (window.confirm('Xóa mảnh thư này?')) void onDeleteGuestbook(note.entry);
                           }}
-                          aria-label="Xoa tin nhan"
+                          aria-label="Xóa tin nhắn"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -228,8 +228,8 @@ export default function ClassMessageBoard({
           ) : (
             <div className="relative grid min-h-[34rem] place-items-center text-center text-paper/72">
               <div>
-                <p className="font-hand text-4xl font-bold">Bang lop con trong.</p>
-                <p className="mt-2 text-sm">Hay gui manh thu dau tien cho lop 9/8.</p>
+                <p className="font-hand text-4xl font-bold">Bảng lớp còn trống.</p>
+                <p className="mt-2 text-sm">Hãy gửi mảnh thư đầu tiên cho lớp 9/8.</p>
               </div>
             </div>
           )}
@@ -238,3 +238,5 @@ export default function ClassMessageBoard({
     </section>
   );
 }
+
+export default memo(ClassMessageBoard);

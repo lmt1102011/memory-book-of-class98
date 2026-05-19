@@ -1,13 +1,13 @@
 import { Heart, MessageCircle, Trash2 } from 'lucide-react';
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 import type { MemoryItem } from '../types';
 import { formatUploadTime } from '../utils/date';
 
 interface MemoryCardProps {
   memory: MemoryItem;
-  onReact: () => void;
+  onReact: (memory: MemoryItem) => void | Promise<void>;
   canDelete?: boolean;
-  onDelete?: () => void;
+  onDelete?: (memory: MemoryItem) => void | Promise<void>;
 }
 
 const toneClass = {
@@ -18,15 +18,19 @@ const toneClass = {
 };
 
 function MemoryCard({ memory, onReact, canDelete = false, onDelete }: MemoryCardProps) {
-  const handleDelete = () => {
-    if (!window.confirm('Xoa anh photobook nay khoi feed lop?')) return;
-    onDelete?.();
-  };
+  const handleReact = useCallback(() => {
+    void onReact(memory);
+  }, [memory, onReact]);
+
+  const handleDelete = useCallback(() => {
+    if (!window.confirm('Xóa ảnh photobook này khỏi feed lớp?')) return;
+    void onDelete?.(memory);
+  }, [memory, onDelete]);
 
   return (
     <article
       className="polaroid group mb-5 break-inside-avoid"
-      style={{ transform: `rotate(${memory.rotation}deg)` }}
+      style={{ transform: `translateZ(0) rotate(${memory.rotation}deg)` }}
     >
       <div className={`rounded-[0.35rem] bg-gradient-to-br p-2 ${toneClass[memory.tone]}`}>
         <div className="scrapbook-tape left-7 top-1 -rotate-6" />
@@ -64,7 +68,7 @@ function MemoryCard({ memory, onReact, canDelete = false, onDelete }: MemoryCard
         <div className="mt-4 flex items-center justify-between border-t border-coffee/10 pt-3">
           <button
             className="inline-flex items-center gap-1.5 rounded-full bg-blush/25 px-3 py-2 text-xs font-bold text-coffee transition hover:bg-blush/40"
-            onClick={onReact}
+            onClick={handleReact}
           >
             <Heart size={15} fill="currentColor" />
             {memory.reactions}
@@ -74,8 +78,8 @@ function MemoryCard({ memory, onReact, canDelete = false, onDelete }: MemoryCard
               <button
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-coffee/10 text-coffee transition hover:bg-coffee/18"
                 onClick={handleDelete}
-                aria-label="Xoa anh da dang"
-                title="Xoa anh da dang"
+                aria-label="Xóa ảnh đã đăng"
+                title="Xóa ảnh đã đăng"
               >
                 <Trash2 size={14} />
               </button>

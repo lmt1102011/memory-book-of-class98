@@ -3,6 +3,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import { BookOpen, Camera, Home, Lock, Menu, MessageCircle, Sparkles, X } from 'lucide-react';
 import LoadingScreen from './components/LoadingScreen';
 import LandingPage from './pages/LandingPage';
+import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion';
 import type {
   AppRoute,
   GuestbookEntry,
@@ -25,10 +26,10 @@ const routeFromHash = (): AppRoute => {
 
 const navItems: Array<{ route: AppRoute; label: string; icon: typeof Home }> = [
   { route: 'landing', label: 'Intro', icon: Sparkles },
-  { route: 'home', label: 'Ky uc', icon: Home },
-  { route: 'letters', label: 'Thu lop', icon: MessageCircle },
-  { route: 'diary', label: 'Nhat ky', icon: Lock },
-  { route: 'photobook', label: 'Dang anh', icon: Camera },
+  { route: 'home', label: 'Ký ức', icon: Home },
+  { route: 'letters', label: 'Thư lớp', icon: MessageCircle },
+  { route: 'diary', label: 'Nhật ký', icon: Lock },
+  { route: 'photobook', label: 'Đăng ảnh', icon: Camera },
 ];
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
   const [secretDiaries, setSecretDiaries] = useState<SecretDiaryEntry[]>([]);
   const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
     const onPopState = () => setRoute(routeFromHash());
@@ -161,7 +163,7 @@ export default function App() {
         const service = await import('./services/firebaseMemoryBook');
         await service.reactToFirebaseMemory(memory);
       } catch (caught) {
-        setFirebaseNotice(caught instanceof Error ? caught.message : 'Khong the tha tim luc nay.');
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể thả tim lúc này.');
       }
     },
     [navigate, profile],
@@ -179,7 +181,7 @@ export default function App() {
         setRemoteMemories((items) => items.filter((item) => item.id !== memory.id));
         setFirebaseNotice('');
       } catch (caught) {
-        setFirebaseNotice(caught instanceof Error ? caught.message : 'Khong the xoa anh luc nay.');
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể xóa ảnh lúc này.');
       }
     },
     [navigate, profile],
@@ -223,7 +225,7 @@ export default function App() {
         setRemoteGuestbook((items) => items.filter((item) => item.id !== entry.id));
         setFirebaseNotice('');
       } catch (caught) {
-        setFirebaseNotice(caught instanceof Error ? caught.message : 'Khong the xoa tin nhan luc nay.');
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể xóa tin nhắn lúc này.');
       }
     },
     [navigate, profile],
@@ -254,7 +256,7 @@ export default function App() {
         setSecretDiaries((items) => items.filter((item) => item.id !== diary.id));
         setFirebaseNotice('');
       } catch (caught) {
-        setFirebaseNotice(caught instanceof Error ? caught.message : 'Khong the xoa nhat ky luc nay.');
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể xóa nhật ký lúc này.');
       }
     },
     [navigate, profile],
@@ -367,7 +369,7 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <button className="primary-button hidden sm:inline-flex" onClick={() => navigate('photobook')}>
                   <Camera size={17} />
-                  Dang anh
+                  Đăng ảnh
                 </button>
                 <button
                   className="icon-button lg:hidden"
@@ -410,10 +412,10 @@ export default function App() {
           <AnimatePresence mode="wait">
             <m.div
               key={route}
-              initial={{ opacity: 0, y: 12 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.28, ease: 'easeOut' }}
+              exit={prefersReducedMotion ? undefined : { opacity: 0, y: -10 }}
+              transition={{ duration: prefersReducedMotion ? 0 : 0.22, ease: 'easeOut' }}
             >
               {renderRoute()}
             </m.div>

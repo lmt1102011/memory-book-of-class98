@@ -34,9 +34,9 @@ export const BACKGROUND_OPTIONS: BackgroundOption[] = [
 export const PHOTO_COUNT_OPTIONS: PhotoCount[] = [1, 2, 4, 6];
 
 export const LAYOUT_OPTIONS: Array<{ id: LayoutType; label: string; description: string }> = [
-  { id: 'vertical', label: 'Vertical Strip', description: 'Anh xep doc nhu strip photobooth' },
-  { id: 'square', label: 'Square Collage', description: 'Anh nam trong khung luoi album' },
-  { id: 'horizontal', label: 'Horizontal Strip', description: 'Anh xep ngang thanh mot dai rong' },
+  { id: 'vertical', label: 'Vertical Strip', description: 'Ảnh xếp dọc như strip photobooth' },
+  { id: 'square', label: 'Square Collage', description: 'Ảnh nằm trong khung lưới album' },
+  { id: 'horizontal', label: 'Horizontal Strip', description: 'Ảnh xếp ngang thành một dải rộng' },
 ];
 
 export const QUALITY_OPTIONS: Array<{ id: ExportQuality; label: string; description: string }> = [

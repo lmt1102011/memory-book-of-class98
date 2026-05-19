@@ -200,11 +200,11 @@
       <section id="gate" class="card">
         <h1>Manager</h1>
         <p class="status">
-          Nhap ma quan ly. File nay chay tinh tren GitHub Pages, khong can may chu rieng.
+          Nhập mã quản lý. File này chạy tĩnh trên GitHub Pages, không cần máy chủ riêng.
         </p>
         <form id="gateForm" class="form" style="margin-top: 14px">
           <input id="managerCode" type="password" placeholder="Manager code" autocomplete="current-password" />
-          <button>Mo manager</button>
+          <button>Mở manager</button>
         </form>
       </section>
 
@@ -212,29 +212,29 @@
         <div class="topbar">
           <div>
             <h1>Class 9/8 Manager</h1>
-            <p class="muted">Xem tai khoan, them/khoa tai khoan, xem Nhat ky bi mat kem ten nguoi viet.</p>
+            <p class="muted">Xem tài khoản, thêm/khóa tài khoản, xem Nhật ký bí mật kèm tên người viết.</p>
           </div>
           <button id="lockButton" class="secondary">Khoa manager</button>
         </div>
 
         <div class="grid">
           <section class="card">
-            <h2>Them tai khoan</h2>
+            <h2>Thêm tài khoản</h2>
             <form id="addAccountForm" class="form">
-              <input id="studentName" placeholder="Ho ten hoc sinh" autocomplete="name" />
-              <input id="studentPassword" type="password" placeholder="Mat khau toi thieu 6 ky tu" autocomplete="new-password" />
-              <button>Them tai khoan</button>
+              <input id="studentName" placeholder="Họ tên học sinh" autocomplete="name" />
+              <input id="studentPassword" type="password" placeholder="Mật khẩu tối thiểu 6 ký tự" autocomplete="new-password" />
+              <button>Thêm tài khoản</button>
             </form>
             <p id="accountStatus" class="status"></p>
           </section>
 
           <section class="card">
-            <h2>Tat ca tai khoan</h2>
+            <h2>Tất cả tài khoản</h2>
             <div id="accounts" class="list"></div>
           </section>
 
           <section class="card" style="grid-column: 1 / -1">
-            <h2>Nhat ky bi mat - hien ten nguoi viet</h2>
+            <h2>Nhật ký bí mật - hiện tên người viết</h2>
             <div id="diaries" class="list"></div>
           </section>
         </div>
@@ -345,7 +345,7 @@
                 <article class="item">
                   <div class="row">
                     <strong>${escapeHtml(account.name || account.id)}</strong>
-                    <span class="pill">${account.disabled ? 'Da khoa' : 'Dang mo'}</span>
+                    <span class="pill">${account.disabled ? 'Đã khóa' : 'Đang mở'}</span>
                   </div>
                   <p class="muted">Class ${escapeHtml(account.className || CLASS_NAME)} | key: ${escapeHtml(account.id)}</p>
                   <p class="muted">UID: ${escapeHtml(account.uid || 'manual')}</p>
@@ -353,14 +353,14 @@
                   <div class="row" style="margin-top: 10px">
                     ${
                       account.disabled
-                        ? `<button class="secondary" data-action="restore" data-id="${account.id}">Mo lai</button>`
-                        : `<button class="danger" data-action="disable" data-id="${account.id}">Xoa / khoa</button>`
+                        ? `<button class="secondary" data-action="restore" data-id="${account.id}">Mở lại</button>`
+                        : `<button class="danger" data-action="disable" data-id="${account.id}">Xóa / khóa</button>`
                     }
                   </div>
                 </article>
               `,
             )
-            .join('') || '<p class="muted">Chua co tai khoan nao.</p>';
+            .join('') || '<p class="muted">Chưa có tài khoản nào.</p>';
       };
 
       const renderDiaries = () => {
@@ -370,7 +370,7 @@
               (diary) => `
                 <article class="item">
                   <div class="row">
-                    <strong>${escapeHtml(diary.name || 'Khong ro ten')}</strong>
+                    <strong>${escapeHtml(diary.name || 'Không rõ tên')}</strong>
                     <span class="pill">${formatDate(diary.createdAt)}</span>
                   </div>
                   <p class="muted">UID: ${escapeHtml(diary.uid || '')} | key: ${escapeHtml(diary.nameKey || '')}</p>
@@ -378,7 +378,7 @@
                 </article>
               `,
             )
-            .join('') || '<p class="muted">Chua co trang nhat ky bi mat nao.</p>';
+            .join('') || '<p class="muted">Chưa có trang nhật ký bí mật nào.</p>';
       };
 
       $('accounts').addEventListener('click', async (event) => {
@@ -401,12 +401,12 @@
         const password = $('studentPassword').value;
         const nameKey = makeNameKey(name);
         if (!nameKey || password.length < 6) {
-          status.textContent = 'Hay nhap ten hop le va mat khau toi thieu 6 ky tu.';
+          status.textContent = 'Hãy nhập tên hợp lệ và mật khẩu tối thiểu 6 ký tự.';
           return;
         }
 
         try {
-          status.textContent = 'Dang tao tai khoan...';
+          status.textContent = 'Đang tạo tài khoản...';
           const credential = await createUserWithEmailAndPassword(creatorAuth, makeStudentEmail(nameKey), password);
           await updateProfile(credential.user, { displayName: name });
           await setDoc(doc(creatorDb, 'students98', nameKey), {
@@ -423,9 +423,9 @@
           $('studentName').value = '';
           $('studentPassword').value = '';
           await refreshManagerData();
-          status.textContent = `Da them tai khoan ${name}.`;
+          status.textContent = `Đã thêm tài khoản ${name}.`;
         } catch (error) {
-          status.textContent = error.message || 'Khong the them tai khoan.';
+          status.textContent = error.message || 'Không thể thêm tài khoản.';
         }
       });
 
@@ -444,7 +444,7 @@
           renderAccounts();
           renderDiaries();
         } catch (error) {
-          status.textContent = error.message || 'Khong the tai du lieu manager.';
+          status.textContent = error.message || 'Không thể tải dữ liệu manager.';
         } finally {
           isLoadingManagerData = false;
         }

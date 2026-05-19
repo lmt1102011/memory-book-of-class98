@@ -68,8 +68,8 @@ export default function HomePage({
               A scrapbook for the days we almost missed
             </h1>
             <p className="mt-5 max-w-2xl text-sm leading-7 text-ink/66 sm:text-base">
-              Tim ban trong lop 9/8, tha tim cho ky uc yeu thich va xem nhung strip photobooth da duoc dang len
-              Firebase. Cac loi nhan va nhat ky da duoc tach rieng de de dung hon.
+              Tìm bạn trong lớp 9/8, thả tim cho ký ức yêu thích và xem những strip photobooth đã được đăng lên
+              Firebase. Các lời nhắn và nhật ký đã được tách riêng để dễ dùng hơn.
             </p>
           </div>
 
@@ -80,11 +80,11 @@ export default function HomePage({
               </span>
               <button className="primary-button" onClick={onPhotobook}>
                 <Camera size={17} />
-                Dang anh
+                Đăng ảnh
               </button>
             </div>
             <p className="text-xs leading-5 text-ink/58">
-              Bam Dang anh de chup photobook hoac upload anh co san roi dang len feed cua lop.
+              Bấm Đăng ảnh để chụp photobook hoặc upload ảnh có sẵn rồi đăng lên feed của lớp.
             </p>
             {!profile && (
               <button className="secondary-button justify-center" onClick={onJoin}>
@@ -146,22 +146,22 @@ export default function HomePage({
               <MemoryCard
                 key={memory.id}
                 memory={memory}
-                onReact={() => void onReact(memory)}
+                onReact={onReact}
                 canDelete={profile?.uid === memory.uid}
-                onDelete={() => void onDeleteMemory(memory)}
+                onDelete={onDeleteMemory}
               />
             ))}
           </div>
         ) : (
           <div className="grid min-h-80 place-items-center rounded-[1.5rem] bg-white/45 p-8 text-center shadow-paper">
             <div>
-              <h2 className="font-display text-5xl">Chua co anh nao</h2>
+              <h2 className="font-display text-5xl">Chưa có ảnh nào</h2>
               <p className="mt-2 text-sm text-ink/60">
-                Khi ai do dang photobook len database, anh se hien o day.
+                Khi ai đó đăng photobook lên database, ảnh sẽ hiện ở đây.
               </p>
               <button className="primary-button mx-auto mt-5" onClick={onPhotobook}>
                 <Camera size={17} />
-                Dang anh dau tien
+                Đăng ảnh đầu tiên
               </button>
             </div>
           </div>
