@@ -1,6 +1,6 @@
 import { LazyMotion, domAnimation, m, AnimatePresence } from 'framer-motion';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { BookOpen, Camera, Home, Menu, Sparkles, X } from 'lucide-react';
+import { BookOpen, Camera, Home, Lock, Menu, MessageCircle, Sparkles, X } from 'lucide-react';
 import LoadingScreen from './components/LoadingScreen';
 import LandingPage from './pages/LandingPage';
 import type {
@@ -14,16 +14,20 @@ import type {
 
 const JoinPage = lazy(() => import('./pages/JoinPage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
+const LettersPage = lazy(() => import('./pages/LettersPage'));
+const DiaryPage = lazy(() => import('./pages/DiaryPage'));
 const PhotobookPage = lazy(() => import('./pages/PhotobookPage'));
 
 const routeFromHash = (): AppRoute => {
   const route = window.location.hash.replace('#/', '') as AppRoute;
-  return ['landing', 'join', 'home', 'photobook'].includes(route) ? route : 'landing';
+  return ['landing', 'join', 'home', 'letters', 'diary', 'photobook'].includes(route) ? route : 'landing';
 };
 
 const navItems: Array<{ route: AppRoute; label: string; icon: typeof Home }> = [
   { route: 'landing', label: 'Intro', icon: Sparkles },
-  { route: 'home', label: 'Memories', icon: Home },
+  { route: 'home', label: 'Ky uc', icon: Home },
+  { route: 'letters', label: 'Thu lop', icon: MessageCircle },
+  { route: 'diary', label: 'Nhat ky', icon: Lock },
   { route: 'photobook', label: 'Dang anh', icon: Camera },
 ];
 
@@ -61,7 +65,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (route === 'landing') return undefined;
+    if (route === 'landing' || route === 'join') return undefined;
 
     let unsubscribeMemories: (() => void) | undefined;
     let unsubscribeGuestbook: (() => void) | undefined;
@@ -70,21 +74,28 @@ export default function App() {
 
     void import('./services/firebaseMemoryBook').then((service) => {
       if (!isActive) return;
-      unsubscribeMemories = service.subscribeMemories(
-        (items) => {
-          setRemoteMemories(items);
-          setFirebaseNotice('');
-        },
-        (error) => setFirebaseNotice(error.message),
-      );
-      unsubscribeGuestbook = service.subscribeGuestbook(
-        (items) => {
-          setRemoteGuestbook(items);
-          setFirebaseNotice('');
-        },
-        (error) => setFirebaseNotice(error.message),
-      );
-      if (profile) {
+
+      if (route === 'home') {
+        unsubscribeMemories = service.subscribeMemories(
+          (items) => {
+            setRemoteMemories(items);
+            setFirebaseNotice('');
+          },
+          (error) => setFirebaseNotice(error.message),
+        );
+      }
+
+      if (route === 'letters') {
+        unsubscribeGuestbook = service.subscribeGuestbook(
+          (items) => {
+            setRemoteGuestbook(items);
+            setFirebaseNotice('');
+          },
+          (error) => setFirebaseNotice(error.message),
+        );
+      }
+
+      if (route === 'diary' && profile) {
         unsubscribeLetters = service.subscribeSecretDiaries(
           profile,
           (items) => {
@@ -93,7 +104,9 @@ export default function App() {
           },
           (error) => setFirebaseNotice(error.message),
         );
-      } else {
+      }
+
+      if (route === 'diary' && !profile) {
         setSecretDiaries([]);
       }
     });
@@ -108,6 +121,7 @@ export default function App() {
 
   const navigate = useCallback((nextRoute: AppRoute) => {
     setRoute(nextRoute);
+    setFirebaseNotice('');
     setMenuOpen(false);
     window.history.pushState(null, '', `#/${nextRoute}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -267,23 +281,47 @@ export default function App() {
       );
     }
 
+    if (route === 'letters') {
+      return (
+        <Suspense fallback={<LoadingScreen label="Opening the class board" />}>
+          <LettersPage
+            guestbook={allGuestbook}
+            firebaseNotice={firebaseNotice}
+            profile={profile}
+            onJoin={() => navigate('join')}
+            onAddGuestbook={handleGuestbookAdd}
+            onDeleteGuestbook={handleGuestbookDelete}
+            onAddAnonymousMessage={handleAnonymousMessageAdd}
+          />
+        </Suspense>
+      );
+    }
+
+    if (route === 'diary') {
+      return (
+        <Suspense fallback={<LoadingScreen label="Opening the private diary" />}>
+          <DiaryPage
+            diaries={secretDiaries}
+            firebaseNotice={firebaseNotice}
+            profile={profile}
+            onJoin={() => navigate('join')}
+            onAddDiary={handleSecretDiaryAdd}
+            onDeleteDiary={handleSecretDiaryDelete}
+          />
+        </Suspense>
+      );
+    }
+
     return (
       <Suspense fallback={<LoadingScreen label="Arranging the scrapbook" />}>
         <HomePage
           memories={allMemories}
-          guestbook={allGuestbook}
-          secretDiaries={secretDiaries}
           firebaseNotice={firebaseNotice}
           profile={profile}
           onJoin={() => navigate('join')}
           onPhotobook={() => navigate('photobook')}
           onReact={handleReact}
           onDeleteMemory={handleMemoryDelete}
-          onAddGuestbook={handleGuestbookAdd}
-          onDeleteGuestbook={handleGuestbookDelete}
-          onAddAnonymousMessage={handleAnonymousMessageAdd}
-          onAddSecretDiary={handleSecretDiaryAdd}
-          onDeleteSecretDiary={handleSecretDiaryDelete}
         />
       </Suspense>
     );
@@ -313,7 +351,7 @@ export default function App() {
                 </span>
               </button>
 
-              <div className="hidden items-center gap-2 md:flex">
+              <div className="hidden items-center gap-2 lg:flex">
                 {navItems.map(({ route: itemRoute, label, icon: Icon }) => (
                   <button
                     key={itemRoute}
@@ -332,7 +370,7 @@ export default function App() {
                   Dang anh
                 </button>
                 <button
-                  className="icon-button md:hidden"
+                  className="icon-button lg:hidden"
                   onClick={() => setMenuOpen((open) => !open)}
                   aria-label="Open menu"
                 >
@@ -348,7 +386,7 @@ export default function App() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.16 }}
-                  className="border-t border-white/50 bg-cream/95 px-4 py-3 shadow-paper md:hidden"
+                  className="border-t border-white/50 bg-cream/95 px-4 py-3 shadow-paper lg:hidden"
                 >
                   <div className="grid gap-2">
                     {navItems.map(({ route: itemRoute, label, icon: Icon }) => (

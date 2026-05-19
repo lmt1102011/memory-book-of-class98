@@ -7,7 +7,8 @@ A production-ready responsive React/Vite photobook app inspired by school memori
 - Cinematic landing page with ambient music toggle and lightweight motion
 - Class 9/8 check-in flow: new name creates a password, existing name requires the saved password
 - Firebase Auth for student passwords
-- Firestore memory feed, reactions, and guestbook shared by everyone
+- Separate feature routes for the memory feed, class letters board, private diary, and photobook camera
+- Firestore memory feed, reactions, named class messages, and anonymous class messages
 - Firestore-only public photobook images, compressed to fit without Firebase Storage
 - Nhat ky bi mat: students only see their own diary entries in the app, while `manager.html` can show the writer name
 - Responsive Pinterest/scrapbook memory feed with search, filters, reactions, and guestbook
@@ -41,6 +42,15 @@ Then open the local URL printed by Vite.
 ```bash
 npm run build
 npm run preview
+```
+
+## App Sections
+
+```text
+#/home       Anh ky uc da dang len lop
+#/letters    Bang thu lop, gom tin nhan co ten va tin nhan an danh
+#/diary      Nhat ky bi mat rieng cua tung hoc sinh
+#/photobook  Chup photobook hoac upload anh de dang
 ```
 
 ## Firebase Setup

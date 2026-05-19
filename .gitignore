@@ -4,6 +4,7 @@ dist
 .env.*
 .DS_Store
 npm-debug.log*
+firebase-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*

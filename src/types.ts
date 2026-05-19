@@ -1,4 +1,4 @@
-export type AppRoute = 'landing' | 'join' | 'home' | 'photobook';
+export type AppRoute = 'landing' | 'join' | 'home' | 'letters' | 'diary' | 'photobook';
 
 export type PhotoCount = 1 | 2 | 4 | 6;
 
