@@ -179,6 +179,33 @@
         color: var(--green);
       }
 
+      .memory-item {
+        display: grid;
+        grid-template-columns: 104px minmax(0, 1fr);
+        gap: 12px;
+      }
+
+      .memory-thumb {
+        width: 100%;
+        aspect-ratio: 4 / 5;
+        border-radius: 8px;
+        object-fit: cover;
+        background: rgba(53, 41, 31, 0.12);
+      }
+
+      .memory-body {
+        min-width: 0;
+      }
+
+      .memory-caption {
+        display: -webkit-box;
+        margin-top: 6px;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        line-height: 1.55;
+      }
+
       .hidden {
         display: none !important;
       }
@@ -191,6 +218,10 @@
         .topbar {
           align-items: flex-start;
           flex-direction: column;
+        }
+
+        .memory-item {
+          grid-template-columns: 78px minmax(0, 1fr);
         }
       }
     </style>
@@ -237,6 +268,13 @@
             <h2>Nhật ký bí mật - hiện tên người viết</h2>
             <div id="diaries" class="list"></div>
           </section>
+
+          <section class="card" style="grid-column: 1 / -1">
+            <h2>Ảnh đã đăng lên feed lớp</h2>
+            <p class="muted" style="margin-bottom: 12px">Manager có thể xóa ảnh photobook đã đăng. Ảnh bị xóa sẽ biến mất khỏi trang Home.</p>
+            <p id="memoryStatus" class="status"></p>
+            <div id="memories" class="list"></div>
+          </section>
         </div>
       </section>
     </main>
@@ -251,6 +289,7 @@
       } from 'https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js';
       import {
         collection,
+        deleteDoc,
         doc,
         getDocs,
         getFirestore,
@@ -285,8 +324,10 @@
       const gate = $('gate');
       const managerApp = $('app');
       const status = $('accountStatus');
+      const memoryStatus = $('memoryStatus');
       let accounts = [];
       let diaries = [];
+      let memories = [];
       let managerPoll = 0;
       let isLoadingManagerData = false;
 
@@ -381,6 +422,32 @@
             .join('') || '<p class="muted">Chưa có trang nhật ký bí mật nào.</p>';
       };
 
+      const renderMemories = () => {
+        $('memories').innerHTML =
+          memories
+            .map(
+              (memory) => `
+                <article class="item memory-item">
+                  <img class="memory-thumb" src="${escapeHtml(memory.imageUrl || '')}" alt="Ảnh photobook của ${escapeHtml(memory.name || 'học sinh')}" loading="lazy" decoding="async" />
+                  <div class="memory-body">
+                    <div class="row">
+                      <strong>${escapeHtml(memory.name || 'Không rõ tên')}</strong>
+                      <span class="pill">${formatDate(memory.createdAt)}</span>
+                      <span class="pill">${Number(memory.reactions || 0)} tim</span>
+                    </div>
+                    <p class="muted">Lớp ${escapeHtml(memory.className || CLASS_NAME)} | UID: ${escapeHtml(memory.uid || '')}</p>
+                    <p class="memory-caption">${escapeHtml(memory.caption || '')}</p>
+                    <p class="muted">${Array.isArray(memory.hashtags) ? memory.hashtags.map((tag) => `#${escapeHtml(tag)}`).join(' ') : ''}</p>
+                    <div class="row" style="margin-top: 10px">
+                      <button class="danger" data-memory-action="delete" data-id="${memory.id}">Xóa ảnh</button>
+                    </div>
+                  </div>
+                </article>
+              `,
+            )
+            .join('') || '<p class="muted">Chưa có ảnh nào được đăng lên feed lớp.</p>';
+      };
+
       $('accounts').addEventListener('click', async (event) => {
         const button = event.target.closest('button[data-action]');
         if (!button) return;
@@ -393,6 +460,33 @@
           managerUpdatedAt: serverTimestamp(),
         });
         await refreshManagerData();
+      });
+
+      $('memories').addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-memory-action="delete"]');
+        if (!button) return;
+
+        const id = button.dataset.id;
+        const memory = memories.find((item) => item.id === id);
+        if (!memory) return;
+        if (!window.confirm(`Xóa ảnh đã đăng của ${memory.name || 'học sinh này'} khỏi feed lớp?`)) return;
+
+        button.disabled = true;
+        button.textContent = 'Đang xóa...';
+        try {
+          await updateDoc(doc(db, 'memories98', id), {
+            managerKey: MANAGER_KEY,
+            managerDeletedAt: serverTimestamp(),
+          });
+          await deleteDoc(doc(db, 'memories98', id));
+          memories = memories.filter((item) => item.id !== id);
+          renderMemories();
+          memoryStatus.textContent = 'Đã xóa ảnh khỏi feed lớp.';
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = 'Xóa ảnh';
+          memoryStatus.textContent = error.message || 'Không thể xóa ảnh lúc này.';
+        }
       });
 
       $('addAccountForm').addEventListener('submit', async (event) => {
@@ -434,15 +528,18 @@
         isLoadingManagerData = true;
 
         try {
-          const [accountSnapshot, diarySnapshot] = await Promise.all([
+          const [accountSnapshot, diarySnapshot, memorySnapshot] = await Promise.all([
             getDocs(query(collection(db, 'students98'), orderBy('name'))),
             getDocs(query(collection(db, 'secretMailboxPrivate98'), orderBy('createdAt', 'desc'))),
+            getDocs(query(collection(db, 'memories98'), orderBy('createdAt', 'desc'))),
           ]);
 
           accounts = accountSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
           diaries = diarySnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+          memories = memorySnapshot.docs.map((item) => ({ id: item.id, ...item.data() })).filter((item) => item.imageUrl);
           renderAccounts();
           renderDiaries();
+          renderMemories();
         } catch (error) {
           status.textContent = error.message || 'Không thể tải dữ liệu manager.';
         } finally {

@@ -27,8 +27,20 @@ export interface MemoryItem {
   imageUrl: string;
   createdAt: string;
   reactions: number;
+  likedBy: string[];
   rotation: number;
   tone: 'pink' | 'blue' | 'cream' | 'chalk';
+}
+
+export interface MemoryComment {
+  id: string;
+  memoryId: string;
+  uid?: string;
+  name: string;
+  nameKey?: string;
+  message: string;
+  createdAt: string;
+  pending?: boolean;
 }
 
 export interface GuestbookEntry {

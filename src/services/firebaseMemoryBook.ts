@@ -8,6 +8,7 @@ import {
 } from 'firebase/auth';
 import {
   addDoc,
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -27,6 +28,7 @@ import {
 import { auth, db } from '../firebase';
 import type {
   GuestbookEntry,
+  MemoryComment,
   MemoryItem,
   PublishMemoryDraft,
   SecretDiaryEntry,
@@ -38,6 +40,7 @@ export const CLASS_NAME = '9/8';
 
 const STUDENTS_COLLECTION = 'students98';
 const MEMORIES_COLLECTION = 'memories98';
+const MEMORY_COMMENTS_COLLECTION = 'memoryComments98';
 const GUESTBOOK_COLLECTION = 'guestbook98';
 const SECRET_MAILBOX_PRIVATE_COLLECTION = 'secretMailboxPrivate98';
 const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
@@ -167,8 +170,19 @@ const memoryFromDoc = (id: string, data: DocumentData): MemoryItem => ({
   imageUrl: String(data.imageUrl || ''),
   createdAt: timestampToIso(data.createdAt),
   reactions: Number(data.reactions || 0),
+  likedBy: Array.isArray(data.likedBy) ? data.likedBy.map(String).slice(0, 500) : [],
   rotation: Number(data.rotation || 0),
   tone: data.tone || 'pink',
+});
+
+const memoryCommentFromDoc = (id: string, data: DocumentData): MemoryComment => ({
+  id,
+  memoryId: String(data.memoryId || ''),
+  uid: String(data.uid || ''),
+  name: String(data.name || 'Bạn cùng lớp'),
+  nameKey: String(data.nameKey || ''),
+  message: String(data.message || ''),
+  createdAt: timestampToIso(data.createdAt),
 });
 
 const guestbookFromDoc = (id: string, data: DocumentData): GuestbookEntry => {
@@ -331,6 +345,24 @@ export const subscribeMemories = (
   return () => window.clearInterval(interval);
 };
 
+export const subscribeMemoryComments = (
+  onNext: (comments: MemoryComment[]) => void,
+  onError: (error: Error) => void,
+) => {
+  const commentsQuery = query(collection(db, MEMORY_COMMENTS_COLLECTION), orderBy('createdAt', 'desc'), limit(240));
+  const load = async () => {
+    try {
+      const snapshot = await withFirebaseRetry(() => getDocs(commentsQuery));
+      onNext(snapshot.docs.map((item) => memoryCommentFromDoc(item.id, item.data())).filter((item) => item.memoryId));
+    } catch (error) {
+      onError(friendlyFirebaseError(error));
+    }
+  };
+  void load();
+  const interval = createVisiblePolling(load);
+  return () => window.clearInterval(interval);
+};
+
 export const subscribeGuestbook = (
   onNext: (entries: GuestbookEntry[]) => void,
   onError: (error: Error) => void,
@@ -388,6 +420,7 @@ export const publishMemoryToFirebase = async (profile: UserProfile, draft: Publi
     hashtags: draft.hashtags,
     imageUrl: draft.imageDataUrl,
     reactions: 0,
+    likedBy: [],
     rotation: Math.round((Math.random() * 5 - 2.5) * 10) / 10,
     tone: 'pink',
     createdAt: serverTimestamp(),
@@ -395,12 +428,56 @@ export const publishMemoryToFirebase = async (profile: UserProfile, draft: Publi
   }));
 };
 
-export const reactToFirebaseMemory = async (memory: MemoryItem) => {
+export const reactToFirebaseMemory = async (profile: UserProfile, memory: MemoryItem) => {
   if (memory.source !== 'firebase') return;
+  if (memory.likedBy.includes(profile.uid)) {
+    throw new Error('Bạn đã thả tim ảnh này rồi.');
+  }
+
   await withFirebaseRetry(() => updateDoc(doc(db, MEMORIES_COLLECTION, memory.id), {
     reactions: increment(1),
+    likedBy: arrayUnion(profile.uid),
     updatedAt: serverTimestamp(),
   }));
+};
+
+export const addMemoryComment = async (profile: UserProfile, memory: MemoryItem, message: string) => {
+  if (memory.source !== 'firebase') {
+    throw new Error('Chỉ ảnh đã đăng lên Firebase mới có thể bình luận.');
+  }
+
+  const safeMessage = message.trim().slice(0, 240);
+  if (!safeMessage) throw new Error('Hãy nhập bình luận trước khi gửi.');
+
+  const createdAt = new Date().toISOString();
+  const docRef = await withFirebaseRetry(() => addDoc(collection(db, MEMORY_COMMENTS_COLLECTION), {
+    memoryId: memory.id,
+    memoryUid: memory.uid || '',
+    uid: profile.uid,
+    name: profile.name,
+    nameKey: profile.nameKey,
+    className: CLASS_NAME,
+    message: safeMessage,
+    createdAt: serverTimestamp(),
+  }));
+
+  return {
+    id: docRef.id,
+    memoryId: memory.id,
+    uid: profile.uid,
+    name: profile.name,
+    nameKey: profile.nameKey,
+    message: safeMessage,
+    createdAt,
+  };
+};
+
+export const deleteMemoryComment = async (profile: UserProfile, comment: MemoryComment) => {
+  if (comment.uid !== profile.uid) {
+    throw new Error('Bạn chỉ có thể xóa bình luận của chính mình.');
+  }
+
+  await withFirebaseRetry(() => deleteDoc(doc(db, MEMORY_COMMENTS_COLLECTION, comment.id)));
 };
 
 export const deleteFirebaseMemory = async (profile: UserProfile, memory: MemoryItem) => {

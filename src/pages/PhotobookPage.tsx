@@ -170,13 +170,20 @@ function OptionButton<T extends string | number>({
   onSelect,
 }: OptionButtonProps<T>) {
   return (
-    <button className={`option-card ${active ? 'option-card-active' : ''}`} onClick={() => onSelect(value)}>
+    <button
+      type="button"
+      className={`option-card w-full min-w-0 text-left ${preview ? 'option-card-with-preview' : ''} ${
+        active ? 'option-card-active' : ''
+      }`}
+      aria-pressed={active}
+      onClick={() => onSelect(value)}
+    >
       {preview}
-      <span className="flex items-center justify-between gap-3">
-        <span className="font-bold">{label}</span>
-        {active && <Check size={17} />}
+      <span className="flex min-w-0 items-center justify-between gap-3">
+        <span className="min-w-0 break-words font-bold">{label}</span>
+        {active && <Check className="shrink-0" size={17} />}
       </span>
-      {description && <span className="mt-1 block text-xs leading-5 text-ink/56">{description}</span>}
+      {description && <span className="mt-1 block min-w-0 break-words text-xs leading-5 text-ink/56">{description}</span>}
     </button>
   );
 }
@@ -434,7 +441,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   }
 
   return (
-    <section className="relative min-h-[calc(100svh-4rem)] overflow-hidden px-4 py-6 sm:px-6 lg:px-8">
+    <section className="relative min-h-[calc(100svh-4rem)] overflow-hidden px-3 py-5 sm:px-6 sm:py-6 lg:px-8">
       <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(247,183,199,.26),transparent_34%),linear-gradient(245deg,rgba(169,205,232,.24),transparent_40%),linear-gradient(135deg,#fbf3e7,#fffaf1)]" />
       <div className="relative mx-auto max-w-7xl">
         <input
@@ -448,19 +455,19 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="section-kicker">Korean Photobooth</p>
-            <h1 className="font-display text-5xl leading-none sm:text-7xl">Make the final strip</h1>
+            <h1 className="font-display text-4xl leading-none sm:text-7xl">Tạo strip kỷ niệm</h1>
           </div>
-          <button className="secondary-button" onClick={resetSession}>
+          <button className="secondary-button photobook-reset-button" onClick={resetSession}>
             <RefreshCw size={16} />
-            Reset
+            Làm lại
           </button>
         </div>
 
         {stage === 'setup' && (
           <div className="grid gap-5 lg:grid-cols-[1fr_0.78fr]">
-            <div className="rounded-[2rem] border border-white/65 bg-white/52 p-4 shadow-paper backdrop-blur-xl sm:p-6">
+            <div className="photobook-setup-panel rounded-[1.35rem] border border-white/65 bg-white/52 p-3 shadow-paper backdrop-blur-xl sm:rounded-[2rem] sm:p-6">
               <div className="grid gap-5">
-                <SetupGroup step="1" title="Choose number of photos">
+                <SetupGroup step="1" title="Chọn số ảnh">
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {PHOTO_COUNT_OPTIONS.map((count) => (
                       <OptionButton<PhotoCount>
@@ -468,15 +475,15 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                         active={config.photoCount === count}
                         value={count}
                         label={`${count}`}
-                        description={count === 1 ? 'photo' : 'photos'}
+                        description="ảnh"
                         onSelect={updatePhotoCount}
                       />
                     ))}
                   </div>
                 </SetupGroup>
 
-                <SetupGroup step="2" title="Choose layout">
-                  <div className="grid gap-3 sm:grid-cols-3">
+                <SetupGroup step="2" title="Chọn kiểu chụp">
+                  <div className="layout-options-grid">
                     {LAYOUT_OPTIONS.map((layout) => (
                       <OptionButton<LayoutType>
                         key={layout.id}
@@ -491,7 +498,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                   </div>
                 </SetupGroup>
 
-                <SetupGroup step="3" title="Choose export quality">
+                <SetupGroup step="3" title="Chọn chất lượng ảnh">
                   <div className="grid gap-3 sm:grid-cols-3">
                     {QUALITY_OPTIONS.map((quality) => (
                       <OptionButton<ExportQuality>
@@ -506,23 +513,24 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                   </div>
                 </SetupGroup>
 
-                <SetupGroup step="4" title="Background customization">
+                <SetupGroup step="4" title="Chọn nền">
                   <div className="grid gap-3 sm:grid-cols-4">
                     {BACKGROUND_OPTIONS.map((background) => (
                       <button
+                        type="button"
                         key={background.id}
-                        className={`option-card text-left ${config.backgroundId === background.id ? 'option-card-active' : ''}`}
+                        className={`option-card w-full min-w-0 text-left ${config.backgroundId === background.id ? 'option-card-active' : ''}`}
                         onClick={() => updateConfig('backgroundId', background.id)}
                       >
                         <span className="mb-3 block h-12 rounded-xl border border-white/60" style={{ background: background.swatch }} />
-                        <span className="block font-bold">{background.label}</span>
-                        <span className="mt-1 block text-xs leading-5 text-ink/56">{background.description}</span>
+                        <span className="block min-w-0 break-words font-bold">{background.label}</span>
+                        <span className="mt-1 block min-w-0 break-words text-xs leading-5 text-ink/56">{background.description}</span>
                       </button>
                     ))}
                   </div>
                   <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-full bg-ink px-4 py-3 text-sm font-bold text-paper shadow-paper transition hover:-translate-y-0.5">
                     <Upload size={17} />
-                    Upload custom background
+                    Tải nền riêng
                     <input className="sr-only" type="file" accept="image/*" onChange={handleUploadBackground} />
                   </label>
                   {config.customBackground && (
@@ -540,13 +548,13 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
               </div>
             </div>
 
-            <aside className="rounded-[2rem] border border-white/65 bg-white/45 p-4 shadow-paper backdrop-blur-xl sm:p-6">
+            <aside className="rounded-[1.35rem] border border-white/65 bg-white/45 p-3 shadow-paper backdrop-blur-xl sm:rounded-[2rem] sm:p-6">
               <div className="camera-preview-card">
                 <div className="grid h-full place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#fffaf1,#f7b7c7_52%,#a9cde8)] p-6 text-center">
                   <Layers className="mx-auto mb-4 text-coffee" size={36} />
-                  <h2 className="font-display text-5xl leading-none">Ready for {config.photoCount} frames</h2>
+                  <h2 className="font-display text-4xl leading-none sm:text-5xl">Sẵn sàng cho {config.photoCount} tấm</h2>
                   <p className="mt-3 text-sm leading-6 text-ink/64">
-                    {selectedBackground.description}. Exporting at {QUALITY_OPTIONS.find((q) => q.id === config.quality)?.label}.
+                    {selectedBackground.description}. Xuất ảnh ở mức {QUALITY_OPTIONS.find((q) => q.id === config.quality)?.label}.
                   </p>
                 </div>
               </div>
@@ -555,7 +563,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                 onClick={openCameraStage}
               >
                 <Camera size={19} />
-                Open Camera
+                Mở camera
               </button>
               <button
                 className="secondary-button mt-3 min-h-14 w-full justify-center text-base"

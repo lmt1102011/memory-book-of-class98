@@ -1,12 +1,13 @@
-import { LazyMotion, domAnimation, m, AnimatePresence } from 'framer-motion';
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion';
 import { BookOpen, Camera, Home, Lock, Menu, MessageCircle, Sparkles, X } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LoadingScreen from './components/LoadingScreen';
-import LandingPage from './pages/LandingPage';
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion';
+import LandingPage from './pages/LandingPage';
 import type {
   AppRoute,
   GuestbookEntry,
+  MemoryComment,
   MemoryItem,
   PublishMemoryDraft,
   SecretDiaryEntry,
@@ -32,14 +33,20 @@ const navItems: Array<{ route: AppRoute; label: string; icon: typeof Home }> = [
   { route: 'photobook', label: 'Đăng ảnh', icon: Camera },
 ];
 
+const sortCommentsNewestFirst = (comments: MemoryComment[]) =>
+  [...comments].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+
 export default function App() {
   const [route, setRoute] = useState<AppRoute>(() => routeFromHash());
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [remoteMemories, setRemoteMemories] = useState<MemoryItem[]>([]);
+  const [remoteComments, setRemoteComments] = useState<MemoryComment[]>([]);
   const [remoteGuestbook, setRemoteGuestbook] = useState<GuestbookEntry[]>([]);
   const [secretDiaries, setSecretDiaries] = useState<SecretDiaryEntry[]>([]);
   const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pendingReactionIds, setPendingReactionIds] = useState<string[]>([]);
+  const pendingReactionIdsRef = useRef(new Set<string>());
   const prefersReducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
@@ -70,8 +77,9 @@ export default function App() {
     if (route === 'landing' || route === 'join') return undefined;
 
     let unsubscribeMemories: (() => void) | undefined;
+    let unsubscribeComments: (() => void) | undefined;
     let unsubscribeGuestbook: (() => void) | undefined;
-    let unsubscribeLetters: (() => void) | undefined;
+    let unsubscribeDiaries: (() => void) | undefined;
     let isActive = true;
 
     void import('./services/firebaseMemoryBook').then((service) => {
@@ -81,6 +89,14 @@ export default function App() {
         unsubscribeMemories = service.subscribeMemories(
           (items) => {
             setRemoteMemories(items);
+            setFirebaseNotice('');
+          },
+          (error) => setFirebaseNotice(error.message),
+        );
+
+        unsubscribeComments = service.subscribeMemoryComments(
+          (items) => {
+            setRemoteComments(sortCommentsNewestFirst(items));
             setFirebaseNotice('');
           },
           (error) => setFirebaseNotice(error.message),
@@ -98,7 +114,7 @@ export default function App() {
       }
 
       if (route === 'diary' && profile) {
-        unsubscribeLetters = service.subscribeSecretDiaries(
+        unsubscribeDiaries = service.subscribeSecretDiaries(
           profile,
           (items) => {
             setSecretDiaries(items);
@@ -116,8 +132,9 @@ export default function App() {
     return () => {
       isActive = false;
       unsubscribeMemories?.();
+      unsubscribeComments?.();
       unsubscribeGuestbook?.();
-      unsubscribeLetters?.();
+      unsubscribeDiaries?.();
     };
   }, [profile, route]);
 
@@ -134,11 +151,20 @@ export default function App() {
       setProfile(nextProfile);
       navigate('home');
     },
-    [navigate, setProfile],
+    [navigate],
   );
 
   const allMemories = useMemo(() => remoteMemories, [remoteMemories]);
   const allGuestbook = useMemo(() => remoteGuestbook, [remoteGuestbook]);
+
+  const commentsByMemory = useMemo(() => {
+    const grouped: Record<string, MemoryComment[]> = {};
+    remoteComments.forEach((comment) => {
+      if (!grouped[comment.memoryId]) grouped[comment.memoryId] = [];
+      grouped[comment.memoryId].push(comment);
+    });
+    return grouped;
+  }, [remoteComments]);
 
   const publishMemory = useCallback(
     async (draft: PublishMemoryDraft) => {
@@ -159,11 +185,42 @@ export default function App() {
         navigate('join');
         return;
       }
+
+      if (memory.likedBy.includes(profile.uid) || pendingReactionIdsRef.current.has(memory.id)) return;
+
+      pendingReactionIdsRef.current.add(memory.id);
+      setPendingReactionIds(Array.from(pendingReactionIdsRef.current));
+
+      setRemoteMemories((items) =>
+        items.map((item) => {
+          if (item.id !== memory.id || item.likedBy.includes(profile.uid)) return item;
+          return {
+            ...item,
+            reactions: item.reactions + 1,
+            likedBy: [...item.likedBy, profile.uid],
+          };
+        }),
+      );
+
       try {
         const service = await import('./services/firebaseMemoryBook');
-        await service.reactToFirebaseMemory(memory);
+        await service.reactToFirebaseMemory(profile, memory);
+        setFirebaseNotice('');
       } catch (caught) {
+        setRemoteMemories((items) =>
+          items.map((item) => {
+            if (item.id !== memory.id || !item.likedBy.includes(profile.uid)) return item;
+            return {
+              ...item,
+              reactions: Math.max(0, item.reactions - 1),
+              likedBy: item.likedBy.filter((uid) => uid !== profile.uid),
+            };
+          }),
+        );
         setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể thả tim lúc này.');
+      } finally {
+        pendingReactionIdsRef.current.delete(memory.id);
+        setPendingReactionIds(Array.from(pendingReactionIdsRef.current));
       }
     },
     [navigate, profile],
@@ -179,9 +236,74 @@ export default function App() {
         const service = await import('./services/firebaseMemoryBook');
         await service.deleteFirebaseMemory(profile, memory);
         setRemoteMemories((items) => items.filter((item) => item.id !== memory.id));
+        setRemoteComments((items) => items.filter((item) => item.memoryId !== memory.id));
         setFirebaseNotice('');
       } catch (caught) {
         setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể xóa ảnh lúc này.');
+      }
+    },
+    [navigate, profile],
+  );
+
+  const handleMemoryCommentAdd = useCallback(
+    async (memory: MemoryItem, message: string) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+
+      const safeMessage = message.trim().slice(0, 240);
+      if (!safeMessage) return;
+
+      const tempComment: MemoryComment = {
+        id: `pending-${memory.id}-${Date.now()}`,
+        memoryId: memory.id,
+        uid: profile.uid,
+        name: profile.name,
+        nameKey: profile.nameKey,
+        message: safeMessage,
+        createdAt: new Date().toISOString(),
+        pending: true,
+      };
+
+      setRemoteComments((items) => sortCommentsNewestFirst([tempComment, ...items]));
+
+      try {
+        const service = await import('./services/firebaseMemoryBook');
+        const savedComment = await service.addMemoryComment(profile, memory, safeMessage);
+        setRemoteComments((items) =>
+          sortCommentsNewestFirst(items.map((item) => (item.id === tempComment.id ? savedComment : item))),
+        );
+        setFirebaseNotice('');
+      } catch (caught) {
+        setRemoteComments((items) => items.filter((item) => item.id !== tempComment.id));
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể gửi bình luận lúc này.');
+      }
+    },
+    [navigate, profile],
+  );
+
+  const handleMemoryCommentDelete = useCallback(
+    async (comment: MemoryComment) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+
+      if (comment.pending) {
+        setRemoteComments((items) => items.filter((item) => item.id !== comment.id));
+        return;
+      }
+
+      setRemoteComments((items) => items.filter((item) => item.id !== comment.id));
+
+      try {
+        const service = await import('./services/firebaseMemoryBook');
+        await service.deleteMemoryComment(profile, comment);
+        setFirebaseNotice('');
+      } catch (caught) {
+        setRemoteComments((items) => sortCommentsNewestFirst([comment, ...items]));
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể xóa bình luận lúc này.');
       }
     },
     [navigate, profile],
@@ -269,7 +391,7 @@ export default function App() {
 
     if (route === 'join') {
       return (
-        <Suspense fallback={<LoadingScreen label="Opening class check-in" />}>
+        <Suspense fallback={<LoadingScreen label="Đang mở check-in lớp" />}>
           <JoinPage profile={profile} onJoin={handleJoin} onSkip={() => navigate('home')} />
         </Suspense>
       );
@@ -277,7 +399,7 @@ export default function App() {
 
     if (route === 'photobook') {
       return (
-        <Suspense fallback={<LoadingScreen label="Opening the photo booth" />}>
+        <Suspense fallback={<LoadingScreen label="Đang mở photobooth" />}>
           <PhotobookPage profile={profile} onJoinNeeded={() => navigate('join')} onPublish={publishMemory} />
         </Suspense>
       );
@@ -285,7 +407,7 @@ export default function App() {
 
     if (route === 'letters') {
       return (
-        <Suspense fallback={<LoadingScreen label="Opening the class board" />}>
+        <Suspense fallback={<LoadingScreen label="Đang mở bảng thư lớp" />}>
           <LettersPage
             guestbook={allGuestbook}
             firebaseNotice={firebaseNotice}
@@ -301,7 +423,7 @@ export default function App() {
 
     if (route === 'diary') {
       return (
-        <Suspense fallback={<LoadingScreen label="Opening the private diary" />}>
+        <Suspense fallback={<LoadingScreen label="Đang mở nhật ký riêng" />}>
           <DiaryPage
             diaries={secretDiaries}
             firebaseNotice={firebaseNotice}
@@ -315,14 +437,18 @@ export default function App() {
     }
 
     return (
-      <Suspense fallback={<LoadingScreen label="Arranging the scrapbook" />}>
+      <Suspense fallback={<LoadingScreen label="Đang sắp xếp scrapbook" />}>
         <HomePage
           memories={allMemories}
+          commentsByMemory={commentsByMemory}
           firebaseNotice={firebaseNotice}
           profile={profile}
+          pendingReactionIds={pendingReactionIds}
           onJoin={() => navigate('join')}
           onPhotobook={() => navigate('photobook')}
           onReact={handleReact}
+          onAddComment={handleMemoryCommentAdd}
+          onDeleteComment={handleMemoryCommentDelete}
           onDeleteMemory={handleMemoryDelete}
         />
       </Suspense>
@@ -374,7 +500,7 @@ export default function App() {
                 <button
                   className="icon-button lg:hidden"
                   onClick={() => setMenuOpen((open) => !open)}
-                  aria-label="Open menu"
+                  aria-label="Mở menu"
                 >
                   {menuOpen ? <X size={20} /> : <Menu size={20} />}
                 </button>

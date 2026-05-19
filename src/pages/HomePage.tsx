@@ -3,25 +3,35 @@ import { Camera, Filter, Search, X } from 'lucide-react';
 import FirebaseNotice from '../components/FirebaseNotice';
 import MemoryCard from '../components/MemoryCard';
 import { useDebounce } from '../hooks/useDebounce';
-import type { MemoryItem, UserProfile } from '../types';
+import type { MemoryComment, MemoryItem, UserProfile } from '../types';
+
+const EMPTY_COMMENTS: MemoryComment[] = [];
 
 interface HomePageProps {
   memories: MemoryItem[];
+  commentsByMemory: Record<string, MemoryComment[]>;
   firebaseNotice: string;
   profile: UserProfile | null;
+  pendingReactionIds: string[];
   onJoin: () => void;
   onPhotobook: () => void;
   onReact: (memory: MemoryItem) => void | Promise<void>;
+  onAddComment: (memory: MemoryItem, message: string) => void | Promise<void>;
+  onDeleteComment: (comment: MemoryComment) => void | Promise<void>;
   onDeleteMemory: (memory: MemoryItem) => void | Promise<void>;
 }
 
 export default function HomePage({
   memories,
+  commentsByMemory,
   firebaseNotice,
   profile,
+  pendingReactionIds,
   onJoin,
   onPhotobook,
   onReact,
+  onAddComment,
+  onDeleteComment,
   onDeleteMemory,
 }: HomePageProps) {
   const [nameQuery, setNameQuery] = useState('');
@@ -65,18 +75,18 @@ export default function HomePage({
           <div>
             <p className="section-kicker">Memory Feed</p>
             <h1 className="max-w-4xl font-display text-6xl leading-[0.86] sm:text-8xl">
-              A scrapbook for the days we almost missed
+              Scrapbook của những ngày mình sắp nhớ mãi
             </h1>
             <p className="mt-5 max-w-2xl text-sm leading-7 text-ink/66 sm:text-base">
-              Tìm bạn trong lớp 9/8, thả tim cho ký ức yêu thích và xem những strip photobooth đã được đăng lên
-              Firebase. Các lời nhắn và nhật ký đã được tách riêng để dễ dùng hơn.
+              Tìm bạn trong lớp 9/8, thả tim một lần cho ký ức yêu thích và để lại vài dòng bình luận dưới
+              những tấm ảnh đã được đăng lên Firebase.
             </p>
           </div>
 
           <div className="flex flex-col gap-3 rounded-[1.5rem] border border-white/60 bg-white/45 p-4 shadow-paper backdrop-blur-xl">
             <div className="flex items-center justify-between gap-3">
               <span className="font-hand text-3xl font-bold text-coffee">
-                {profile ? `Hi, ${profile.name}` : 'Guest student'}
+                {profile ? `Chào ${profile.name}` : 'Bạn lớp 9/8'}
               </span>
               <button className="primary-button" onClick={onPhotobook}>
                 <Camera size={17} />
@@ -88,7 +98,7 @@ export default function HomePage({
             </p>
             {!profile && (
               <button className="secondary-button justify-center" onClick={onJoin}>
-                Join class 9/8
+                Vào lớp 9/8
               </button>
             )}
           </div>
@@ -103,7 +113,7 @@ export default function HomePage({
               className="input-field pl-11"
               value={nameQuery}
               onChange={(event) => setNameQuery(event.target.value)}
-              placeholder="Search by name"
+              placeholder="Tìm theo tên"
             />
           </label>
           <label className="relative">
@@ -112,12 +122,12 @@ export default function HomePage({
               className="input-field pl-11"
               value={keywordQuery}
               onChange={(event) => setKeywordQuery(event.target.value)}
-              placeholder="Tim caption hoac hashtag"
+              placeholder="Tìm caption hoặc hashtag"
             />
           </label>
           <button className="secondary-button justify-center" onClick={clearFilters}>
             <X size={16} />
-            Clear
+            Xóa lọc
           </button>
         </div>
         <div className="mx-auto mt-3 flex max-w-7xl gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -125,7 +135,7 @@ export default function HomePage({
             className={`tag-button ${activeTag === null ? 'tag-button-active' : ''}`}
             onClick={() => setActiveTag(null)}
           >
-            All
+            Tất cả
           </button>
           {tags.map((tag) => (
             <button
@@ -146,7 +156,13 @@ export default function HomePage({
               <MemoryCard
                 key={memory.id}
                 memory={memory}
+                comments={commentsByMemory[memory.id] || EMPTY_COMMENTS}
+                profile={profile}
+                isReacting={pendingReactionIds.includes(memory.id)}
+                onJoin={onJoin}
                 onReact={onReact}
+                onAddComment={onAddComment}
+                onDeleteComment={onDeleteComment}
                 canDelete={profile?.uid === memory.uid}
                 onDelete={onDeleteMemory}
               />
