@@ -10,9 +10,8 @@ import {
   addDoc,
   collection,
   doc,
-  enableNetwork,
-  getDocFromServer,
-  getDocsFromServer,
+  getDoc,
+  getDocs,
   increment,
   limit,
   orderBy,
@@ -23,7 +22,7 @@ import {
   updateDoc,
   where,
   type DocumentData,
-} from 'firebase/firestore';
+} from 'firebase/firestore/lite';
 import { auth, db } from '../firebase';
 import type { GuestbookEntry, MemoryItem, PublishMemoryDraft, SecretLetterPublic, UserProfile } from '../types';
 import { makeId } from '../utils/ids';
@@ -93,7 +92,6 @@ export const forceFirebaseOnline = async () => {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     throw new Error('Thiet bi dang mat internet, nen Firebase khong the online.');
   }
-  await enableNetwork(db);
 };
 
 const withTimeout = async <T,>(promise: Promise<T>, label: string) =>
@@ -104,20 +102,7 @@ const withTimeout = async <T,>(promise: Promise<T>, label: string) =>
     }),
   ]);
 
-export const keepFirebaseOnline = () => {
-  const wake = () => {
-    void enableNetwork(db).catch(() => undefined);
-  };
-
-  wake();
-  window.addEventListener('online', wake);
-  document.addEventListener('visibilitychange', wake);
-
-  return () => {
-    window.removeEventListener('online', wake);
-    document.removeEventListener('visibilitychange', wake);
-  };
-};
+export const keepFirebaseOnline = () => () => undefined;
 
 const withFirebaseRetry = async <T,>(operation: () => Promise<T>) => {
   let lastError: unknown;
@@ -188,7 +173,7 @@ const secretLetterFromDoc = (id: string, data: DocumentData): SecretLetterPublic
 export const checkStudentName = async (name: string) => {
   const nameKey = makeNameKey(name);
   if (!nameKey) throw new Error('Hay nhap ho ten hop le.');
-  const snapshot = await withFirebaseRetry(() => getDocFromServer(doc(db, STUDENTS_COLLECTION, nameKey)));
+  const snapshot = await withFirebaseRetry(() => getDoc(doc(db, STUDENTS_COLLECTION, nameKey)));
   return {
     exists: snapshot.exists(),
     nameKey,
@@ -203,7 +188,7 @@ export const registerStudent = async (name: string, password: string) => {
   if (password.length < 6) throw new Error('Mat khau can it nhat 6 ky tu.');
 
   const studentRef = doc(db, STUDENTS_COLLECTION, nameKey);
-  const existing = await withFirebaseRetry(() => getDocFromServer(studentRef));
+  const existing = await withFirebaseRetry(() => getDoc(studentRef));
   if (existing.exists()) {
     if (existing.data().disabled) throw new Error('Tai khoan nay dang bi khoa trong lop 9/8.');
     throw new Error('Ten nay da co trong lop 9/8. Hay nhap mat khau de tiep tuc.');
@@ -245,7 +230,7 @@ export const loginStudent = async (name: string, password: string) => {
     'Auth login',
   );
   const studentRef = doc(db, STUDENTS_COLLECTION, nameKey);
-  const snapshot = await withFirebaseRetry(() => getDocFromServer(studentRef));
+  const snapshot = await withFirebaseRetry(() => getDoc(studentRef));
 
   if (!snapshot.exists()) {
     const displayName = cleanDisplayName(name);
@@ -287,7 +272,7 @@ export const observeStudentSession = (onProfile: (profile: UserProfile | null) =
     const nameKey = user.email.split('@')[0];
     let snapshot;
     try {
-      snapshot = await withFirebaseRetry(() => getDocFromServer(doc(db, STUDENTS_COLLECTION, nameKey)));
+      snapshot = await withFirebaseRetry(() => getDoc(doc(db, STUDENTS_COLLECTION, nameKey)));
     } catch {
       onProfile(null);
       return;
@@ -310,7 +295,7 @@ export const subscribeMemories = (
   const memoriesQuery = query(collection(db, MEMORIES_COLLECTION), orderBy('createdAt', 'desc'), limit(48));
   const load = async () => {
     try {
-      const snapshot = await withFirebaseRetry(() => getDocsFromServer(memoriesQuery));
+      const snapshot = await withFirebaseRetry(() => getDocs(memoriesQuery));
       onNext(snapshot.docs.map((item) => memoryFromDoc(item.id, item.data())).filter((item) => item.imageUrl));
     } catch (error) {
       onError(friendlyFirebaseError(error));
@@ -328,7 +313,7 @@ export const subscribeGuestbook = (
   const guestbookQuery = query(collection(db, GUESTBOOK_COLLECTION), orderBy('createdAt', 'desc'), limit(24));
   const load = async () => {
     try {
-      const snapshot = await withFirebaseRetry(() => getDocsFromServer(guestbookQuery));
+      const snapshot = await withFirebaseRetry(() => getDocs(guestbookQuery));
       onNext(snapshot.docs.map((item) => guestbookFromDoc(item.id, item.data())));
     } catch (error) {
       onError(friendlyFirebaseError(error));
@@ -346,7 +331,7 @@ export const subscribeSecretLetters = (
   const lettersQuery = query(collection(db, SECRET_MAILBOX_PUBLIC_COLLECTION), orderBy('createdAt', 'desc'), limit(40));
   const load = async () => {
     try {
-      const snapshot = await withFirebaseRetry(() => getDocsFromServer(lettersQuery));
+      const snapshot = await withFirebaseRetry(() => getDocs(lettersQuery));
       onNext(snapshot.docs.map((item) => secretLetterFromDoc(item.id, item.data())));
     } catch (error) {
       onError(friendlyFirebaseError(error));
@@ -422,6 +407,7 @@ export const hasStudentMemory = async (profile: UserProfile) => {
     limit(1),
   );
 
-  const snapshot = await withFirebaseRetry(() => getDocsFromServer(studentMemories));
+  const snapshot = await withFirebaseRetry(() => getDocs(studentMemories));
   return !snapshot.empty;
 };
+

@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeFirestore } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore/lite';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyCxCn9rXklHcVlW20NN3q4KAx5KhnnBoRM',
@@ -14,7 +14,4 @@ const firebaseConfig = {
 
 export const firebaseApp = initializeApp(firebaseConfig);
 export const auth = getAuth(firebaseApp);
-export const db = initializeFirestore(firebaseApp, {
-  experimentalAutoDetectLongPolling: true,
-  ignoreUndefinedProperties: true,
-});
+export const db = getFirestore(firebaseApp);

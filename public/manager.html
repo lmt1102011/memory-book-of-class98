@@ -242,24 +242,24 @@
     </main>
 
     <script type="module">
-      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js';
       import {
         createUserWithEmailAndPassword,
         getAuth,
         signOut,
         updateProfile,
-      } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js';
+      } from 'https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js';
       import {
         collection,
         doc,
+        getDocs,
         getFirestore,
-        onSnapshot,
         orderBy,
         query,
         serverTimestamp,
         setDoc,
         updateDoc,
-      } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
+      } from 'https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore-lite.js';
 
       const firebaseConfig = {
         apiKey: 'AIzaSyCxCn9rXklHcVlW20NN3q4KAx5KhnnBoRM',
@@ -287,6 +287,8 @@
       const status = $('accountStatus');
       let accounts = [];
       let letters = [];
+      let managerPoll = 0;
+      let isLoadingManagerData = false;
 
       const cleanDisplayName = (name) => name.trim().replace(/\s+/g, ' ');
       const makeNameKey = (name) =>
@@ -309,7 +311,7 @@
       const showManager = () => {
         gate.classList.add('hidden');
         managerApp.classList.remove('hidden');
-        startStreams();
+        startPolling();
       };
 
       $('gateForm').addEventListener('submit', (event) => {
@@ -382,6 +384,7 @@
           managerKey: MANAGER_KEY,
           managerUpdatedAt: serverTimestamp(),
         });
+        await refreshManagerData();
       });
 
       $('addAccountForm').addEventListener('submit', async (event) => {
@@ -411,22 +414,40 @@
           await signOut(creatorAuth);
           $('studentName').value = '';
           $('studentPassword').value = '';
+          await refreshManagerData();
           status.textContent = `Da them tai khoan ${name}.`;
         } catch (error) {
           status.textContent = error.message || 'Khong the them tai khoan.';
         }
       });
 
-      const startStreams = () => {
-        onSnapshot(query(collection(db, 'students98'), orderBy('name')), (snapshot) => {
-          accounts = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
-          renderAccounts();
-        });
+      const refreshManagerData = async () => {
+        if (isLoadingManagerData) return;
+        isLoadingManagerData = true;
 
-        onSnapshot(query(collection(db, 'secretMailboxPrivate98'), orderBy('createdAt', 'desc')), (snapshot) => {
-          letters = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+        try {
+          const [accountSnapshot, letterSnapshot] = await Promise.all([
+            getDocs(query(collection(db, 'students98'), orderBy('name'))),
+            getDocs(query(collection(db, 'secretMailboxPrivate98'), orderBy('createdAt', 'desc'))),
+          ]);
+
+          accounts = accountSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+          letters = letterSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+          renderAccounts();
           renderLetters();
-        });
+        } catch (error) {
+          status.textContent = error.message || 'Khong the tai du lieu manager.';
+        } finally {
+          isLoadingManagerData = false;
+        }
+      };
+
+      const startPolling = () => {
+        if (managerPoll) return;
+        void refreshManagerData();
+        managerPoll = window.setInterval(() => {
+          if (document.visibilityState === 'visible') void refreshManagerData();
+        }, 15000);
       };
 
       if (localStorage.getItem('class98-manager') === MANAGER_KEY) {

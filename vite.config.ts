@@ -13,7 +13,7 @@ export default defineConfig({
         manualChunks: {
           'firebase-app': ['firebase/app'],
           'firebase-auth': ['firebase/auth'],
-          'firebase-data': ['firebase/firestore'],
+          'firebase-data': ['firebase/firestore/lite'],
           react: ['react', 'react-dom'],
           motion: ['framer-motion'],
           webcam: ['react-webcam'],
