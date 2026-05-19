@@ -266,9 +266,7 @@ export default function HomePage({
 
             <div className="relative grid min-h-0 place-items-center overflow-hidden rounded-[0.75rem] bg-ink">
               {!selectedImageLoaded && !selectedImageFailed && (
-                <span className="memory-image-placeholder absolute inset-0 grid place-items-center text-xs font-bold text-coffee/70">
-                  Đang tải ảnh...
-                </span>
+                <span className="memory-image-placeholder absolute inset-0" aria-hidden="true" />
               )}
               {selectedImageFailed && (
                 <span className="absolute inset-0 grid place-items-center px-4 text-center text-sm font-bold text-paper/82">

@@ -85,9 +85,7 @@ function MemoryCard({
           aria-label={`Xem ảnh kỷ niệm của ${memory.name} rõ hơn`}
         >
           {!imageLoaded && !imageFailed && (
-            <span className="memory-image-placeholder absolute inset-0 grid place-items-center text-xs font-bold text-coffee/62">
-              Đang tải ảnh...
-            </span>
+            <span className="memory-image-placeholder absolute inset-0" aria-hidden="true" />
           )}
           {imageFailed && (
             <span className="absolute inset-0 grid place-items-center bg-paper px-4 text-center text-xs font-bold text-coffee/70">
