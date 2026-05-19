@@ -218,6 +218,25 @@
     box-shadow: 0 28px 58px rgba(84, 57, 35, 0.2);
   }
 
+  .board-note {
+    position: relative;
+    margin-bottom: 0.85rem;
+    width: 100%;
+    transform: rotate(var(--note-rotate));
+    backface-visibility: hidden;
+    contain: paint;
+  }
+
+  @media (min-width: 640px) {
+    .board-note {
+      position: absolute;
+      left: var(--note-left);
+      top: var(--note-top);
+      width: min(var(--note-width), 32%);
+      margin-bottom: 0;
+    }
+  }
+
   .scrapbook-tape {
     position: absolute;
     z-index: 2;

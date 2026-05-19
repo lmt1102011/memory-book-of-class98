@@ -4,6 +4,7 @@ import { BookOpen, Camera, Home, Menu, Sparkles, X } from 'lucide-react';
 import LoadingScreen from './components/LoadingScreen';
 import LandingPage from './pages/LandingPage';
 import type {
+  AnonymousMessage,
   AppRoute,
   GuestbookEntry,
   MemoryItem,
@@ -32,6 +33,7 @@ export default function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [remoteMemories, setRemoteMemories] = useState<MemoryItem[]>([]);
   const [remoteGuestbook, setRemoteGuestbook] = useState<GuestbookEntry[]>([]);
+  const [anonymousMessages, setAnonymousMessages] = useState<AnonymousMessage[]>([]);
   const [secretDiaries, setSecretDiaries] = useState<SecretDiaryEntry[]>([]);
   const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -65,6 +67,7 @@ export default function App() {
 
     let unsubscribeMemories: (() => void) | undefined;
     let unsubscribeGuestbook: (() => void) | undefined;
+    let unsubscribeAnonymousMessages: (() => void) | undefined;
     let unsubscribeLetters: (() => void) | undefined;
     let isActive = true;
 
@@ -80,6 +83,13 @@ export default function App() {
       unsubscribeGuestbook = service.subscribeGuestbook(
         (items) => {
           setRemoteGuestbook(items);
+          setFirebaseNotice('');
+        },
+        (error) => setFirebaseNotice(error.message),
+      );
+      unsubscribeAnonymousMessages = service.subscribeAnonymousMessages(
+        (items) => {
+          setAnonymousMessages(items);
           setFirebaseNotice('');
         },
         (error) => setFirebaseNotice(error.message),
@@ -102,6 +112,7 @@ export default function App() {
       isActive = false;
       unsubscribeMemories?.();
       unsubscribeGuestbook?.();
+      unsubscribeAnonymousMessages?.();
       unsubscribeLetters?.();
     };
   }, [profile, route]);
@@ -169,7 +180,21 @@ export default function App() {
         return;
       }
       const service = await import('./services/firebaseMemoryBook');
-      await service.addGuestbookEntry(profile, message);
+      const entry = await service.addGuestbookEntry(profile, message);
+      setRemoteGuestbook((items) => [entry, ...items]);
+    },
+    [navigate, profile],
+  );
+
+  const handleAnonymousMessageAdd = useCallback(
+    async (message: string) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+      const service = await import('./services/firebaseMemoryBook');
+      const entry = await service.addAnonymousMessage(profile, message);
+      setAnonymousMessages((items) => [entry, ...items]);
     },
     [navigate, profile],
   );
@@ -239,6 +264,7 @@ export default function App() {
         <HomePage
           memories={allMemories}
           guestbook={allGuestbook}
+          anonymousMessages={anonymousMessages}
           secretDiaries={secretDiaries}
           firebaseNotice={firebaseNotice}
           profile={profile}
@@ -248,6 +274,7 @@ export default function App() {
           onDeleteMemory={handleMemoryDelete}
           onAddGuestbook={handleGuestbookAdd}
           onDeleteGuestbook={handleGuestbookDelete}
+          onAddAnonymousMessage={handleAnonymousMessageAdd}
           onAddSecretDiary={handleSecretDiaryAdd}
           onDeleteSecretDiary={handleSecretDiaryDelete}
         />

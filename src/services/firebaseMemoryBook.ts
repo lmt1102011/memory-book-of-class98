@@ -25,7 +25,14 @@ import {
   type DocumentData,
 } from 'firebase/firestore/lite';
 import { auth, db } from '../firebase';
-import type { GuestbookEntry, MemoryItem, PublishMemoryDraft, SecretDiaryEntry, UserProfile } from '../types';
+import type {
+  AnonymousMessage,
+  GuestbookEntry,
+  MemoryItem,
+  PublishMemoryDraft,
+  SecretDiaryEntry,
+  UserProfile,
+} from '../types';
 import { makeId } from '../utils/ids';
 
 export const CLASS_NAME = '9/8';
@@ -33,6 +40,7 @@ export const CLASS_NAME = '9/8';
 const STUDENTS_COLLECTION = 'students98';
 const MEMORIES_COLLECTION = 'memories98';
 const GUESTBOOK_COLLECTION = 'guestbook98';
+const ANONYMOUS_MESSAGES_COLLECTION = 'anonymousMessages98';
 const SECRET_MAILBOX_PRIVATE_COLLECTION = 'secretMailboxPrivate98';
 const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
 const FIREBASE_RETRY_DELAYS = [0, 450, 1000, 1800];
@@ -160,6 +168,12 @@ const guestbookFromDoc = (id: string, data: DocumentData): GuestbookEntry => ({
   id,
   uid: String(data.uid || ''),
   name: String(data.name || 'Classmate'),
+  message: String(data.message || ''),
+  createdAt: timestampToIso(data.createdAt),
+});
+
+const anonymousMessageFromDoc = (id: string, data: DocumentData): AnonymousMessage => ({
+  id,
   message: String(data.message || ''),
   createdAt: timestampToIso(data.createdAt),
 });
@@ -327,6 +341,24 @@ export const subscribeGuestbook = (
   return () => window.clearInterval(interval);
 };
 
+export const subscribeAnonymousMessages = (
+  onNext: (messages: AnonymousMessage[]) => void,
+  onError: (error: Error) => void,
+) => {
+  const anonymousQuery = query(collection(db, ANONYMOUS_MESSAGES_COLLECTION), orderBy('createdAt', 'desc'), limit(48));
+  const load = async () => {
+    try {
+      const snapshot = await withFirebaseRetry(() => getDocs(anonymousQuery));
+      onNext(snapshot.docs.map((item) => anonymousMessageFromDoc(item.id, item.data())));
+    } catch (error) {
+      onError(friendlyFirebaseError(error));
+    }
+  };
+  void load();
+  const interval = createVisiblePolling(load);
+  return () => window.clearInterval(interval);
+};
+
 export const subscribeSecretDiaries = (
   profile: UserProfile,
   onNext: (diaries: SecretDiaryEntry[]) => void,
@@ -390,7 +422,8 @@ export const deleteFirebaseMemory = async (profile: UserProfile, memory: MemoryI
 };
 
 export const addGuestbookEntry = async (profile: UserProfile, message: string) => {
-  await withFirebaseRetry(() => addDoc(collection(db, GUESTBOOK_COLLECTION), {
+  const createdAt = new Date().toISOString();
+  const docRef = await withFirebaseRetry(() => addDoc(collection(db, GUESTBOOK_COLLECTION), {
     uid: profile.uid,
     name: profile.name,
     nameKey: profile.nameKey,
@@ -398,6 +431,30 @@ export const addGuestbookEntry = async (profile: UserProfile, message: string) =
     message,
     createdAt: serverTimestamp(),
   }));
+
+  return {
+    id: docRef.id,
+    uid: profile.uid,
+    name: profile.name,
+    message,
+    createdAt,
+  };
+};
+
+export const addAnonymousMessage = async (_profile: UserProfile, message: string) => {
+  const createdAt = new Date().toISOString();
+  const docRef = await withFirebaseRetry(() => addDoc(collection(db, ANONYMOUS_MESSAGES_COLLECTION), {
+    className: CLASS_NAME,
+    message,
+    kind: 'anonymous-board',
+    createdAt: serverTimestamp(),
+  }));
+
+  return {
+    id: docRef.id,
+    message,
+    createdAt,
+  };
 };
 
 export const deleteGuestbookEntry = async (profile: UserProfile, entry: GuestbookEntry) => {
