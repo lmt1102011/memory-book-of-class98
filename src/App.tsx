@@ -5,8 +5,15 @@ import LoadingScreen from './components/LoadingScreen';
 import LandingPage from './pages/LandingPage';
 import JoinPage from './pages/JoinPage';
 import { SEED_GUESTBOOK, SEED_MEMORIES } from './data/memories';
-import { useLocalStorage } from './hooks/useLocalStorage';
-import type { AppRoute, GuestbookEntry, MemoryItem, UserProfile } from './types';
+import {
+  addGuestbookEntry,
+  observeStudentSession,
+  publishMemoryToFirebase,
+  reactToFirebaseMemory,
+  subscribeGuestbook,
+  subscribeMemories,
+} from './services/firebaseMemoryBook';
+import type { AppRoute, GuestbookEntry, MemoryItem, PublishMemoryDraft, UserProfile } from './types';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 const PhotobookPage = lazy(() => import('./pages/PhotobookPage'));
@@ -24,21 +31,40 @@ const navItems: Array<{ route: AppRoute; label: string; icon: typeof Home }> = [
 
 export default function App() {
   const [route, setRoute] = useState<AppRoute>(() => routeFromHash());
-  const [profile, setProfile] = useLocalStorage<UserProfile | null>('school-photobook-profile', null);
-  const [publishedMemories, setPublishedMemories] = useLocalStorage<MemoryItem[]>(
-    'school-photobook-public-memories',
-    [],
-  );
-  const [guestbook, setGuestbook] = useLocalStorage<GuestbookEntry[]>(
-    'school-photobook-guestbook',
-    SEED_GUESTBOOK,
-  );
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [remoteMemories, setRemoteMemories] = useState<MemoryItem[]>([]);
+  const [remoteGuestbook, setRemoteGuestbook] = useState<GuestbookEntry[]>([]);
+  const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const onPopState = () => setRoute(routeFromHash());
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  useEffect(() => observeStudentSession(setProfile), []);
+
+  useEffect(() => {
+    const unsubscribeMemories = subscribeMemories(
+      (items) => {
+        setRemoteMemories(items);
+        setFirebaseNotice('');
+      },
+      (error) => setFirebaseNotice(error.message),
+    );
+    const unsubscribeGuestbook = subscribeGuestbook(
+      (items) => {
+        setRemoteGuestbook(items);
+        setFirebaseNotice('');
+      },
+      (error) => setFirebaseNotice(error.message),
+    );
+
+    return () => {
+      unsubscribeMemories();
+      unsubscribeGuestbook();
+    };
   }, []);
 
   const navigate = useCallback((nextRoute: AppRoute) => {
@@ -56,17 +82,44 @@ export default function App() {
     [navigate, setProfile],
   );
 
-  const allMemories = useMemo(
-    () => [...publishedMemories, ...SEED_MEMORIES],
-    [publishedMemories],
+  const allMemories = useMemo(() => [...remoteMemories, ...SEED_MEMORIES], [remoteMemories]);
+  const allGuestbook = useMemo(
+    () => (remoteGuestbook.length ? remoteGuestbook : SEED_GUESTBOOK),
+    [remoteGuestbook],
   );
 
   const publishMemory = useCallback(
-    (memory: MemoryItem) => {
-      setPublishedMemories((current) => [memory, ...current].slice(0, 24));
+    async (draft: PublishMemoryDraft) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+      await publishMemoryToFirebase(profile, draft);
       navigate('home');
     },
-    [navigate, setPublishedMemories],
+    [navigate, profile],
+  );
+
+  const handleReact = useCallback(
+    async (memory: MemoryItem) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+      await reactToFirebaseMemory(memory);
+    },
+    [navigate, profile],
+  );
+
+  const handleGuestbookAdd = useCallback(
+    async (message: string) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+      await addGuestbookEntry(profile, message);
+    },
+    [navigate, profile],
   );
 
   const renderRoute = () => {
@@ -90,12 +143,13 @@ export default function App() {
       <Suspense fallback={<LoadingScreen label="Arranging the scrapbook" />}>
         <HomePage
           memories={allMemories}
-          guestbook={guestbook}
-          setGuestbook={setGuestbook}
+          guestbook={allGuestbook}
+          firebaseNotice={firebaseNotice}
           profile={profile}
           onJoin={() => navigate('join')}
           onPhotobook={() => navigate('photobook')}
-          setMemories={setPublishedMemories}
+          onReact={handleReact}
+          onAddGuestbook={handleGuestbookAdd}
         />
       </Suspense>
     );

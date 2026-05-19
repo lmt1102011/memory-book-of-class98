@@ -11,6 +11,7 @@
     "lint": "tsc -b --pretty false"
   },
   "dependencies": {
+    "firebase": "^12.13.0",
     "framer-motion": "^12.23.24",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",

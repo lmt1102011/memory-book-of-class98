@@ -1,74 +1,55 @@
-import { Dispatch, SetStateAction, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Camera, Filter, Search, X } from 'lucide-react';
 import Guestbook from '../components/Guestbook';
 import MemoryCard from '../components/MemoryCard';
 import { useDebounce } from '../hooks/useDebounce';
-import { useLocalStorage } from '../hooks/useLocalStorage';
 import type { GuestbookEntry, MemoryItem, UserProfile } from '../types';
 
 interface HomePageProps {
   memories: MemoryItem[];
-  setMemories: Dispatch<SetStateAction<MemoryItem[]>>;
   guestbook: GuestbookEntry[];
-  setGuestbook: Dispatch<SetStateAction<GuestbookEntry[]>>;
+  firebaseNotice: string;
   profile: UserProfile | null;
   onJoin: () => void;
   onPhotobook: () => void;
+  onReact: (memory: MemoryItem) => void | Promise<void>;
+  onAddGuestbook: (message: string) => void | Promise<void>;
 }
 
 export default function HomePage({
   memories,
-  setMemories,
   guestbook,
-  setGuestbook,
+  firebaseNotice,
   profile,
   onJoin,
   onPhotobook,
+  onReact,
+  onAddGuestbook,
 }: HomePageProps) {
   const [nameQuery, setNameQuery] = useState('');
   const [classQuery, setClassQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
-  const [reactionBoosts, setReactionBoosts] = useLocalStorage<Record<string, number>>(
-    'school-photobook-reactions',
-    {},
-  );
 
   const debouncedName = useDebounce(nameQuery);
   const debouncedClass = useDebounce(classQuery);
 
-  const boostedMemories = useMemo(
-    () =>
-      memories.map((memory) => ({
-        ...memory,
-        reactions: memory.reactions + (reactionBoosts[memory.id] || 0),
-      })),
-    [memories, reactionBoosts],
-  );
-
   const tags = useMemo(() => {
     const unique = new Set<string>();
-    boostedMemories.forEach((memory) => memory.hashtags.forEach((tag) => unique.add(tag)));
+    memories.forEach((memory) => memory.hashtags.forEach((tag) => unique.add(tag)));
     return Array.from(unique).slice(0, 12);
-  }, [boostedMemories]);
+  }, [memories]);
 
   const filteredMemories = useMemo(() => {
     const name = debouncedName.trim().toLowerCase();
     const className = debouncedClass.trim().toLowerCase();
 
-    return boostedMemories.filter((memory) => {
+    return memories.filter((memory) => {
       const byName = !name || memory.name.toLowerCase().includes(name);
       const byClass = !className || memory.className.toLowerCase().includes(className);
       const byTag = !activeTag || memory.hashtags.includes(activeTag);
       return byName && byClass && byTag;
     });
-  }, [activeTag, boostedMemories, debouncedClass, debouncedName]);
-
-  const handleReact = (id: string) => {
-    setReactionBoosts((current) => ({ ...current, [id]: (current[id] || 0) + 1 }));
-    setMemories((current) =>
-      current.map((memory) => (memory.id === id ? { ...memory, reactions: memory.reactions + 1 } : memory)),
-    );
-  };
+  }, [activeTag, memories, debouncedClass, debouncedName]);
 
   const clearFilters = () => {
     setNameQuery('');
@@ -86,8 +67,8 @@ export default function HomePage({
               A scrapbook for the days we almost missed
             </h1>
             <p className="mt-5 max-w-2xl text-sm leading-7 text-ink/66 sm:text-base">
-              Search classmates, find your class, react to favorite memories, and add a new photobooth strip when the
-              moment feels ready.
+              Tìm bạn trong lớp 9/8, thả tim cho ký ức yêu thích, viết guestbook và đăng strip photobooth lên Firebase
+              để cả lớp cùng xem.
             </p>
           </div>
 
@@ -158,7 +139,7 @@ export default function HomePage({
         {filteredMemories.length ? (
           <div className="masonry-feed">
             {filteredMemories.map((memory) => (
-              <MemoryCard key={memory.id} memory={memory} onReact={handleReact} />
+                <MemoryCard key={memory.id} memory={memory} onReact={() => void onReact(memory)} />
             ))}
           </div>
         ) : (
@@ -171,7 +152,15 @@ export default function HomePage({
         )}
       </section>
 
-      <Guestbook entries={guestbook} setEntries={setGuestbook} profile={profile} />
+      {firebaseNotice && (
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <p className="rounded-2xl bg-blush/30 px-4 py-3 text-sm font-semibold text-coffee">
+            Firebase: {firebaseNotice}
+          </p>
+        </div>
+      )}
+
+      <Guestbook entries={guestbook} onAddEntry={onAddGuestbook} profile={profile} />
     </div>
   );
 }

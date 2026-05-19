@@ -5,7 +5,7 @@ import { formatUploadTime } from '../utils/date';
 
 interface MemoryCardProps {
   memory: MemoryItem;
-  onReact: (id: string) => void;
+  onReact: () => void;
 }
 
 const toneClass = {
@@ -57,7 +57,7 @@ function MemoryCard({ memory, onReact }: MemoryCardProps) {
         <div className="mt-4 flex items-center justify-between border-t border-coffee/10 pt-3">
           <button
             className="inline-flex items-center gap-1.5 rounded-full bg-blush/25 px-3 py-2 text-xs font-bold text-coffee transition hover:bg-blush/40"
-            onClick={() => onReact(memory.id)}
+            onClick={onReact}
           >
             <Heart size={15} fill="currentColor" />
             {memory.reactions}

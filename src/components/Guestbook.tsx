@@ -1,33 +1,34 @@
 import { Send } from 'lucide-react';
-import { Dispatch, FormEvent, SetStateAction, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import type { GuestbookEntry, UserProfile } from '../types';
 import { formatMemoryDate } from '../utils/date';
-import { makeId } from '../utils/ids';
 
 interface GuestbookProps {
   entries: GuestbookEntry[];
-  setEntries: Dispatch<SetStateAction<GuestbookEntry[]>>;
+  onAddEntry: (message: string) => void | Promise<void>;
   profile: UserProfile | null;
 }
 
-export default function Guestbook({ entries, setEntries, profile }: GuestbookProps) {
+export default function Guestbook({ entries, onAddEntry, profile }: GuestbookProps) {
   const [message, setMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const trimmed = message.trim();
     if (!trimmed) return;
 
-    setEntries((current) => [
-      {
-        id: makeId('guest'),
-        name: profile?.name || 'Anonymous Student',
-        message: trimmed,
-        createdAt: new Date().toISOString(),
-      },
-      ...current,
-    ]);
-    setMessage('');
+    try {
+      setIsSending(true);
+      setError('');
+      await onAddEntry(trimmed);
+      setMessage('');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Không thể gửi guestbook lúc này.');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -47,14 +48,15 @@ export default function Guestbook({ entries, setEntries, profile }: GuestbookPro
             <input
               value={message}
               onChange={(event) => setMessage(event.target.value)}
-              placeholder="Leave a note for the class..."
+              placeholder={profile ? 'Viết một lời nhắn cho lớp 9/8...' : 'Đăng nhập để viết guestbook...'}
               className="input-field min-w-0 flex-1"
-              maxLength={120}
+              maxLength={150}
             />
-            <button className="icon-button bg-ink text-paper" aria-label="Send guestbook entry">
+            <button className="icon-button bg-ink text-paper" aria-label="Send guestbook entry" disabled={isSending}>
               <Send size={18} />
             </button>
           </form>
+          {error && <p className="mt-3 rounded-2xl bg-blush/30 px-4 py-3 text-sm font-semibold text-coffee">{error}</p>}
 
           <div className="mt-5 grid gap-3">
             {entries.slice(0, 5).map((entry) => (

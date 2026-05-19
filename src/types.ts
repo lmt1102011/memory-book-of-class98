@@ -9,13 +9,17 @@ export type ExportQuality = '1080p' | '2k' | '4k';
 export type BackgroundKind = 'pastel' | 'classroom' | 'vintage' | 'custom';
 
 export interface UserProfile {
+  uid: string;
   name: string;
+  nameKey: string;
   className: string;
   joinedAt: string;
 }
 
 export interface MemoryItem {
   id: string;
+  uid?: string;
+  source?: 'seed' | 'firebase';
   name: string;
   className: string;
   caption: string;
@@ -25,10 +29,12 @@ export interface MemoryItem {
   reactions: number;
   rotation: number;
   tone: 'pink' | 'blue' | 'cream' | 'chalk';
+  storagePath?: string;
 }
 
 export interface GuestbookEntry {
   id: string;
+  uid?: string;
   name: string;
   message: string;
   createdAt: string;
@@ -60,4 +66,10 @@ export interface GeneratedPhotobook {
   dataUrl?: string;
   width: number;
   height: number;
+}
+
+export interface PublishMemoryDraft {
+  imageBlob: Blob;
+  caption: string;
+  hashtags: string[];
 }

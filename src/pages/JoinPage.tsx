@@ -1,6 +1,7 @@
 import { m } from 'framer-motion';
-import { BadgeCheck, Camera, UserRound } from 'lucide-react';
+import { BadgeCheck, Camera, Lock, UserRound } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
+import { checkStudentName, CLASS_NAME, loginStudent, registerStudent } from '../services/firebaseMemoryBook';
 import type { UserProfile } from '../types';
 
 interface JoinPageProps {
@@ -9,23 +10,56 @@ interface JoinPageProps {
   onSkip: () => void;
 }
 
+type JoinMode = 'name' | 'login' | 'register';
+
 export default function JoinPage({ profile, onJoin, onSkip }: JoinPageProps) {
   const [name, setName] = useState(profile?.name || '');
-  const [className, setClassName] = useState(profile?.className || '');
+  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState<JoinMode>('name');
   const [joined, setJoined] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!name.trim() || !className.trim()) return;
+    setError('');
 
-    setJoined(true);
-    window.setTimeout(() => {
-      onJoin({
-        name: name.trim(),
-        className: className.trim(),
-        joinedAt: new Date().toISOString(),
-      });
-    }, 900);
+    try {
+      if (mode === 'name') {
+        setIsChecking(true);
+        const result = await checkStudentName(name);
+        setMode(result.exists ? 'login' : 'register');
+        setPassword('');
+        return;
+      }
+
+      setIsChecking(true);
+      const nextProfile =
+        mode === 'login' ? await loginStudent(name, password) : await registerStudent(name, password);
+
+      setJoined(true);
+      window.setTimeout(() => {
+        onJoin(nextProfile);
+      }, 900);
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Không thể đăng nhập lúc này.';
+      if (message.includes('auth/invalid-credential') || message.includes('auth/wrong-password')) {
+        setError('Mật khẩu chưa đúng. Hãy thử lại.');
+      } else if (message.includes('auth/email-already-in-use')) {
+        setError('Tên này đã có trong lớp 9/8. Hãy nhập mật khẩu để tiếp tục.');
+        setMode('login');
+      } else {
+        setError(message);
+      }
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
+  const resetName = () => {
+    setMode('name');
+    setPassword('');
+    setError('');
   };
 
   useEffect(() => {
@@ -40,7 +74,8 @@ export default function JoinPage({ profile, onJoin, onSkip }: JoinPageProps) {
           <p className="section-kicker">Photobooth Check-In</p>
           <h1 className="font-display text-6xl leading-none sm:text-8xl">Step into the memory book</h1>
           <p className="mt-5 max-w-xl text-base leading-8 text-ink/68">
-            Add your name and class so the photobook can print your details like a real graduation keepsake.
+            Nhập họ tên của bạn trong lớp {CLASS_NAME}. Nếu tên đã có, dùng mật khẩu cũ; nếu là tên mới, đặt mật
+            khẩu để giữ ký ức của riêng bạn.
           </p>
         </div>
 
@@ -71,7 +106,7 @@ export default function JoinPage({ profile, onJoin, onSkip }: JoinPageProps) {
                 <form onSubmit={handleSubmit} className="space-y-5">
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-xs font-bold uppercase text-coffee/70">Student Pass</p>
+                      <p className="text-xs font-bold uppercase text-coffee/70">Class {CLASS_NAME} pass</p>
                       <h2 className="font-display text-5xl leading-none">Memory Booth</h2>
                     </div>
                     <div className="grid h-14 w-14 place-items-center rounded-full bg-white/70 text-coffee shadow-sm">
@@ -82,32 +117,54 @@ export default function JoinPage({ profile, onJoin, onSkip }: JoinPageProps) {
                   <label className="block">
                     <span className="mb-2 flex items-center gap-2 text-sm font-bold text-ink">
                       <UserRound size={16} />
-                      Name
+                      Họ tên của bạn trong lớp {CLASS_NAME}
                     </span>
                     <input
                       className="input-field"
                       value={name}
-                      onChange={(event) => setName(event.target.value)}
+                      onChange={(event) => {
+                        setName(event.target.value);
+                        if (mode !== 'name') resetName();
+                      }}
                       placeholder="Minh Tri"
                       autoComplete="name"
                       maxLength={40}
                     />
                   </label>
 
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-bold text-ink">Class</span>
-                    <input
-                      className="input-field"
-                      value={className}
-                      onChange={(event) => setClassName(event.target.value)}
-                      placeholder="9/8"
-                      maxLength={12}
-                    />
-                  </label>
+                  {mode !== 'name' && (
+                    <m.label
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="block"
+                    >
+                      <span className="mb-2 flex items-center gap-2 text-sm font-bold text-ink">
+                        <Lock size={16} />
+                        {mode === 'login' ? 'Tên này đã có. Nhập mật khẩu' : 'Tên mới. Đặt mật khẩu'}
+                      </span>
+                      <input
+                        className="input-field"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        placeholder="Tối thiểu 6 ký tự"
+                        type="password"
+                        autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                        minLength={6}
+                      />
+                    </m.label>
+                  )}
+
+                  {error && <p className="rounded-2xl bg-blush/35 px-4 py-3 text-sm font-semibold text-coffee">{error}</p>}
 
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <button className="primary-button min-h-13 justify-center" type="submit">
-                      Join Memory Book
+                    <button className="primary-button min-h-13 justify-center" type="submit" disabled={isChecking}>
+                      {isChecking
+                        ? 'Đang kiểm tra...'
+                        : mode === 'name'
+                          ? 'Tiếp tục'
+                          : mode === 'login'
+                            ? 'Đăng nhập'
+                            : 'Tạo tài khoản'}
                     </button>
                     <button className="secondary-button min-h-13 justify-center" type="button" onClick={onSkip}>
                       Explore First
