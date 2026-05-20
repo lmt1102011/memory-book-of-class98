@@ -31,7 +31,7 @@ const routeFromHash = (): AppRoute => {
 
 const navItems: Array<{ route: AppRoute; label: string; icon: typeof Home }> = [
   { route: 'landing', label: 'Intro', icon: Sparkles },
-  { route: 'remember', label: 'Nhớ về cậu', icon: Heart },
+  { route: 'remember', label: 'Secret Message', icon: Heart },
   { route: 'home', label: 'Ký ức', icon: Home },
   { route: 'letters', label: 'Thư lớp', icon: MessageCircle },
   { route: 'diary', label: 'Nhật ký', icon: Lock },
@@ -179,7 +179,7 @@ export default function App() {
         .catch((caught) => {
           if (!isActive) return;
           setRememberNotesLoading(false);
-          setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể mở hộp ký ức lúc này.');
+          setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể mở Secret Message lúc này.');
         });
     }
 
@@ -548,7 +548,7 @@ export default function App() {
 
     if (route === 'remember') {
       return (
-        <Suspense fallback={<LoadingScreen label="Đang mở hộp ký ức" />}>
+        <Suspense fallback={<LoadingScreen label="Đang mở Secret Message" />}>
           <RememberPage
             classmates={classmates}
             notes={rememberNotes}

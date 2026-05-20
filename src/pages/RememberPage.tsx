@@ -84,7 +84,7 @@ export default function RememberPage({
       });
       setMessage('');
       setSelectedNameKey('');
-      setSuccess(`Đã gửi một mẩu ký ức đến ${selectedClassmate.name}.`);
+      setSuccess(`Đã gửi Secret Message đến ${selectedClassmate.name}.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Không thể gửi lời nhắn lúc này.');
     } finally {
@@ -107,13 +107,13 @@ export default function RememberPage({
       <section className="mx-auto max-w-7xl px-4 pb-7 pt-9 sm:px-6 lg:px-8">
         <div className="grid gap-6 lg:grid-cols-[1fr_0.82fr] lg:items-end">
           <div>
-            <p className="section-kicker">Điều tớ nhớ về cậu</p>
+            <p className="section-kicker">Secret Message</p>
             <h1 className="max-w-4xl font-display text-6xl leading-[0.86] sm:text-8xl">
-              Có những điều nhỏ thôi, nhưng người ta nhớ mãi.
+              Những lời chưa nói, gửi lại thật khẽ.
             </h1>
             <p className="mt-5 max-w-2xl text-sm leading-7 text-ink/66 sm:text-base">
-              Chọn một bạn trong lớp 9/8 và gửi lại một mẩu ký ức về bạn ấy. Người nhận sẽ thấy trong hộp riêng của
-              mình; bạn có thể ký tên hoặc để ẩn danh.
+              Chọn một bạn trong lớp 9/8 và gửi một secret message dành riêng cho bạn ấy. Người nhận sẽ thấy trong hộp
+              riêng của mình; bạn có thể ký tên hoặc để ẩn danh.
             </p>
           </div>
 
@@ -133,7 +133,7 @@ export default function RememberPage({
               </div>
             </div>
             <p className="mt-3 text-xs leading-5 text-ink/58">
-              Đây không phải bảng công khai. Mỗi người chỉ nhìn thấy những lời nhắn gửi đến tên mình.
+              Đây không phải bảng công khai. Mỗi người chỉ nhìn thấy secret message gửi đến tên mình.
             </p>
           </div>
         </div>
@@ -146,9 +146,9 @@ export default function RememberPage({
               <Heart size={20} fill="currentColor" />
             </span>
             <div className="min-w-0">
-              <h2 className="font-display text-5xl leading-none">Gửi một điều nhỏ</h2>
+              <h2 className="font-display text-5xl leading-none">Gửi Secret Message</h2>
               <p className="mt-1 text-xs leading-5 text-ink/58">
-                Viết như đang dán một tờ giấy nhỏ vào cuối cuốn lưu bút.
+                Viết như một tờ giấy nhỏ được gấp lại và gửi riêng cho một người.
               </p>
             </div>
           </div>
@@ -237,7 +237,7 @@ export default function RememberPage({
                 disabled={isSending || !selectedClassmate || !message.trim()}
               >
                 <Send size={17} />
-                {isSending ? 'Đang gửi...' : 'Gửi ký ức'}
+                {isSending ? 'Đang gửi...' : 'Gửi Secret Message'}
               </button>
             </>
           )}
@@ -247,7 +247,7 @@ export default function RememberPage({
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="section-kicker">Hộp của bạn</p>
-              <h2 className="font-display text-5xl leading-none">Những điều người ta nhớ</h2>
+              <h2 className="font-display text-5xl leading-none">Secret Message của bạn</h2>
             </div>
             {profile && <span className="rounded-full bg-paper/78 px-3 py-2 text-xs font-bold text-coffee">{profile.name}</span>}
           </div>
@@ -256,7 +256,7 @@ export default function RememberPage({
             <div className="grid min-h-72 place-items-center text-center">
               <div>
                 <div className="memory-loading-spinner mx-auto mb-4 h-12 w-12 rounded-full border-4 border-coffee/15 border-t-coffee" />
-                <p className="font-hand text-3xl text-coffee">Đang mở hộp ký ức...</p>
+                <p className="font-hand text-3xl text-coffee">Đang mở Secret Message...</p>
               </div>
             </div>
           ) : !profile ? (
@@ -299,7 +299,7 @@ export default function RememberPage({
                 <Heart className="mx-auto text-coffee/70" size={32} />
                 <h3 className="mt-3 font-display text-5xl leading-none">Chưa có lời nhắn nào</h3>
                 <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-ink/60">
-                  Khi ai đó gửi một điều họ nhớ về bạn, nó sẽ nằm ở đây như một mảnh lưu bút riêng.
+                  Khi ai đó gửi secret message cho bạn, nó sẽ nằm ở đây như một mảnh lưu bút riêng.
                 </p>
               </div>
             </div>
