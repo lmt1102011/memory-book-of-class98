@@ -536,6 +536,13 @@
     border-radius: 999px;
   }
 
+  .camera-action-spacer {
+    display: block;
+    width: 2.75rem;
+    height: 2.75rem;
+    pointer-events: none;
+  }
+
   .camera-status-pill {
     display: inline-flex;
     min-height: 2.75rem;

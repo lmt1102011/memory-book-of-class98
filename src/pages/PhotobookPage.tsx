@@ -311,18 +311,11 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
     setFacingMode((current) => (current === 'user' ? 'environment' : 'user'));
   };
 
-  const switchCaptureSource = () => {
+  const returnToCameraSource = () => {
     if (isEnhancing || pendingPhoto) return;
 
     setCameraError(null);
     setCountdown(null);
-
-    if (captureSource === 'camera') {
-      setCaptureSource('upload');
-      window.setTimeout(() => photoUploadInputRef.current?.click(), 40);
-      return;
-    }
-
     setCaptureSource('camera');
   };
 
@@ -671,14 +664,18 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                     </span>
                     <span>{Math.min(currentIndex + (pendingPhoto ? 0 : 1), config.photoCount)} / {config.photoCount}</span>
                   </div>
-                  <button
-                    className="camera-action-button"
-                    onClick={switchCaptureSource}
-                    disabled={isEnhancing || Boolean(pendingPhoto)}
-                    aria-label={captureSource === 'camera' ? 'Upload ảnh' : 'Mở camera'}
-                  >
-                    {captureSource === 'camera' ? <Upload size={18} /> : <CameraIcon size={18} />}
-                  </button>
+                  {captureSource === 'upload' && !pendingPhoto ? (
+                    <button
+                      className="camera-action-button"
+                      onClick={returnToCameraSource}
+                      disabled={isEnhancing}
+                      aria-label="Mở camera"
+                    >
+                      <CameraIcon size={18} />
+                    </button>
+                  ) : (
+                    <span className="camera-action-spacer" aria-hidden="true" />
+                  )}
                 </div>
 
                 <div className="camera-frame">
@@ -810,14 +807,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                     <>
                       {captureSource === 'camera' ? (
                         <>
-                          <button
-                            className="camera-secondary-button camera-control-side"
-                            onClick={switchCaptureSource}
-                            disabled={!canUploadPhoto}
-                          >
-                            <Upload size={18} />
-                            <span className="camera-button-label">Up ảnh</span>
-                          </button>
+                          <span className="camera-control-spacer" aria-hidden="true" />
                           <button className="camera-shutter-button" onClick={startCountdown} disabled={!canCapture} aria-label="Chụp ảnh">
                             <CameraIcon size={30} />
                           </button>
@@ -830,7 +820,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                         <>
                           <button
                             className="camera-secondary-button camera-control-side"
-                            onClick={switchCaptureSource}
+                            onClick={returnToCameraSource}
                             disabled={isEnhancing}
                           >
                             <CameraIcon size={18} />
@@ -912,14 +902,12 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                     Upload Photo
                   </button>
                 )}
-                <button
-                  className="secondary-button justify-center"
-                  onClick={() => setCaptureSource(captureSource === 'camera' ? 'upload' : 'camera')}
-                  disabled={isEnhancing}
-                >
-                  {captureSource === 'camera' ? <Upload size={16} /> : <Camera size={16} />}
-                  {captureSource === 'camera' ? 'Dùng ảnh có sẵn' : 'Dùng camera'}
-                </button>
+                {captureSource === 'upload' && (
+                  <button className="secondary-button justify-center" onClick={returnToCameraSource} disabled={isEnhancing}>
+                    <Camera size={16} />
+                    Dùng camera
+                  </button>
+                )}
                 <button className="secondary-button justify-center" onClick={leaveCameraStage}>
                   <ArrowLeft size={16} />
                   Back to setup

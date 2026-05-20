@@ -1,9 +1,11 @@
 const MAX_EDGE = 3200;
 const MAX_PIXELS = 5_800_000;
-const SOFT_BLEND = 0.42;
-const SHARPEN_EDGE_AMOUNT = 0.27;
-const SHARPEN_TEXTURE_AMOUNT = 0.095;
-const DETAIL_THRESHOLD = 9;
+const SOFT_BLEND = 0.48;
+const GLOW_BLEND = 0.08;
+const SHARPEN_EDGE_AMOUNT = 0.31;
+const SHARPEN_TEXTURE_AMOUNT = 0.11;
+const DETAIL_THRESHOLD = 8;
+const TONE_LIFT = 0.038;
 
 const loadImage = (src: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -66,9 +68,15 @@ const applyNaturalDetail = (
     const detail = Math.abs(redDiff * 0.299 + greenDiff * 0.587 + blueDiff * 0.114);
     const amount = detail > DETAIL_THRESHOLD ? SHARPEN_EDGE_AMOUNT : SHARPEN_TEXTURE_AMOUNT;
 
-    outputData[index] = clampChannel(outputData[index] + redDiff * amount);
-    outputData[index + 1] = clampChannel(outputData[index + 1] + greenDiff * amount);
-    outputData[index + 2] = clampChannel(outputData[index + 2] + blueDiff * amount);
+    const red = outputData[index] + redDiff * amount;
+    const green = outputData[index + 1] + greenDiff * amount;
+    const blue = outputData[index + 2] + blueDiff * amount;
+    const luminance = (red * 0.299 + green * 0.587 + blue * 0.114) / 255;
+    const lift = 1 + (1 - luminance) * TONE_LIFT;
+
+    outputData[index] = clampChannel(red * lift + 3.8);
+    outputData[index + 1] = clampChannel(green * (lift + 0.002) + 2.4);
+    outputData[index + 2] = clampChannel(blue * (lift + 0.008) + 4.2);
   }
 
   outputCtx.putImageData(output, 0, 0);
@@ -82,6 +90,7 @@ export async function beautifyPhotoDataUrl(dataUrl: string): Promise<string> {
 
   const base = createCanvas(width, height);
   const soft = createCanvas(width, height);
+  const glow = createCanvas(width, height);
   const output = createCanvas(width, height);
 
   try {
@@ -91,24 +100,38 @@ export async function beautifyPhotoDataUrl(dataUrl: string): Promise<string> {
 
     soft.ctx.fillStyle = '#fffaf1';
     soft.ctx.fillRect(0, 0, width, height);
-    soft.ctx.filter = 'blur(1.8px) brightness(105%) contrast(102.4%) saturate(103.5%)';
+    soft.ctx.filter = 'blur(2.2px) brightness(107%) contrast(102.8%) saturate(105%)';
     soft.ctx.drawImage(base.canvas, 0, 0);
     soft.ctx.filter = 'none';
 
+    glow.ctx.fillStyle = '#fffaf1';
+    glow.ctx.fillRect(0, 0, width, height);
+    glow.ctx.filter = 'blur(6px) brightness(116%) contrast(101%) saturate(108%)';
+    glow.ctx.drawImage(base.canvas, 0, 0);
+    glow.ctx.filter = 'none';
+
     output.ctx.fillStyle = '#fffaf1';
     output.ctx.fillRect(0, 0, width, height);
-    output.ctx.filter = 'brightness(104%) contrast(102.4%) saturate(102.8%)';
+    output.ctx.filter = 'brightness(105%) contrast(103%) saturate(104%)';
     output.ctx.drawImage(base.canvas, 0, 0);
     output.ctx.filter = 'none';
     output.ctx.globalAlpha = SOFT_BLEND;
     output.ctx.drawImage(soft.canvas, 0, 0);
     output.ctx.globalAlpha = 1;
+    output.ctx.globalCompositeOperation = 'screen';
+    output.ctx.globalAlpha = GLOW_BLEND;
+    output.ctx.drawImage(glow.canvas, 0, 0);
+    output.ctx.globalCompositeOperation = 'source-over';
+    output.ctx.globalAlpha = 1;
+    releaseCanvas(base.canvas);
+    releaseCanvas(glow.canvas);
 
     applyNaturalDetail(output.ctx, soft.ctx, width, height);
     return output.canvas.toDataURL('image/jpeg', 0.96);
   } finally {
     releaseCanvas(base.canvas);
     releaseCanvas(soft.canvas);
+    releaseCanvas(glow.canvas);
     releaseCanvas(output.canvas);
   }
 }
