@@ -1,5 +1,5 @@
 import { BadgeCheck, Camera, Heart, MessageCircle, Search, Send, Sparkles, Upload, UserRound, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import FirebaseNotice from '../components/FirebaseNotice';
 import type { ClassmateProfile, MemoryComment, MemoryItem, UserProfile, YouthProfileDraft } from '../types';
 
@@ -238,53 +238,79 @@ export default function PeoplePage({
               </div>
             ) : (
               <>
-                <div className="mt-5 flex items-center gap-4">
-                  <button
-                    type="button"
-                    className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full bg-paper shadow-paper ring-1 ring-coffee/15"
-                    onClick={() => uploadRef.current?.click()}
-                  >
-                    {avatarDataUrl ? (
-                      <img src={avatarDataUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <Upload size={24} className="text-coffee" />
-                    )}
-                  </button>
-                  <div className="min-w-0">
-                    <p className="break-words text-sm font-bold">{profile.name}</p>
-                    <p className="mt-1 text-xs leading-5 text-ink/58">Bấm avatar để upload ảnh đại diện.</p>
+                <ProfileFormSection
+                  title="1. Ảnh đại diện"
+                  description="Ảnh sẽ được nén nhẹ trước khi lưu để trang tải nhanh hơn."
+                  icon={<Upload size={16} />}
+                >
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full bg-paper shadow-paper ring-1 ring-coffee/15"
+                      onClick={() => uploadRef.current?.click()}
+                    >
+                      {avatarDataUrl ? (
+                        <img src={avatarDataUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <Upload size={24} className="text-coffee" />
+                      )}
+                    </button>
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-bold">{profile.name}</p>
+                      <p className="mt-1 text-xs leading-5 text-ink/58">Bấm vào vòng ảnh để chọn chân dung của bạn.</p>
+                    </div>
+                    <input ref={uploadRef} className="hidden" type="file" accept="image/*" onChange={handleAvatarChange} />
                   </div>
-                  <input ref={uploadRef} className="hidden" type="file" accept="image/*" onChange={handleAvatarChange} />
-                </div>
+                </ProfileFormSection>
 
-                <label className="mt-4 block">
-                  <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Biệt danh</span>
-                  <input className="input-field" value={nickname} onChange={(event) => setNickname(event.target.value.slice(0, 36))} />
-                </label>
+                <ProfileFormSection
+                  title="2. Thông tin nhận diện"
+                  description="Biệt danh và câu nói riêng sẽ hiện trên thẻ hồ sơ."
+                  icon={<UserRound size={16} />}
+                >
+                  <div className="grid gap-3">
+                    <label className="block">
+                      <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Biệt danh</span>
+                      <input className="input-field" value={nickname} onChange={(event) => setNickname(event.target.value.slice(0, 36))} />
+                    </label>
 
-                <label className="mt-3 block">
-                  <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Câu nói riêng</span>
-                  <input className="input-field" value={quote} onChange={(event) => setQuote(event.target.value.slice(0, 120))} />
-                </label>
+                    <label className="block">
+                      <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Câu nói riêng</span>
+                      <input className="input-field" value={quote} onChange={(event) => setQuote(event.target.value.slice(0, 120))} />
+                    </label>
+                  </div>
+                </ProfileFormSection>
 
-                <label className="mt-3 block">
-                  <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">3 tag tính cách</span>
-                  <input
-                    className="input-field"
-                    value={tagText}
-                    onChange={(event) => setTagText(event.target.value.slice(0, 80))}
-                    placeholder="ấm áp, hài hước, đáng nhớ"
-                  />
-                </label>
+                <ProfileFormSection
+                  title="3. Tính cách"
+                  description="Tối đa 3 tag, ngăn cách bằng dấu phẩy."
+                  icon={<Heart size={16} />}
+                >
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">3 tag tính cách</span>
+                    <input
+                      className="input-field"
+                      value={tagText}
+                      onChange={(event) => setTagText(event.target.value.slice(0, 80))}
+                      placeholder="ấm áp, hài hước, đáng nhớ"
+                    />
+                  </label>
+                </ProfileFormSection>
 
-                <label className="mt-3 block">
-                  <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Lời gửi lớp 9/8</span>
-                  <textarea
-                    className="input-field min-h-28 resize-none"
-                    value={classMessage}
-                    onChange={(event) => setClassMessage(event.target.value.slice(0, 360))}
-                  />
-                </label>
+                <ProfileFormSection
+                  title="4. Lời gửi lớp 9/8"
+                  description="Viết một đoạn ngắn để sau này đọc lại vẫn thấy thương."
+                  icon={<MessageCircle size={16} />}
+                >
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Lời gửi lớp 9/8</span>
+                    <textarea
+                      className="input-field min-h-28 resize-none"
+                      value={classMessage}
+                      onChange={(event) => setClassMessage(event.target.value.slice(0, 360))}
+                    />
+                  </label>
+                </ProfileFormSection>
 
                 {(localError || localSuccess) && (
                   <p className={`mt-3 text-sm font-bold ${localError ? 'text-[#9d3b4b]' : 'text-chalk'}`}>
@@ -392,6 +418,34 @@ function Stat({ value, label, tone = 'bg-paper/72' }: { value: number; label: st
       <p className="font-display text-4xl leading-none">{value}</p>
       <p className="mt-1 text-[11px] font-bold uppercase text-coffee/62">{label}</p>
     </div>
+  );
+}
+
+function ProfileFormSection({
+  title,
+  description,
+  icon,
+  children,
+}: {
+  title: string;
+  description: string;
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <fieldset className="mt-4 rounded-[1rem] border border-coffee/10 bg-paper/58 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+      <legend className="sr-only">{title}</legend>
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/72 text-coffee shadow-sm">
+          {icon}
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-black text-ink">{title}</p>
+          <p className="mt-1 text-xs leading-5 text-ink/58">{description}</p>
+        </div>
+      </div>
+      <div className="mt-3">{children}</div>
+    </fieldset>
   );
 }
 

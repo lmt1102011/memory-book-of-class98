@@ -1,4 +1,17 @@
-import { BadgeCheck, Check, Heart, Search, Send, Sparkles, Trash2, UserRound } from 'lucide-react';
+import {
+  BadgeCheck,
+  BookOpen,
+  Camera,
+  Check,
+  Heart,
+  MessageCircle,
+  Search,
+  Send,
+  Sparkles,
+  Trash2,
+  UserRound,
+  type LucideIcon,
+} from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import FirebaseNotice from '../components/FirebaseNotice';
 import type { ClassmateProfile, UserProfile, VoteCategory, VoteCategoryDraft, VoteCategoryTone, VoteRecord } from '../types';
@@ -24,7 +37,18 @@ const toneOptions: Array<{ id: VoteCategoryTone; label: string; className: strin
   { id: 'chalk', label: 'Bảng', className: 'from-chalk/20 to-paper' },
 ];
 
-const iconOptions = ['✨', '💌', '📸', '🏆', '🎓', '🌷'];
+const iconOptions: Array<{ id: string; label: string; Icon: LucideIcon }> = [
+  { id: 'sparkles', label: 'Kỷ niệm', Icon: Sparkles },
+  { id: 'heart', label: 'Ấm áp', Icon: Heart },
+  { id: 'camera', label: 'Ảnh lớp', Icon: Camera },
+  { id: 'book', label: 'Lưu bút', Icon: BookOpen },
+  { id: 'badge', label: 'Danh hiệu', Icon: BadgeCheck },
+  { id: 'message', label: 'Lời nhắn', Icon: MessageCircle },
+];
+
+const defaultVoteIconId = iconOptions[0].id;
+
+const getVoteIcon = (iconId: string) => iconOptions.find((option) => option.id === iconId)?.Icon || Sparkles;
 
 const toneClass: Record<VoteCategoryTone, string> = {
   pink: 'from-blush/45 to-paper',
@@ -48,7 +72,7 @@ export default function VotesPage({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [tone, setTone] = useState<VoteCategoryTone>('pink');
-  const [icon, setIcon] = useState(iconOptions[0]);
+  const [icon, setIcon] = useState(defaultVoteIconId);
   const [query, setQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [busyVote, setBusyVote] = useState('');
@@ -103,7 +127,7 @@ export default function VotesPage({
       setTitle('');
       setDescription('');
       setTone('pink');
-      setIcon(iconOptions[0]);
+      setIcon(defaultVoteIconId);
     } catch (caught) {
       setLocalError(caught instanceof Error ? caught.message : 'Không thể tạo hạng mục lúc này.');
     } finally {
@@ -199,15 +223,19 @@ export default function VotesPage({
 
                 <div className="mt-4">
                   <p className="mb-2 text-xs font-bold uppercase text-coffee/70">Biểu tượng</p>
-                  <div className="grid grid-cols-6 gap-2">
-                    {iconOptions.map((item) => (
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {iconOptions.map(({ id, label, Icon }) => (
                       <button
-                        key={item}
+                        key={id}
                         type="button"
-                        className={`grid h-10 place-items-center rounded-full text-lg ${icon === item ? 'bg-ink text-paper' : 'bg-paper/72'}`}
-                        onClick={() => setIcon(item)}
+                        className={`grid min-h-14 place-items-center rounded-[0.85rem] px-2 py-2 text-center transition ${
+                          icon === id ? 'bg-ink text-paper shadow-paper' : 'bg-paper/72 text-coffee hover:bg-white/72'
+                        }`}
+                        onClick={() => setIcon(id)}
+                        title={label}
                       >
-                        {item}
+                        <Icon size={18} />
+                        <span className="mt-1 block text-[10px] font-black leading-tight">{label}</span>
                       </button>
                     ))}
                   </div>
@@ -327,13 +355,16 @@ function VoteCategoryCard({
 
   const myVote = profile ? votes.find((vote) => vote.voterUid === profile.uid) : undefined;
   const canHide = Boolean(profile && category.uid === profile.uid);
+  const CategoryIcon = getVoteIcon(category.icon);
 
   return (
     <article className={`rounded-[1.35rem] border border-white/65 bg-gradient-to-br p-4 shadow-paper ${toneClass[category.tone]}`}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-3">
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white/62 text-2xl shadow-sm">{category.icon}</span>
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white/62 text-coffee shadow-sm">
+              <CategoryIcon size={24} />
+            </span>
             <div className="min-w-0">
               <h2 className="break-words font-display text-4xl leading-none sm:text-5xl">{category.title}</h2>
               <p className="mt-1 text-xs font-bold uppercase text-coffee/70">
