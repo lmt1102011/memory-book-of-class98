@@ -323,6 +323,104 @@ const drawBackground = async (
   drawPaperNoise(ctx, width, height);
 };
 
+const drawMoodBackdrop = (ctx: CanvasRenderingContext2D, width: number, height: number, theme: MoodTheme) => {
+  const base = width;
+  ctx.save();
+
+  if (theme.id === 'clear-youth') {
+    ctx.fillStyle = 'rgba(255, 255, 255, .24)';
+    for (let i = 0; i < 7; i += 1) {
+      ctx.beginPath();
+      ctx.arc((width * (0.12 + i * 0.13)) % width, height * (i % 2 ? 0.2 : 0.78), base * (0.038 + (i % 3) * 0.01), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(255, 250, 241, .62)';
+    ctx.lineWidth = Math.max(2, base * 0.004);
+    ctx.beginPath();
+    ctx.moveTo(width * 0.08, height * 0.18);
+    ctx.bezierCurveTo(width * 0.28, height * 0.08, width * 0.54, height * 0.27, width * 0.92, height * 0.13);
+    ctx.stroke();
+  }
+
+  if (theme.id === 'farewell-day') {
+    const sunset = ctx.createLinearGradient(0, height * 0.12, width, height);
+    sunset.addColorStop(0, 'rgba(255, 231, 185, .1)');
+    sunset.addColorStop(0.54, 'rgba(216, 138, 154, .18)');
+    sunset.addColorStop(1, 'rgba(122, 86, 57, .26)');
+    ctx.fillStyle = sunset;
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = 'rgba(255, 250, 241, .28)';
+    ctx.beginPath();
+    ctx.arc(width * 0.82, height * 0.18, base * 0.13, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(122, 86, 57, .16)';
+    ctx.setLineDash([base * 0.012, base * 0.012]);
+    ctx.lineWidth = Math.max(1, base * 0.003);
+    ctx.beginPath();
+    ctx.moveTo(width * 0.07, height * 0.18);
+    ctx.lineTo(width * 0.93, height * 0.18);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  if (theme.id === 'best-friends') {
+    const stickers = ['BFF', '9/8', 'YES', 'LOL', 'TEAM'];
+    stickers.forEach((text, index) => {
+      const x = width * (0.12 + ((index * 19) % 72) / 100);
+      const y = height * (0.12 + ((index * 31) % 74) / 100);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(index % 2 ? 0.16 : -0.13);
+      ctx.fillStyle = index % 2 ? 'rgba(56, 91, 88, .84)' : 'rgba(247, 183, 199, .86)';
+      roundRect(ctx, -base * 0.052, -base * 0.025, base * 0.104, base * 0.05, base * 0.018);
+      ctx.fill();
+      ctx.fillStyle = '#fffaf1';
+      ctx.font = `${Math.round(base * 0.028)}px "Saira Condensed", "Be Vietnam Pro", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+    });
+  }
+
+  if (theme.id === 'korean-booth') {
+    ctx.fillStyle = 'rgba(255, 255, 255, .42)';
+    roundRect(ctx, width * 0.045, height * 0.035, width * 0.91, height * 0.93, base * 0.028);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(169, 205, 232, .48)';
+    ctx.lineWidth = Math.max(1, base * 0.0025);
+    for (let x = width * 0.1; x < width * 0.92; x += base * 0.065) {
+      ctx.beginPath();
+      ctx.moveTo(x, height * 0.07);
+      ctx.lineTo(x, height * 0.93);
+      ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(37, 49, 61, .72)';
+    for (let i = 0; i < 12; i += 1) {
+      ctx.fillRect(width * 0.78 + i * base * 0.008, height * 0.91, base * 0.0035, base * (0.018 + (i % 3) * 0.012));
+    }
+  }
+
+  if (theme.id === 'vintage-final') {
+    ctx.fillStyle = 'rgba(122, 86, 57, .055)';
+    for (let i = 0; i < 9; i += 1) {
+      ctx.beginPath();
+      ctx.arc(width * (0.08 + ((i * 17) % 84) / 100), height * (0.1 + ((i * 29) % 76) / 100), base * (0.03 + (i % 4) * 0.014), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(77, 53, 35, .18)';
+    const holeSize = base * 0.023;
+    for (let y = height * 0.08; y < height * 0.93; y += holeSize * 2.2) {
+      roundRect(ctx, width * 0.035, y, holeSize, holeSize * 0.72, holeSize * 0.16);
+      ctx.fill();
+      roundRect(ctx, width * 0.942, y, holeSize, holeSize * 0.72, holeSize * 0.16);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
+};
+
 const getFrames = (layout: LayoutType, count: number, width: number, height: number) => {
   const margin = width * 0.08;
   const gutter = width * 0.035;
@@ -375,31 +473,75 @@ const drawPhotoFrame = (
   theme: MoodTheme,
 ) => {
   const border = frame.width * 0.032;
+  const radius = theme.id === 'korean-booth' ? border * 0.55 : theme.id === 'vintage-final' ? border * 0.25 : border;
   ctx.save();
-  ctx.shadowColor = 'rgba(54, 34, 22, .2)';
-  ctx.shadowBlur = frame.width * 0.045;
-  ctx.shadowOffsetY = frame.width * 0.02;
+  ctx.shadowColor = theme.id === 'korean-booth' ? 'rgba(37, 49, 61, .16)' : 'rgba(54, 34, 22, .2)';
+  ctx.shadowBlur = theme.id === 'korean-booth' ? frame.width * 0.024 : frame.width * 0.045;
+  ctx.shadowOffsetY = theme.id === 'korean-booth' ? frame.width * 0.012 : frame.width * 0.02;
   ctx.fillStyle = theme.photoBorder;
-  roundRect(ctx, frame.x - border, frame.y - border, frame.width + border * 2, frame.height + border * 2, border * 1.3);
+  roundRect(ctx, frame.x - border, frame.y - border, frame.width + border * 2, frame.height + border * 2, radius * 1.3);
   ctx.fill();
   ctx.restore();
 
   ctx.save();
-  roundRect(ctx, frame.x, frame.y, frame.width, frame.height, border);
+  roundRect(ctx, frame.x, frame.y, frame.width, frame.height, radius);
   ctx.clip();
   drawCoverImage(ctx, image, frame.x, frame.y, frame.width, frame.height);
   ctx.restore();
 
-  ctx.strokeStyle = theme.accentSoft;
-  ctx.lineWidth = Math.max(2, frame.width * 0.006);
-  roundRect(ctx, frame.x, frame.y, frame.width, frame.height, border);
+  ctx.strokeStyle = theme.id === 'korean-booth' ? 'rgba(37, 49, 61, .26)' : theme.accentSoft;
+  ctx.lineWidth = Math.max(2, frame.width * (theme.id === 'korean-booth' ? 0.0035 : 0.006));
+  roundRect(ctx, frame.x, frame.y, frame.width, frame.height, radius);
   ctx.stroke();
 
-  if (index % 2 === 0) {
-    drawStickerTape(ctx, frame.x + frame.width * 0.18, frame.y - border * 0.75, frame.width * 0.28, -0.18, theme.tape);
-  } else {
-    drawStickerTape(ctx, frame.x + frame.width * 0.82, frame.y - border * 0.6, frame.width * 0.26, 0.16, theme.accentSoft);
+  if (theme.id === 'korean-booth') {
+    ctx.save();
+    ctx.fillStyle = 'rgba(255, 255, 255, .88)';
+    roundRect(ctx, frame.x + frame.width * 0.04, frame.y + frame.height * 0.035, frame.width * 0.18, frame.width * 0.066, frame.width * 0.018);
+    ctx.fill();
+    ctx.fillStyle = theme.ink;
+    ctx.font = `${Math.round(frame.width * 0.038)}px "Saira Condensed", "Be Vietnam Pro", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(index + 1).padStart(2, '0'), frame.x + frame.width * 0.13, frame.y + frame.height * 0.035 + frame.width * 0.033);
+    ctx.restore();
+    return;
   }
+
+  if (theme.id === 'farewell-day') {
+    drawStickerTape(ctx, frame.x + frame.width * 0.5, frame.y - border * 0.75, frame.width * 0.34, index % 2 ? 0.08 : -0.08, theme.tape);
+    drawStickerTape(ctx, frame.x + frame.width * 0.5, frame.y + frame.height + border * 0.72, frame.width * 0.22, index % 2 ? -0.12 : 0.12, 'rgba(216, 138, 154, .34)');
+    return;
+  }
+
+  if (theme.id === 'best-friends') {
+    drawStickerTape(ctx, frame.x + frame.width * 0.2, frame.y - border * 0.7, frame.width * 0.24, -0.2, theme.tape);
+    ctx.save();
+    ctx.fillStyle = index % 2 ? '#385b58' : '#f7b7c7';
+    ctx.beginPath();
+    ctx.arc(frame.x + frame.width * 0.88, frame.y + frame.height * 0.12, frame.width * 0.052, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fffaf1';
+    ctx.font = `${Math.round(frame.width * 0.038)}px "Saira Condensed", "Be Vietnam Pro", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(index % 2 ? 'BFF' : '98', frame.x + frame.width * 0.88, frame.y + frame.height * 0.12);
+    ctx.restore();
+    return;
+  }
+
+  if (theme.id === 'vintage-final') {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(122, 86, 57, .24)';
+    ctx.lineWidth = Math.max(1, frame.width * 0.004);
+    ctx.strokeRect(frame.x - border * 0.42, frame.y - border * 0.42, frame.width + border * 0.84, frame.height + border * 0.84);
+    ctx.restore();
+    drawStickerTape(ctx, frame.x + frame.width * 0.82, frame.y - border * 0.58, frame.width * 0.24, 0.14, theme.tape);
+    return;
+  }
+
+  drawStickerTape(ctx, frame.x + frame.width * 0.18, frame.y - border * 0.75, frame.width * 0.28, -0.18, theme.tape);
+  drawStickerTape(ctx, frame.x + frame.width * 0.82, frame.y - border * 0.6, frame.width * 0.2, 0.16, theme.accentSoft);
 };
 
 const drawDecorations = (
@@ -532,7 +674,7 @@ const drawMoodDecorations = (
 
   if (theme.id === 'best-friends') {
     ctx.fillStyle = theme.accent;
-    ['BFF', '9/8', '♡'].forEach((text, index) => {
+    ['BFF', '9/8', 'TEAM'].forEach((text, index) => {
       ctx.save();
       ctx.translate(width * (0.15 + index * 0.34), height * (index % 2 ? 0.14 : 0.88));
       ctx.rotate(index % 2 ? 0.12 : -0.1);
@@ -552,6 +694,22 @@ const drawMoodDecorations = (
     for (let i = 0; i < 4; i += 1) {
       ctx.strokeRect(width * (0.06 + i * 0.025), height * 0.925, base * 0.012, base * 0.012);
     }
+  }
+
+  if (theme.id === 'farewell-day') {
+    ctx.save();
+    ctx.translate(width * 0.12, height * 0.91);
+    ctx.rotate(-0.06);
+    ctx.fillStyle = 'rgba(255, 250, 241, .7)';
+    roundRect(ctx, 0, 0, base * 0.24, base * 0.105, base * 0.018);
+    ctx.fill();
+    ctx.fillStyle = theme.ink;
+    ctx.font = `${Math.round(base * 0.032)}px "Saira Condensed", "Be Vietnam Pro", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText('LAST DAY', base * 0.12, base * 0.045);
+    ctx.font = `${Math.round(base * 0.026)}px "Mali", "Be Vietnam Pro", cursive`;
+    ctx.fillText('we were here', base * 0.12, base * 0.078);
+    ctx.restore();
   }
 
   if (theme.id === 'vintage-final' || theme.id === 'farewell-day') {
@@ -590,6 +748,7 @@ export const renderPhotobook = async ({
 
   const theme = getMoodTheme(config.moodId);
   await drawBackground(ctx, width, height, background, theme, config.customBackground, config.customBackgroundEdit);
+  drawMoodBackdrop(ctx, width, height, theme);
 
   const loadedPhotos = await Promise.all(photos.map((photo) => loadImage(photo.dataUrl)));
   const frames = getFrames(config.layout, loadedPhotos.length, width, height);

@@ -544,6 +544,110 @@
     background: rgba(249, 252, 255, 0.94);
   }
 
+  .mood-preview-clear-youth .mood-preview-paper::before {
+    content: '';
+    position: absolute;
+    inset: 0.6rem;
+    border-radius: 999px;
+    background:
+      radial-gradient(circle at 18% 28%, rgba(255, 255, 255, 0.86) 0 0.42rem, transparent 0.45rem),
+      radial-gradient(circle at 78% 78%, rgba(255, 255, 255, 0.72) 0 0.58rem, transparent 0.62rem);
+  }
+
+  .mood-preview-farewell-day {
+    background:
+      radial-gradient(circle at 78% 18%, rgba(255, 250, 241, 0.8) 0 1.4rem, transparent 1.45rem),
+      linear-gradient(135deg, #fff1dc, #d8aa78 58%, #7a5639) !important;
+  }
+
+  .mood-preview-farewell-day .mood-preview-note {
+    left: 0.65rem;
+    right: auto;
+    background: #7a5639;
+  }
+
+  .mood-preview-farewell-day .mood-preview-sticker {
+    left: 50%;
+    width: 4.2rem;
+    background: rgba(255, 246, 219, 0.9);
+    transform: translateX(-50%) rotate(3deg);
+  }
+
+  .mood-preview-best-friends {
+    background:
+      radial-gradient(circle at 14% 78%, rgba(56, 91, 88, 0.82) 0 1.2rem, transparent 1.24rem),
+      linear-gradient(135deg, #fffaf1, #f7b7c7 42%, #385b58) !important;
+  }
+
+  .mood-preview-best-friends .mood-preview-photo-main {
+    transform: rotate(-5deg);
+  }
+
+  .mood-preview-best-friends .mood-preview-photo-small {
+    top: 0.95rem;
+    transform: rotate(6deg);
+  }
+
+  .mood-preview-best-friends .mood-preview-sticker {
+    left: 47%;
+    top: 4.1rem;
+    width: 2.4rem;
+    background: #385b58;
+    transform: rotate(12deg);
+  }
+
+  .mood-preview-korean-booth {
+    background:
+      linear-gradient(90deg, rgba(37, 49, 61, 0.08) 1px, transparent 1px),
+      linear-gradient(135deg, #f7fbff, #a9cde8 54%, #f7b7c7) !important;
+    background-size: 0.72rem 100%, auto !important;
+  }
+
+  .mood-preview-korean-booth .mood-preview-paper {
+    box-shadow:
+      0 10px 20px rgba(37, 49, 61, 0.1),
+      inset 0 0 0 1px rgba(37, 49, 61, 0.12);
+  }
+
+  .mood-preview-korean-booth .mood-preview-photo {
+    border-radius: 0.16rem;
+    background: linear-gradient(135deg, #d9ecfa, #f7fbff);
+    box-shadow: inset 0 0 0 0.18rem #fff;
+  }
+
+  .mood-preview-korean-booth .mood-preview-sticker {
+    left: auto;
+    right: 0.72rem;
+    top: auto;
+    bottom: 0.58rem;
+    width: 2rem;
+    height: 0.36rem;
+    border-radius: 999px;
+    background: #25313d;
+    transform: none;
+  }
+
+  .mood-preview-vintage-final {
+    background:
+      radial-gradient(circle at 72% 22%, rgba(122, 86, 57, 0.18) 0 1.2rem, transparent 1.25rem),
+      linear-gradient(135deg, #fffaf1, #f4dfbf 52%, #7a5639) !important;
+  }
+
+  .mood-preview-vintage-final .mood-preview-paper {
+    box-shadow:
+      0 12px 22px rgba(77, 53, 35, 0.18),
+      inset 0 0 0 2px rgba(122, 86, 57, 0.16);
+  }
+
+  .mood-preview-vintage-final .mood-preview-photo {
+    border-radius: 0.12rem;
+    filter: sepia(0.28);
+  }
+
+  .mood-preview-vintage-final .mood-preview-note {
+    background: #7a5639;
+  }
+
   .camera-preview-card {
     aspect-ratio: 4 / 5;
     min-height: 26rem;
