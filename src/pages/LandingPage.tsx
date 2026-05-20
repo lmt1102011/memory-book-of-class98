@@ -59,6 +59,7 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
   const { enabled, toggle } = useAmbientTone();
   const activeQuote = useMemo(() => quotes[active % quotes.length], [active]);
   const activeSlide = LANDING_SLIDES[active % LANDING_SLIDES.length];
+  const activeSlideSrc = mobilePerformanceMode ? activeSlide.src.replace('w=1800', 'w=900') : activeSlide.src;
 
   useEffect(() => {
     if (reduceHeavyMotion) return undefined;
@@ -72,8 +73,8 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
     const nextSlide = LANDING_SLIDES[(active + 1) % LANDING_SLIDES.length];
     const image = new Image();
     image.decoding = 'async';
-    image.src = nextSlide.src;
-  }, [active]);
+    image.src = mobilePerformanceMode ? nextSlide.src.replace('w=1800', 'w=900') : nextSlide.src;
+  }, [active, mobilePerformanceMode]);
 
   useEffect(() => {
     if (!tutorialOpen) return undefined;
@@ -97,7 +98,7 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
         <div className="absolute inset-0">
           <AnimatePresence initial={false} mode="sync">
             <m.div
-              key={activeSlide.src}
+              key={activeSlideSrc}
               className="absolute inset-0 will-change-transform"
               style={{
                 transform: `translate3d(0, ${scrollProgress * 24}px, 0) scale(1.04)`,
@@ -108,7 +109,7 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
                 transition={{ duration: reduceHeavyMotion ? 0 : 1.2, ease: 'easeOut' }}
             >
               <img
-                src={activeSlide.src}
+                src={activeSlideSrc}
                 alt={activeSlide.alt}
                 loading={active === 0 ? 'eager' : 'lazy'}
                 decoding="async"

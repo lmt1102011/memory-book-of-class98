@@ -25,10 +25,9 @@ export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
   const progressLabel = useMemo(() => getProgressLabel(progress), [progress]);
 
   useEffect(() => {
-    let animationFrame = 0;
+    let progressTimer = 0;
     let finishTimer = 0;
     let completeTimer = 0;
-    let lastProgressPaint = 0;
     completedRef.current = false;
     const start = performance.now();
     const minDuration = prefersReducedMotion ? 1200 : 3600;
@@ -75,32 +74,63 @@ export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
 
     Promise.race([Promise.all([waitForWindowLoad, waitForFonts, waitForLogo]), timeout]).then(finish);
 
-    const tick = (time: number) => {
+    const tick = () => {
       if (completedRef.current) return;
 
-      const elapsed = time - start;
+      const elapsed = performance.now() - start;
       const durationProgress = Math.min(elapsed / minDuration, 1);
       const smoothProgress = durationProgress * durationProgress * (3 - 2 * durationProgress);
       const loadingBoost = 1 - Math.exp(-elapsed / 1600);
       const nextProgress = Math.min(96, 6 + smoothProgress * 72 + loadingBoost * 18);
 
-      if (time - lastProgressPaint > (mobilePerformanceMode ? 90 : 42)) {
-        lastProgressPaint = time;
-        setProgress((current) => Math.max(current, nextProgress));
-      }
-
-      animationFrame = window.requestAnimationFrame(tick);
+      setProgress((current) => Math.max(current, nextProgress));
     };
 
-    animationFrame = window.requestAnimationFrame(tick);
+    tick();
+    progressTimer = window.setInterval(tick, mobilePerformanceMode ? 260 : 110);
 
     return () => {
       completedRef.current = true;
-      window.cancelAnimationFrame(animationFrame);
+      window.clearInterval(progressTimer);
       window.clearTimeout(finishTimer);
       window.clearTimeout(completeTimer);
     };
   }, [logoSrc, mobilePerformanceMode, onComplete, prefersReducedMotion, reduceHeavyMotion]);
+
+  if (mobilePerformanceMode) {
+    return (
+      <div
+        className="fixed inset-0 z-[90] grid min-h-[100svh] place-items-center overflow-hidden bg-paper px-5 py-8 text-ink"
+        aria-label="Đang tải Memory Book"
+        role="status"
+      >
+        <div className="relative w-full max-w-xl text-center">
+          <div className="mx-auto grid h-[clamp(10rem,54vw,15rem)] w-[clamp(10rem,54vw,15rem)] place-items-center rounded-[1.6rem] border border-white/70 bg-white/72 p-4 shadow-paper">
+            <img src={logoSrc} alt="Logo Class 98" className="h-full w-full object-contain" loading="eager" decoding="async" />
+          </div>
+
+          <p className="mt-6 text-xs font-black uppercase tracking-[0.2em] text-coffee/70">Class 98 Memory Book</p>
+          <h1 className="mt-2 font-display text-6xl leading-none text-ink">Memory98</h1>
+          <p className="mx-auto mt-3 max-w-sm font-hand text-3xl leading-tight text-coffee">
+            Mở lại một trang thanh xuân thật chậm.
+          </p>
+
+          <div className="mx-auto mt-7 w-full max-w-md">
+            <div className="h-3 overflow-hidden rounded-full bg-coffee/12 p-1 shadow-[inset_0_1px_4px_rgba(53,41,31,0.12)]">
+              <div
+                className="boot-progress-fill h-full w-full origin-left rounded-full bg-ink"
+                style={{ transform: `scaleX(${progress / 100})` }}
+              />
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3 text-xs font-bold text-coffee/72">
+              <span>{progressLabel}</span>
+              <span>{Math.round(progress)}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <m.div

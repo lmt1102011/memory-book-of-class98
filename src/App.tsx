@@ -651,7 +651,7 @@ export default function App() {
           {!bootSplashDone && <BootSplash logoSrc={logoSrc} onComplete={handleBootSplashComplete} />}
         </AnimatePresence>
 
-        {route !== 'landing' && (
+        {bootSplashDone && route !== 'landing' && (
           <header className="fixed left-0 right-0 top-0 z-40 border-b border-white/40 bg-cream/72 backdrop-blur-xl">
             <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
               <button
@@ -724,6 +724,7 @@ export default function App() {
           </header>
         )}
 
+        {bootSplashDone && (
         <main className={route === 'landing' ? '' : 'pt-16'}>
           <AnimatePresence mode="wait">
             <m.div
@@ -737,6 +738,7 @@ export default function App() {
             </m.div>
           </AnimatePresence>
         </main>
+        )}
       </div>
     </LazyMotion>
   );
