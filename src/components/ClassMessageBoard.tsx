@@ -1,6 +1,7 @@
 import { m } from 'framer-motion';
 import { MessageCircle, Send, Trash2, X } from 'lucide-react';
 import { FormEvent, memo, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useMobilePerformanceMode } from '../hooks/useMobilePerformanceMode';
 import type { GuestbookEntry, UserProfile } from '../types';
 import { formatMemoryDate } from '../utils/date';
 
@@ -65,6 +66,7 @@ function ClassMessageBoard({
   const [isSendingAnonymous, setIsSendingAnonymous] = useState(false);
   const [selectedNote, setSelectedNote] = useState<BoardNote | null>(null);
   const [error, setError] = useState('');
+  const mobilePerformanceMode = useMobilePerformanceMode();
 
   const notes = useMemo<BoardNote[]>(() => {
     return guestbook
@@ -278,17 +280,17 @@ function ClassMessageBoard({
           aria-modal="true"
           aria-label="Xem thư trên bảng lớp"
           onClick={() => setSelectedNote(null)}
-          initial={{ opacity: 0 }}
+          initial={mobilePerformanceMode ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.16, ease: 'easeOut' }}
+          exit={mobilePerformanceMode ? undefined : { opacity: 0 }}
+          transition={{ duration: mobilePerformanceMode ? 0 : 0.16, ease: 'easeOut' }}
         >
           <m.div
             className="relative max-h-[92svh] w-full max-w-2xl overflow-auto rounded-[0.85rem] border border-white/70 bg-[#fffaf1] p-5 text-ink shadow-[0_24px_70px_rgba(18,15,13,.28)] sm:p-7"
             onClick={(event) => event.stopPropagation()}
-            initial={{ opacity: 0, y: 18, scale: 0.985, rotate: -0.35 }}
+            initial={mobilePerformanceMode ? false : { opacity: 0, y: 18, scale: 0.985, rotate: -0.35 }}
             animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
+            transition={{ duration: mobilePerformanceMode ? 0 : 0.2, ease: 'easeOut' }}
           >
             <button
               className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-ink/88 text-paper shadow-paper transition hover:bg-ink"

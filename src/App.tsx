@@ -3,6 +3,7 @@ import { Camera, Heart, Home, Lock, Menu, MessageCircle, Sparkles, X } from 'luc
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BootSplash from './components/BootSplash';
 import LoadingScreen from './components/LoadingScreen';
+import { useMobilePerformanceMode } from './hooks/useMobilePerformanceMode';
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion';
 import LandingPage from './pages/LandingPage';
 import type {
@@ -63,7 +64,9 @@ export default function App() {
   const [pendingReactionIds, setPendingReactionIds] = useState<string[]>([]);
   const memoriesLoadedOnceRef = useRef(false);
   const pendingReactionIdsRef = useRef(new Set<string>());
+  const mobilePerformanceMode = useMobilePerformanceMode();
   const prefersReducedMotion = usePrefersReducedMotion();
+  const reduceHeavyMotion = prefersReducedMotion || mobilePerformanceMode;
 
   useEffect(() => {
     const onPopState = () => setRoute(routeFromHash());
@@ -697,10 +700,10 @@ export default function App() {
             <AnimatePresence>
               {menuOpen && (
                 <m.div
-                  initial={{ opacity: 0, y: -10 }}
+                  initial={reduceHeavyMotion ? false : { opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.16 }}
+                  exit={reduceHeavyMotion ? undefined : { opacity: 0, y: -10 }}
+                  transition={{ duration: reduceHeavyMotion ? 0 : 0.16 }}
                   className="border-t border-white/50 bg-cream/95 px-4 py-3 shadow-paper lg:hidden"
                 >
                   <div className="grid gap-2">
@@ -725,10 +728,10 @@ export default function App() {
           <AnimatePresence mode="wait">
             <m.div
               key={route}
-              initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
+              initial={reduceHeavyMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={prefersReducedMotion ? undefined : { opacity: 0, y: -10 }}
-              transition={{ duration: prefersReducedMotion ? 0 : 0.22, ease: 'easeOut' }}
+              exit={reduceHeavyMotion ? undefined : { opacity: 0, y: -10 }}
+              transition={{ duration: reduceHeavyMotion ? 0 : 0.22, ease: 'easeOut' }}
             >
               {renderRoute()}
             </m.div>

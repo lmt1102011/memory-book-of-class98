@@ -3,6 +3,7 @@ import { BookOpen, Camera, Music, Music2, Sparkles, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { LANDING_SLIDES } from '../data/memories';
 import { useAmbientTone } from '../hooks/useAmbientTone';
+import { useMobilePerformanceMode } from '../hooks/useMobilePerformanceMode';
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
 import { useRafScrollProgress } from '../hooks/useRafScrollProgress';
 
@@ -51,19 +52,21 @@ const tutorialSteps = [
 export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
   const [active, setActive] = useState(0);
   const [tutorialOpen, setTutorialOpen] = useState(false);
+  const mobilePerformanceMode = useMobilePerformanceMode();
   const prefersReducedMotion = usePrefersReducedMotion();
+  const reduceHeavyMotion = prefersReducedMotion || mobilePerformanceMode;
   const scrollProgress = useRafScrollProgress();
   const { enabled, toggle } = useAmbientTone();
   const activeQuote = useMemo(() => quotes[active % quotes.length], [active]);
   const activeSlide = LANDING_SLIDES[active % LANDING_SLIDES.length];
 
   useEffect(() => {
-    if (prefersReducedMotion) return undefined;
+    if (reduceHeavyMotion) return undefined;
     const timer = window.setInterval(() => {
       setActive((current) => (current + 1) % LANDING_SLIDES.length);
     }, 5200);
     return () => window.clearInterval(timer);
-  }, [prefersReducedMotion]);
+  }, [reduceHeavyMotion]);
 
   useEffect(() => {
     const nextSlide = LANDING_SLIDES[(active + 1) % LANDING_SLIDES.length];
@@ -99,10 +102,10 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
               style={{
                 transform: `translate3d(0, ${scrollProgress * 24}px, 0) scale(1.04)`,
               }}
-              initial={{ opacity: prefersReducedMotion ? 1 : 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: prefersReducedMotion ? 0 : 1.2, ease: 'easeOut' }}
+                initial={reduceHeavyMotion ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={reduceHeavyMotion ? undefined : { opacity: 0 }}
+                transition={{ duration: reduceHeavyMotion ? 0 : 1.2, ease: 'easeOut' }}
             >
               <img
                 src={activeSlide.src}
@@ -123,21 +126,21 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
           <m.div
             className="floating-polaroid left-[7%] top-[18%] hidden rotate-[-8deg] sm:block"
-            animate={prefersReducedMotion ? undefined : { y: [0, -12, 0] }}
+            animate={reduceHeavyMotion ? undefined : { y: [0, -12, 0] }}
             transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
           >
             <div className="h-28 rounded bg-skySoft/70" />
           </m.div>
           <m.div
             className="floating-polaroid right-[8%] top-[24%] rotate-[7deg]"
-            animate={prefersReducedMotion ? undefined : { y: [0, 14, 0] }}
+            animate={reduceHeavyMotion ? undefined : { y: [0, 14, 0] }}
             transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
           >
             <div className="h-32 rounded bg-blush/70" />
           </m.div>
           <m.div
             className="floating-polaroid bottom-[13%] left-[15%] hidden rotate-[5deg] md:block"
-            animate={prefersReducedMotion ? undefined : { y: [0, 10, 0] }}
+            animate={reduceHeavyMotion ? undefined : { y: [0, 10, 0] }}
             transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut' }}
           >
             <div className="h-24 rounded bg-[#f4dfbf]" />
@@ -174,9 +177,9 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
             <div className="max-w-4xl py-16 text-paper drop-shadow-[0_18px_38px_rgba(53,41,31,.32)]">
               <m.p
                 className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-2 text-xs font-bold uppercase text-white backdrop-blur-md"
-                initial={{ opacity: 0, y: 16 }}
+                initial={reduceHeavyMotion ? false : { opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.45 }}
+                transition={{ duration: reduceHeavyMotion ? 0 : 0.45 }}
               >
                 <Sparkles size={15} />
                 Graduation memory archive
@@ -184,9 +187,9 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
 
               <m.h1
                 className="font-display text-7xl leading-[0.82] xs:text-8xl sm:text-9xl lg:text-[10rem] 3xl:text-[12rem]"
-                initial={{ opacity: 0, y: 20 }}
+                initial={reduceHeavyMotion ? false : { opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.55, delay: 0.05 }}
+                transition={{ duration: reduceHeavyMotion ? 0 : 0.55, delay: reduceHeavyMotion ? 0 : 0.05 }}
               >
                 School Memory Photobook
               </m.h1>
@@ -194,18 +197,18 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
               <m.p
                 key={activeQuote}
                 className="mt-7 max-w-2xl font-hand text-4xl leading-tight text-white sm:text-5xl"
-                initial={{ opacity: 0, y: 12 }}
+                initial={reduceHeavyMotion ? false : { opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.55 }}
+                transition={{ duration: reduceHeavyMotion ? 0 : 0.55 }}
               >
                 {activeQuote}
               </m.p>
 
               <m.div
                 className="mt-8 flex flex-col gap-3 sm:flex-row"
-                initial={{ opacity: 0, y: 16 }}
+                initial={reduceHeavyMotion ? false : { opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.16 }}
+                transition={{ duration: reduceHeavyMotion ? 0 : 0.5, delay: reduceHeavyMotion ? 0 : 0.16 }}
               >
                 <button className="primary-button min-h-14 px-7 text-base" onClick={onJoin}>
                   <Camera size={19} />
@@ -239,18 +242,18 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
             role="dialog"
             aria-modal="true"
             aria-label="Hướng dẫn sử dụng Memory Book"
-            initial={{ opacity: 0 }}
+            initial={reduceHeavyMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: prefersReducedMotion ? 0 : 0.18 }}
+            exit={reduceHeavyMotion ? undefined : { opacity: 0 }}
+            transition={{ duration: reduceHeavyMotion ? 0 : 0.18 }}
             onClick={() => setTutorialOpen(false)}
           >
             <m.div
               className="relative max-h-[92svh] w-full max-w-6xl overflow-auto rounded-[1.25rem] bg-paper p-4 text-ink shadow-glass sm:p-6"
-              initial={prefersReducedMotion ? false : { opacity: 0, y: 18, scale: 0.98 }}
+              initial={reduceHeavyMotion ? false : { opacity: 0, y: 18, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={prefersReducedMotion ? undefined : { opacity: 0, y: 12, scale: 0.98 }}
-              transition={{ duration: prefersReducedMotion ? 0 : 0.22, ease: 'easeOut' }}
+              exit={reduceHeavyMotion ? undefined : { opacity: 0, y: 12, scale: 0.98 }}
+              transition={{ duration: reduceHeavyMotion ? 0 : 0.22, ease: 'easeOut' }}
               onClick={(event) => event.stopPropagation()}
             >
               <button

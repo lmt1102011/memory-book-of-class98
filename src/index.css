@@ -243,7 +243,8 @@
     position: relative;
     overflow: hidden;
     transform: translateZ(0);
-    transition: width 180ms ease-out;
+    transition: transform 180ms ease-out;
+    will-change: transform;
   }
 
   .boot-progress-fill::after {
@@ -835,6 +836,11 @@
       box-shadow:
         inset 0 0 0 1px rgba(255, 255, 255, 0.1),
         0 14px 28px rgba(18, 15, 13, 0.2);
+    }
+
+    .boot-progress-fill::after {
+      animation: none;
+      display: none;
     }
   }
 

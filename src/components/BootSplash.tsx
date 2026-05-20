@@ -1,5 +1,6 @@
 import { m } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMobilePerformanceMode } from '../hooks/useMobilePerformanceMode';
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
 
 interface BootSplashProps {
@@ -16,7 +17,9 @@ const getProgressLabel = (progress: number) => {
 
 export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
   const [progress, setProgress] = useState(0);
+  const mobilePerformanceMode = useMobilePerformanceMode();
   const prefersReducedMotion = usePrefersReducedMotion();
+  const reduceHeavyMotion = prefersReducedMotion || mobilePerformanceMode;
   const completedRef = useRef(false);
 
   const progressLabel = useMemo(() => getProgressLabel(progress), [progress]);
@@ -25,6 +28,7 @@ export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
     let animationFrame = 0;
     let finishTimer = 0;
     let completeTimer = 0;
+    let lastProgressPaint = 0;
     completedRef.current = false;
     const start = performance.now();
     const minDuration = prefersReducedMotion ? 1200 : 3600;
@@ -65,7 +69,7 @@ export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
       finishTimer = window.setTimeout(() => {
         completedRef.current = true;
         setProgress(100);
-        completeTimer = window.setTimeout(onComplete, prefersReducedMotion ? 320 : 980);
+        completeTimer = window.setTimeout(onComplete, reduceHeavyMotion ? 120 : 980);
       }, remaining);
     };
 
@@ -80,7 +84,11 @@ export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
       const loadingBoost = 1 - Math.exp(-elapsed / 1600);
       const nextProgress = Math.min(96, 6 + smoothProgress * 72 + loadingBoost * 18);
 
-      setProgress((current) => Math.max(current, nextProgress));
+      if (time - lastProgressPaint > (mobilePerformanceMode ? 90 : 42)) {
+        lastProgressPaint = time;
+        setProgress((current) => Math.max(current, nextProgress));
+      }
+
       animationFrame = window.requestAnimationFrame(tick);
     };
 
@@ -92,33 +100,33 @@ export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
       window.clearTimeout(finishTimer);
       window.clearTimeout(completeTimer);
     };
-  }, [logoSrc, onComplete, prefersReducedMotion]);
+  }, [logoSrc, mobilePerformanceMode, onComplete, prefersReducedMotion, reduceHeavyMotion]);
 
   return (
     <m.div
       className="fixed inset-0 z-[90] grid min-h-[100svh] place-items-center overflow-hidden bg-cream px-5 py-8 text-ink"
-      initial={{ opacity: 1 }}
+      initial={false}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0, scale: prefersReducedMotion ? 1 : 1.018 }}
-      transition={{ duration: prefersReducedMotion ? 0.08 : 0.95, ease: 'easeInOut' }}
+      exit={reduceHeavyMotion ? undefined : { opacity: 0, scale: 1.018 }}
+      transition={{ duration: reduceHeavyMotion ? 0 : 0.95, ease: 'easeInOut' }}
       aria-label="Đang tải Memory Book"
       role="status"
     >
       <div className="absolute inset-0 bg-paper opacity-90" aria-hidden="true" />
       <div
-        className="absolute -left-20 top-10 h-56 w-56 rounded-full bg-blush/30 blur-3xl sm:h-72 sm:w-72"
+        className="absolute -left-20 top-10 hidden h-56 w-56 rounded-full bg-blush/30 blur-3xl sm:block sm:h-72 sm:w-72"
         aria-hidden="true"
       />
       <div
-        className="absolute -right-20 bottom-0 h-64 w-64 rounded-full bg-skySoft/30 blur-3xl sm:h-80 sm:w-80"
+        className="absolute -right-20 bottom-0 hidden h-64 w-64 rounded-full bg-skySoft/30 blur-3xl sm:block sm:h-80 sm:w-80"
         aria-hidden="true"
       />
 
       <m.div
         className="relative w-full max-w-xl text-center"
-        initial={prefersReducedMotion ? false : { opacity: 0, y: 14, scale: 0.985 }}
+        initial={reduceHeavyMotion ? false : { opacity: 0, y: 14, scale: 0.985 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: prefersReducedMotion ? 0 : 0.68, ease: 'easeOut' }}
+        transition={{ duration: reduceHeavyMotion ? 0 : 0.68, ease: 'easeOut' }}
       >
         <div className="mx-auto grid h-[clamp(10.5rem,42vw,18rem)] w-[clamp(10.5rem,42vw,18rem)] place-items-center rounded-[2rem] border border-white/70 bg-white/68 p-5 shadow-glass backdrop-blur-xl">
           <m.img
@@ -127,10 +135,10 @@ export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
             className="h-full w-full object-contain"
             loading="eager"
             decoding="async"
-            initial={prefersReducedMotion ? false : { scale: 0.92, opacity: 0 }}
-            animate={prefersReducedMotion ? { opacity: 1 } : { scale: 1, opacity: 1, y: [0, -5, 0] }}
+            initial={reduceHeavyMotion ? false : { scale: 0.92, opacity: 0 }}
+            animate={reduceHeavyMotion ? { opacity: 1, scale: 1 } : { scale: 1, opacity: 1, y: [0, -5, 0] }}
             transition={
-              prefersReducedMotion
+              reduceHeavyMotion
                 ? { duration: 0 }
                 : {
                     opacity: { duration: 0.58 },
@@ -150,9 +158,8 @@ export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
         <div className="mx-auto mt-7 w-full max-w-md">
           <div className="h-3 overflow-hidden rounded-full bg-coffee/12 p-1 shadow-[inset_0_1px_4px_rgba(53,41,31,0.12)]">
             <m.div
-              className="boot-progress-fill h-full rounded-full bg-ink"
-              style={{ width: `${progress}%` }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="boot-progress-fill h-full w-full origin-left rounded-full bg-ink"
+              style={{ transform: `scaleX(${progress / 100})` }}
             />
           </div>
           <div className="mt-3 flex items-center justify-between gap-3 text-xs font-bold text-coffee/72">

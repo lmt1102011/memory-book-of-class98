@@ -21,6 +21,7 @@ import {
   PHOTO_COUNT_OPTIONS,
   QUALITY_OPTIONS,
 } from '../data/backgrounds';
+import { useMobilePerformanceMode } from '../hooks/useMobilePerformanceMode';
 import type {
   BackgroundEdit,
   BackgroundOption,
@@ -211,6 +212,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [generated, setGenerated] = useState<GeneratedPhotobook | null>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const mobilePerformanceMode = useMobilePerformanceMode();
 
   const selectedBackground = useMemo<BackgroundOption>(
     () => BACKGROUND_OPTIONS.find((background) => background.id === config.backgroundId) || BACKGROUND_OPTIONS[0],
@@ -662,8 +664,9 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                   {countdown !== null && (
                     <m.div
                       key={countdown}
-                      initial={{ scale: 0.82, opacity: 0 }}
+                      initial={mobilePerformanceMode ? false : { scale: 0.82, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
+                      transition={{ duration: mobilePerformanceMode ? 0 : 0.18, ease: 'easeOut' }}
                       className="absolute inset-0 grid place-items-center bg-ink/20 text-paper backdrop-blur-[1px]"
                     >
                       <span className="font-display text-8xl leading-none sm:text-[12rem] lg:text-[16rem]">{countdown}</span>
@@ -671,8 +674,9 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                   )}
                   {isEnhancing && (
                     <m.div
-                      initial={{ opacity: 0 }}
+                      initial={mobilePerformanceMode ? false : { opacity: 0 }}
                       animate={{ opacity: 1 }}
+                      transition={{ duration: mobilePerformanceMode ? 0 : 0.16, ease: 'easeOut' }}
                       className="absolute inset-0 grid place-items-center bg-ink/48 text-center text-paper backdrop-blur-[2px]"
                     >
                       <div className="rounded-[1rem] bg-ink/58 px-5 py-4 shadow-paper">

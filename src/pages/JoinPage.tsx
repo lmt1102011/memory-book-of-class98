@@ -1,6 +1,7 @@
 import { m } from 'framer-motion';
 import { BadgeCheck, Camera, Lock, UserRound } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
+import { useMobilePerformanceMode } from '../hooks/useMobilePerformanceMode';
 import { checkStudentName, CLASS_NAME, loginStudent, registerStudent } from '../services/firebaseMemoryBook';
 import type { UserProfile } from '../types';
 
@@ -19,6 +20,7 @@ export default function JoinPage({ profile, onJoin, onSkip }: JoinPageProps) {
   const [joined, setJoined] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState('');
+  const mobilePerformanceMode = useMobilePerformanceMode();
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -81,8 +83,9 @@ export default function JoinPage({ profile, onJoin, onSkip }: JoinPageProps) {
         </div>
 
         <m.div
-          initial={{ opacity: 0, y: 18 }}
+          initial={mobilePerformanceMode ? false : { opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: mobilePerformanceMode ? 0 : 0.2, ease: 'easeOut' }}
           className="relative rounded-[2rem] border border-white/65 bg-white/55 p-4 shadow-paper backdrop-blur-xl sm:p-6"
         >
           <div className="absolute -top-4 left-8 h-8 w-32 rotate-[-3deg] rounded bg-[#f4dfbf]/80 shadow-sm" />
@@ -90,8 +93,9 @@ export default function JoinPage({ profile, onJoin, onSkip }: JoinPageProps) {
             <div className="rounded-[1rem] bg-[linear-gradient(135deg,#fffaf1,#f7b7c7_58%,#a9cde8)] p-5 sm:p-7">
               {joined ? (
                 <m.div
-                  initial={{ scale: 0.96, opacity: 0 }}
+                  initial={mobilePerformanceMode ? false : { scale: 0.96, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: mobilePerformanceMode ? 0 : 0.18, ease: 'easeOut' }}
                   className="grid min-h-[25rem] place-items-center text-center"
                 >
                   <div>
@@ -135,8 +139,9 @@ export default function JoinPage({ profile, onJoin, onSkip }: JoinPageProps) {
 
                   {mode !== 'name' && (
                     <m.label
-                      initial={{ opacity: 0, y: 8 }}
+                      initial={mobilePerformanceMode ? false : { opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: mobilePerformanceMode ? 0 : 0.16, ease: 'easeOut' }}
                       className="block"
                     >
                       <span className="mb-2 flex items-center gap-2 text-sm font-bold text-ink">
