@@ -1,6 +1,7 @@
 import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion';
 import { Camera, Heart, Home, Lock, Menu, MessageCircle, Sparkles, X } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import BootSplash from './components/BootSplash';
 import LoadingScreen from './components/LoadingScreen';
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion';
 import LandingPage from './pages/LandingPage';
@@ -58,6 +59,7 @@ export default function App() {
   const [secretDiaries, setSecretDiaries] = useState<SecretDiaryEntry[]>([]);
   const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [bootSplashDone, setBootSplashDone] = useState(false);
   const [pendingReactionIds, setPendingReactionIds] = useState<string[]>([]);
   const memoriesLoadedOnceRef = useRef(false);
   const pendingReactionIdsRef = useRef(new Set<string>());
@@ -256,6 +258,10 @@ export default function App() {
     setMenuOpen(false);
     window.history.pushState(null, '', `#/${nextRoute}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const handleBootSplashComplete = useCallback(() => {
+    setBootSplashDone(true);
   }, []);
 
   const handleJoin = useCallback(
@@ -637,6 +643,10 @@ export default function App() {
       <div className="min-h-screen overflow-x-hidden bg-cream text-ink">
         <div className="fixed inset-0 pointer-events-none bg-paper opacity-80" aria-hidden="true" />
         <div className="film-grain" aria-hidden="true" />
+
+        <AnimatePresence>
+          {!bootSplashDone && <BootSplash logoSrc={logoSrc} onComplete={handleBootSplashComplete} />}
+        </AnimatePresence>
 
         {route !== 'landing' && (
           <header className="fixed left-0 right-0 top-0 z-40 border-b border-white/40 bg-cream/72 backdrop-blur-xl">
