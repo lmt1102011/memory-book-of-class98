@@ -68,26 +68,59 @@ const makeStudentEmail = (nameKey: string) => `${nameKey}@${AUTH_DOMAIN}`;
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
+const firebaseErrorText = (error: unknown) => {
+  const maybeError = error as {
+    code?: string;
+    message?: string;
+    name?: string;
+    stack?: string;
+    customData?: unknown;
+  };
+  const parts = [
+    maybeError?.code,
+    maybeError?.name,
+    maybeError?.message,
+    maybeError?.stack,
+    typeof error === 'string' ? error : '',
+  ];
+
+  try {
+    parts.push(JSON.stringify(maybeError?.customData || error));
+  } catch {
+    // Firebase errors can contain cyclic internals; readable fields above are enough.
+  }
+
+  return parts.filter(Boolean).join(' ').toLowerCase();
+};
+
 const isOfflineLikeError = (error: unknown) => {
-  const maybeError = error as { code?: string; message?: string };
-  const text = `${maybeError.code || ''} ${maybeError.message || ''}`.toLowerCase();
+  const text = firebaseErrorText(error);
   return (
     text.includes('offline') ||
     text.includes('unavailable') ||
     text.includes('network') ||
     text.includes('timeout') ||
     text.includes('timed out') ||
-    text.includes('target id already')
+    text.includes('target id already') ||
+    text.includes('failed to fetch') ||
+    text.includes('http error has no status') ||
+    text.includes('name_not_resolved') ||
+    text.includes('err_name_not_resolved') ||
+    text.includes('request failed with error: undefined') ||
+    text.includes('code":"unknown') ||
+    text.includes('code: unknown') ||
+    text === 'unknown firebaseerror'
   );
 };
 
 const friendlyFirebaseError = (error: unknown) => {
-  const maybeError = error as { code?: string; message?: string };
-  const text = `${maybeError.code || ''} ${maybeError.message || ''}`.toLowerCase();
+  const text = firebaseErrorText(error);
 
   if (
     text.includes('permission-denied') ||
-    text.includes('insufficient permissions')
+    text.includes('insufficient permissions') ||
+    text.includes('403') ||
+    text.includes('forbidden')
   ) {
     return new Error(
       'Firebase đang chặn quyền thao tác này. Hãy deploy Firestore Rules mới nhất, rồi reload lại trang.',
@@ -95,19 +128,43 @@ const friendlyFirebaseError = (error: unknown) => {
   }
 
   if (
+    text.includes('failed to fetch') ||
+    text.includes('http error has no status') ||
+    text.includes('name_not_resolved') ||
+    text.includes('err_name_not_resolved') ||
+    text.includes('request failed with error: undefined') ||
+    text.includes('code":"unknown') ||
+    text.includes('code: unknown') ||
+    text === 'unknown firebaseerror'
+  ) {
+    return new Error(
+      'Không kết nối được Firebase. Thiết bị hoặc DNS đang không vào được firestore.googleapis.com; hãy đổi mạng, tắt VPN/adblock DNS nếu có, đổi DNS sang 8.8.8.8 hoặc 1.1.1.1 rồi reload lại trang.',
+    );
+  }
+
+  if (
     text.includes('offline') ||
     text.includes('unavailable') ||
     text.includes('network') ||
     text.includes('timeout') ||
     text.includes('timed out') ||
-    text.includes('target id already')
+    text.includes('target id already') ||
+    text.includes('failed to fetch') ||
+    text.includes('http error has no status') ||
+    text.includes('name_not_resolved') ||
+    text.includes('err_name_not_resolved') ||
+    text.includes('request failed with error: undefined') ||
+    text.includes('code":"unknown') ||
+    text.includes('code: unknown') ||
+    text === 'unknown firebaseerror'
   ) {
     return new Error(
       'Kết nối Firebase chưa ổn định. Hãy đợi vài giây rồi thử lại; nếu vẫn lỗi, kiểm tra Firestore đã bật và domain GitHub Pages đã nằm trong Authorized domains.',
     );
   }
 
-  return error instanceof Error ? error : new Error('Không thể kết nối Firebase lúc này.');
+  if (error instanceof Error && error.message && !error.message.includes('undefined')) return error;
+  return new Error('Không thể kết nối Firebase lúc này. Hãy reload lại trang và thử lại sau vài giây.');
 };
 
 export const forceFirebaseOnline = async () => {
