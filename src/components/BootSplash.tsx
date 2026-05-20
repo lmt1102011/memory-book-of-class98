@@ -115,6 +115,10 @@ export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
             Mở lại một trang thanh xuân thật chậm.
           </p>
 
+          <p className="mt-3 text-[11px] font-bold uppercase tracking-[0.18em] text-coffee/58">
+            Tác giả trang web: Le Minh Tri
+          </p>
+
           <div className="mx-auto mt-7 w-full max-w-md">
             <div className="h-3 overflow-hidden rounded-full bg-coffee/12 p-1 shadow-[inset_0_1px_4px_rgba(53,41,31,0.12)]">
               <div
@@ -183,6 +187,10 @@ export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
         <h1 className="mt-2 font-display text-6xl leading-none text-ink sm:text-8xl">Memory98</h1>
         <p className="mx-auto mt-3 max-w-sm font-hand text-3xl leading-tight text-coffee sm:text-4xl">
           Mở lại một trang thanh xuân thật chậm.
+        </p>
+
+        <p className="mt-3 text-[11px] font-bold uppercase tracking-[0.18em] text-coffee/58">
+          Tác giả trang web: Le Minh Tri
         </p>
 
         <div className="mx-auto mt-7 w-full max-w-md">
