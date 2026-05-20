@@ -17,6 +17,8 @@ const quotes = [
   'We were only students, and somehow that was everything.',
 ];
 
+const logoSrc = `${import.meta.env.BASE_URL}logo-web-class-98.svg`;
+
 const tutorialImage = (index: number) => LANDING_SLIDES[index % LANDING_SLIDES.length].src.replace('w=1800', 'w=900');
 
 const tutorialSteps = [
@@ -144,6 +146,12 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
 
         <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-7xl flex-col px-4 pb-10 pt-5 sm:px-6 lg:px-8">
           <header className="flex items-center justify-between gap-4">
+            <div className="hidden items-center gap-2 rounded-full bg-white/35 px-3 py-2 shadow-glass backdrop-blur-xl sm:inline-flex">
+              <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-full bg-paper ring-1 ring-coffee/15">
+                <img src={logoSrc} alt="" className="h-8 w-8 object-contain" loading="eager" decoding="async" />
+              </span>
+              <span className="pr-1 text-sm font-bold text-ink">Class 98</span>
+            </div>
             <button
               className="inline-flex items-center gap-2 rounded-full bg-white/35 px-3 py-2 text-sm font-bold text-ink shadow-glass backdrop-blur-xl transition hover:bg-white/55"
               onClick={toggle}

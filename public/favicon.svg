@@ -1,44 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="School Memory Photobook">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Memory Book 9/8">
   <defs>
-    <linearGradient id="bg" x1="12" y1="8" x2="86" y2="90" gradientUnits="userSpaceOnUse">
+    <linearGradient id="background" x1="14" y1="8" x2="84" y2="90" gradientUnits="userSpaceOnUse">
       <stop stop-color="#fffaf1"/>
-      <stop offset=".52" stop-color="#fbf3e7"/>
-      <stop offset="1" stop-color="#f4dcc9"/>
+      <stop offset=".55" stop-color="#fbf3e7"/>
+      <stop offset="1" stop-color="#f5d7df"/>
     </linearGradient>
-    <linearGradient id="photo" x1="30" y1="22" x2="65" y2="56" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#bfe0f4"/>
-      <stop offset=".64" stop-color="#a9cde8"/>
-      <stop offset="1" stop-color="#f7b7c7"/>
+    <linearGradient id="book" x1="20" y1="24" x2="76" y2="76" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#fff1df"/>
     </linearGradient>
   </defs>
 
-  <rect width="96" height="96" rx="22" fill="url(#bg)"/>
-  <circle cx="20" cy="18" r="10" fill="#f7b7c7" opacity=".28"/>
-  <circle cx="78" cy="76" r="14" fill="#a9cde8" opacity=".26"/>
+  <rect width="96" height="96" rx="25" fill="url(#background)"/>
+  <path d="M18 72c9-4 20-3 30 4 10-7 21-8 30-4V27c-9-4-20-3-30 5-10-8-21-9-30-5z" fill="#35291f" opacity=".13"/>
+  <path d="M18 24c9-4 20-3 30 5 10-8 21-9 30-5v45c-9-4-20-3-30 5-10-8-21-9-30-5z" fill="url(#book)" stroke="#35291f" stroke-width="4.8" stroke-linejoin="round"/>
+  <path d="M48 29v45" stroke="#35291f" stroke-width="3.4" stroke-linecap="round" opacity=".28"/>
 
-  <g transform="rotate(-5 48 49)">
-    <rect x="19" y="14" width="58" height="68" rx="10" fill="#7a5639" opacity=".16"/>
-    <rect x="17" y="12" width="58" height="68" rx="10" fill="#fffaf1" stroke="#5c422e" stroke-width="3.2"/>
-    <path d="M28 13.8v66" stroke="#f2a8ba" stroke-width="7" stroke-linecap="round"/>
-    <path d="M31.5 13.5v66.4" stroke="#5c422e" stroke-width="2" stroke-linecap="round" opacity=".35"/>
+  <path d="M29 42c2.2-5.8 7.4-8.7 13.4-7.3 4.6 1.1 7.6 5.3 7.1 10.3-.8 8.7-10.3 10.9-17.2 18.7" fill="none" stroke="#e96f8c" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M62.5 34.8c6 0 10.1 3.4 10.1 8.5 0 4.4-3.2 7.2-7.4 8.5 4.9 1.3 8.4 4.3 8.4 9.2 0 5.6-4.6 9.5-11.1 9.5s-11.1-3.9-11.1-9.5c0-4.9 3.5-7.9 8.4-9.2-4.2-1.3-7.4-4.1-7.4-8.5 0-5.1 4.1-8.5 10.1-8.5z" fill="none" stroke="#87bfe2" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round"/>
 
-    <rect x="35" y="21" width="29" height="30" rx="4.5" fill="#fff" stroke="#5c422e" stroke-width="2.5"/>
-    <rect x="38.5" y="24.5" width="22" height="18" rx="3" fill="url(#photo)"/>
-    <circle cx="56" cy="30" r="4.1" fill="#fff2a8" opacity=".9"/>
-    <path d="M38.5 42c5.2-6.4 8.9-6.7 13.4-.7 3.2-3.5 6-3 8.6.7v.5h-22z" fill="#385b58" opacity=".72"/>
-
-    <path d="M39 59h23" stroke="#35291f" stroke-width="3" stroke-linecap="round"/>
-    <path d="M39 66h18" stroke="#7a5639" stroke-width="3" stroke-linecap="round" opacity=".75"/>
-    <path d="M39 72h12" stroke="#7a5639" stroke-width="3" stroke-linecap="round" opacity=".5"/>
-  </g>
-
-  <g transform="rotate(8 51 18)">
-    <path d="M34 18.5 51 10l17 8.5-17 8.2z" fill="#35291f"/>
-    <path d="M40 22.2c6.9 3.2 14.3 3.2 22 0v8.5c-7.2 4.4-14.5 4.4-22 0z" fill="#5c422e"/>
-    <path d="M67 19.2v11.5" stroke="#f7b7c7" stroke-width="2.6" stroke-linecap="round"/>
-    <circle cx="67" cy="33" r="2.7" fill="#f7b7c7"/>
-  </g>
-
-  <path d="M76 42c-2.9-3.4-8.1-1.7-8.1 2.6 0 4.7 8.1 9 8.1 9s8.1-4.3 8.1-9c0-4.3-5.2-6-8.1-2.6z" fill="#e96f8c" stroke="#fffaf1" stroke-width="2"/>
-  <path d="M16 66h10m-5-5v10" stroke="#a9cde8" stroke-width="3" stroke-linecap="round"/>
+  <path d="M26 21 36.5 11 47 21l-10.5-3.2z" fill="#f7b7c7" stroke="#35291f" stroke-width="3.6" stroke-linejoin="round"/>
+  <path d="M24 80c5-2.4 11.2-1.7 17 1.9" stroke="#7a5639" stroke-width="3.2" stroke-linecap="round" opacity=".55"/>
+  <path d="M55 81.9c5.8-3.6 12-4.3 17-1.9" stroke="#7a5639" stroke-width="3.2" stroke-linecap="round" opacity=".55"/>
+  <path d="M76 15c-2.2-2.6-6.2-1.3-6.2 2 0 3.6 6.2 6.9 6.2 6.9s6.2-3.3 6.2-6.9c0-3.3-4-4.6-6.2-2z" fill="#e96f8c"/>
 </svg>
