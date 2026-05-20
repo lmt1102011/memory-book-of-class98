@@ -311,6 +311,26 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
     setFacingMode((current) => (current === 'user' ? 'environment' : 'user'));
   };
 
+  const switchCaptureSource = () => {
+    if (isEnhancing || pendingPhoto) return;
+
+    setCameraError(null);
+    setCountdown(null);
+
+    if (captureSource === 'camera') {
+      setCaptureSource('upload');
+      window.setTimeout(() => photoUploadInputRef.current?.click(), 40);
+      return;
+    }
+
+    setCaptureSource('camera');
+  };
+
+  const togglePreviewMode = () => {
+    if (!pendingOriginalPhoto || !pendingEnhancedPhoto) return;
+    showPendingPhoto(photoPreviewMode === 'enhanced' ? 'original' : 'enhanced');
+  };
+
   const captureNow = useCallback(async () => {
     setCountdown(null);
     const screenshot = webcamRef.current?.getScreenshot();
@@ -645,11 +665,19 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                   <button className="camera-action-button" onClick={leaveCameraStage} disabled={isEnhancing} aria-label="Back to setup">
                     <ArrowLeft size={19} />
                   </button>
-                  <div className="rounded-full bg-ink/55 px-4 py-2 text-center text-sm font-bold text-paper backdrop-blur-md">
-                    {Math.min(currentIndex + (pendingPhoto ? 0 : 1), config.photoCount)} / {config.photoCount}
+                  <div className="camera-status-pill">
+                    <span className="camera-status-label">
+                      {pendingPhoto ? 'Duyệt ảnh' : captureSource === 'camera' ? 'Camera' : 'Upload'}
+                    </span>
+                    <span>{Math.min(currentIndex + (pendingPhoto ? 0 : 1), config.photoCount)} / {config.photoCount}</span>
                   </div>
-                  <button className="camera-action-button" onClick={flipCamera} disabled={isEnhancing} aria-label="Rotate camera">
-                    <RotateCcw size={19} />
+                  <button
+                    className="camera-action-button"
+                    onClick={switchCaptureSource}
+                    disabled={isEnhancing || Boolean(pendingPhoto)}
+                    aria-label={captureSource === 'camera' ? 'Upload ảnh' : 'Mở camera'}
+                  >
+                    {captureSource === 'camera' ? <Upload size={18} /> : <CameraIcon size={18} />}
                   </button>
                 </div>
 
@@ -762,50 +790,61 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                 <div className="camera-controls-near">
                   {pendingPhoto ? (
                     <>
-                      <button className="camera-secondary-button" onClick={clearPendingPhoto}>
+                      <button className="camera-secondary-button camera-control-side" onClick={clearPendingPhoto}>
                         <RefreshCw size={18} />
-                        Đổi ảnh
+                        <span className="camera-button-label">Đổi ảnh</span>
                       </button>
-                      <button className="camera-shutter-button" onClick={acceptPhoto}>
+                      <button className="camera-shutter-button camera-accept-button" onClick={acceptPhoto} aria-label="Nhận ảnh này">
                         <Check size={28} />
+                      </button>
+                      <button
+                        className="camera-secondary-button camera-control-side"
+                        onClick={togglePreviewMode}
+                        disabled={!pendingOriginalPhoto || !pendingEnhancedPhoto}
+                      >
+                        <Sparkles size={18} />
+                        <span className="camera-button-label">{photoPreviewMode === 'enhanced' ? 'Ảnh gốc' : 'Làm đẹp'}</span>
                       </button>
                     </>
                   ) : (
                     <>
                       {captureSource === 'camera' ? (
                         <>
-                          <button className="camera-secondary-button" onClick={flipCamera} disabled={isEnhancing}>
-                            <RotateCcw size={18} />
-                            Xoay cam
-                          </button>
                           <button
-                            className="camera-secondary-button"
-                            onClick={() => {
-                              setCaptureSource('upload');
-                              photoUploadInputRef.current?.click();
-                            }}
+                            className="camera-secondary-button camera-control-side"
+                            onClick={switchCaptureSource}
                             disabled={!canUploadPhoto}
                           >
                             <Upload size={18} />
-                            Up ảnh
+                            <span className="camera-button-label">Up ảnh</span>
                           </button>
-                          <button className="camera-shutter-button" onClick={startCountdown} disabled={!canCapture}>
+                          <button className="camera-shutter-button" onClick={startCountdown} disabled={!canCapture} aria-label="Chụp ảnh">
                             <CameraIcon size={30} />
+                          </button>
+                          <button className="camera-secondary-button camera-control-side" onClick={flipCamera} disabled={isEnhancing}>
+                            <RotateCcw size={18} />
+                            <span className="camera-button-label">Xoay cam</span>
                           </button>
                         </>
                       ) : (
                         <>
                           <button
-                            className="camera-secondary-button"
+                            className="camera-secondary-button camera-control-side"
+                            onClick={switchCaptureSource}
+                            disabled={isEnhancing}
+                          >
+                            <CameraIcon size={18} />
+                            <span className="camera-button-label">Camera</span>
+                          </button>
+                          <button
+                            className="camera-shutter-button"
                             onClick={() => photoUploadInputRef.current?.click()}
                             disabled={!canUploadPhoto}
+                            aria-label="Chọn ảnh upload"
                           >
-                            <Upload size={18} />
-                            Chọn ảnh
+                            <Upload size={30} />
                           </button>
-                          <button className="camera-shutter-button" onClick={() => setCaptureSource('camera')} disabled={isEnhancing}>
-                            <CameraIcon size={30} />
-                          </button>
+                          <span className="camera-control-spacer" aria-hidden="true" />
                         </>
                       )}
                     </>
