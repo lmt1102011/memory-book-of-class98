@@ -1,5 +1,6 @@
 import { FormEvent, memo, useState } from 'react';
 import { Lock, Send, Trash2 } from 'lucide-react';
+import ActionModal from './ActionModal';
 import type { SecretDiaryEntry, UserProfile } from '../types';
 import { formatMemoryDate } from '../utils/date';
 
@@ -56,28 +57,13 @@ function SecretMailbox({ diaries, profile, onJoin, onAddDiary, onDeleteDiary }: 
             <button
               type="button"
               className="primary-button justify-center"
-              onClick={() => (profile ? setIsComposerOpen((open) => !open) : onJoin())}
+              onClick={() => (profile ? setIsComposerOpen(true) : onJoin())}
             >
               <Send size={18} />
-              {isComposerOpen ? 'Thu gọn tạo nhật ký' : 'Tạo nhật ký'}
+              Tạo nhật ký
             </button>
           </div>
 
-          {isComposerOpen && (
-            <form className="mt-4 grid gap-3" onSubmit={submitLetter}>
-              <textarea
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder={profile ? 'Viết vào nhật ký bí mật của bạn...' : 'Đăng nhập để viết nhật ký bí mật...'}
-                className="input-field min-h-36 resize-none"
-                maxLength={1200}
-              />
-              <button className="primary-button justify-center" disabled={isSending}>
-                <Send size={18} />
-                {isSending ? 'Đang lưu...' : 'Lưu nhật ký'}
-              </button>
-            </form>
-          )}
           {error && <p className="mt-3 rounded-2xl bg-blush/30 px-4 py-3 text-sm font-semibold text-coffee">{error}</p>}
 
           {diaries.length > 0 ? (
@@ -120,6 +106,29 @@ function SecretMailbox({ diaries, profile, onJoin, onAddDiary, onDeleteDiary }: 
           )}
         </div>
       </div>
+
+      <ActionModal
+        isOpen={Boolean(profile && isComposerOpen)}
+        title="Tạo nhật ký"
+        description="Viết một trang nhật ký riêng của bạn. Lưu xong popup sẽ tự đóng."
+        icon={<Lock size={20} />}
+        onClose={() => setIsComposerOpen(false)}
+      >
+        <form className="grid gap-3" onSubmit={submitLetter}>
+          <textarea
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            placeholder="Viết vào nhật ký bí mật của bạn..."
+            className="input-field min-h-40 resize-none"
+            maxLength={1200}
+          />
+          {error && <p className="rounded-2xl bg-blush/30 px-4 py-3 text-sm font-semibold text-coffee">{error}</p>}
+          <button className="primary-button justify-center" disabled={isSending || !message.trim()}>
+            <Send size={18} />
+            {isSending ? 'Đang lưu...' : 'Lưu nhật ký'}
+          </button>
+        </form>
+      </ActionModal>
     </section>
   );
 }

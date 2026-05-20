@@ -1,5 +1,6 @@
 import { CheckCheck, Eye, Heart, Lock, Search, Send, Trash2, UserRound } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import ActionModal from '../components/ActionModal';
 import FirebaseNotice from '../components/FirebaseNotice';
 import type { ClassmateProfile, RememberNote, RememberNoteDraft, RememberReactionId, UserProfile } from '../types';
 import { formatMemoryDate } from '../utils/date';
@@ -202,9 +203,8 @@ export default function RememberPage({
       </section>
 
       <section className="mx-auto max-w-7xl px-4 pb-6 sm:px-6 lg:px-8">
-        <form
+        <div
           className="rounded-[1.35rem] border border-white/65 bg-white/52 p-4 shadow-paper backdrop-blur-xl sm:p-5"
-          onSubmit={handleSubmit}
         >
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex min-w-0 items-center gap-3">
@@ -227,10 +227,10 @@ export default function RememberPage({
             <button
               type="button"
               className="primary-button justify-center"
-              onClick={() => (profile ? setIsComposerOpen((open) => !open) : onJoin())}
+              onClick={() => (profile ? setIsComposerOpen(true) : onJoin())}
             >
               <Send size={17} />
-              {isComposerOpen ? 'Thu gọn viết thư' : 'Viết thư cho ai đó'}
+              Viết thư cho ai đó
             </button>
             {profile && (
               <span className="rounded-full bg-paper/78 px-3 py-2 text-xs font-bold text-coffee">
@@ -253,86 +253,12 @@ export default function RememberPage({
                 Vào lớp 9/8
               </button>
             </div>
-          ) : isComposerOpen ? (
-            <div className="mt-5 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-              <div className="min-w-0">
-                <label className="block">
-                  <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Tìm người nhận</span>
-                  <span className="relative block">
-                    <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-coffee/55" size={17} />
-                    <input
-                      className="input-field pl-11"
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
-                      placeholder="Gõ tên một bạn trong lớp"
-                    />
-                  </span>
-                </label>
-
-                <div className="mt-3 grid max-h-64 gap-2 overflow-auto pr-1">
-                  {filteredClassmates.map((classmate) => (
-                    <button
-                      key={classmate.nameKey}
-                      className={`flex min-h-12 items-center justify-between gap-3 rounded-[0.75rem] px-3 text-left text-sm font-bold transition ${
-                        selectedNameKey === classmate.nameKey
-                          ? 'bg-ink text-paper shadow-paper'
-                          : 'bg-paper/72 text-ink hover:bg-paper'
-                      }`}
-                      type="button"
-                      onClick={() => setSelectedNameKey(classmate.nameKey)}
-                    >
-                      <span className="inline-flex min-w-0 items-center gap-2">
-                        <UserRound size={16} />
-                        <span className="truncate">{classmate.name}</span>
-                      </span>
-                      <span className="shrink-0 text-[11px] opacity-70">9/8</span>
-                    </button>
-                  ))}
-                  {!filteredClassmates.length && (
-                    <p className="rounded-[0.75rem] bg-paper/72 px-3 py-4 text-center text-xs font-bold text-coffee/70">
-                      Chưa tìm thấy bạn nào phù hợp.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="min-w-0">
-                <label className="block">
-                  <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Điều chưa kịp nói</span>
-                  <textarea
-                    className="input-field min-h-40 resize-none leading-6"
-                    value={message}
-                    onChange={(event) => setMessage(event.target.value.slice(0, 420))}
-                    placeholder="Viết một điều thật lòng mà bạn muốn gửi lại cho người ấy..."
-                    maxLength={420}
-                  />
-                </label>
-
-                <div className="mt-3 flex items-center justify-between gap-3 rounded-[0.85rem] bg-paper/68 px-3 py-3">
-                  <label className="flex min-w-0 items-center gap-3 text-sm font-bold text-ink">
-                    <input
-                      className="h-5 w-5 accent-coffee"
-                      type="checkbox"
-                      checked={anonymous}
-                      onChange={(event) => setAnonymous(event.target.checked)}
-                    />
-                    <span>{anonymous ? 'Gửi ẩn danh' : 'Hiện tên của bạn'}</span>
-                  </label>
-                  <span className="shrink-0 text-xs font-bold text-coffee/62">{message.length}/420</span>
-                </div>
-
-                <button className="primary-button mt-5 w-full" disabled={isSending || !selectedClassmate || !message.trim()}>
-                  <Send size={17} />
-                  {isSending ? 'Đang gửi...' : 'Gửi Secret Message'}
-                </button>
-              </div>
-            </div>
           ) : (
             <div className="mt-4 rounded-[0.9rem] bg-paper/72 p-4 text-sm leading-6 text-ink/64">
               Bấm “Viết thư cho ai đó” để chọn một bạn trong lớp và bắt đầu gửi Secret Message. Hộp thư nhận/gửi vẫn luôn ở bên dưới để bạn xem lại nhanh.
             </div>
           )}
-        </form>
+        </div>
       </section>
 
       <section className="mx-auto max-w-7xl px-4 pb-10 sm:px-6 lg:px-8">
@@ -373,6 +299,88 @@ export default function RememberPage({
           )}
         </div>
       </section>
+
+      <ActionModal
+        isOpen={Boolean(profile && isComposerOpen)}
+        title="Viết Secret Message"
+        description="Chọn một người nhận, viết lời nhắn và gửi đi. Gửi xong popup sẽ tự đóng."
+        icon={<Heart size={20} fill="currentColor" />}
+        onClose={() => setIsComposerOpen(false)}
+      >
+        <form className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]" onSubmit={handleSubmit}>
+          <div className="min-w-0">
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Tìm người nhận</span>
+              <span className="relative block">
+                <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-coffee/55" size={17} />
+                <input
+                  className="input-field pl-11"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Gõ tên một bạn trong lớp"
+                />
+              </span>
+            </label>
+
+            <div className="mt-3 grid max-h-64 gap-2 overflow-auto pr-1">
+              {filteredClassmates.map((classmate) => (
+                <button
+                  key={classmate.nameKey}
+                  className={`flex min-h-12 items-center justify-between gap-3 rounded-[0.75rem] px-3 text-left text-sm font-bold transition ${
+                    selectedNameKey === classmate.nameKey ? 'bg-ink text-paper shadow-paper' : 'bg-paper/72 text-ink hover:bg-paper'
+                  }`}
+                  type="button"
+                  onClick={() => setSelectedNameKey(classmate.nameKey)}
+                >
+                  <span className="inline-flex min-w-0 items-center gap-2">
+                    <UserRound size={16} />
+                    <span className="truncate">{classmate.name}</span>
+                  </span>
+                  <span className="shrink-0 text-[11px] opacity-70">9/8</span>
+                </button>
+              ))}
+              {!filteredClassmates.length && (
+                <p className="rounded-[0.75rem] bg-paper/72 px-3 py-4 text-center text-xs font-bold text-coffee/70">
+                  Chưa tìm thấy bạn nào phù hợp.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="min-w-0">
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Điều chưa kịp nói</span>
+              <textarea
+                className="input-field min-h-40 resize-none leading-6"
+                value={message}
+                onChange={(event) => setMessage(event.target.value.slice(0, 420))}
+                placeholder="Viết một điều thật lòng mà bạn muốn gửi lại cho người ấy..."
+                maxLength={420}
+              />
+            </label>
+
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-[0.85rem] bg-paper/68 px-3 py-3">
+              <label className="flex min-w-0 items-center gap-3 text-sm font-bold text-ink">
+                <input
+                  className="h-5 w-5 accent-coffee"
+                  type="checkbox"
+                  checked={anonymous}
+                  onChange={(event) => setAnonymous(event.target.checked)}
+                />
+                <span>{anonymous ? 'Gửi ẩn danh' : 'Hiện tên của bạn'}</span>
+              </label>
+              <span className="shrink-0 text-xs font-bold text-coffee/62">{message.length}/420</span>
+            </div>
+
+            {error && <p className="mt-3 text-sm font-bold text-[#9d3b4b]">{error}</p>}
+
+            <button className="primary-button mt-5 w-full justify-center" disabled={isSending || !selectedClassmate || !message.trim()}>
+              <Send size={17} />
+              {isSending ? 'Đang gửi...' : 'Gửi Secret Message'}
+            </button>
+          </div>
+        </form>
+      </ActionModal>
 
       <FirebaseNotice message={firebaseNotice} />
     </div>

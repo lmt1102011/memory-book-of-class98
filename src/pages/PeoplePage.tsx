@@ -1,5 +1,6 @@
 import { BadgeCheck, Camera, Heart, MessageCircle, Search, Send, Sparkles, Upload, UserRound, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import ActionModal from '../components/ActionModal';
 import FirebaseNotice from '../components/FirebaseNotice';
 import type { ClassmateProfile, MemoryComment, MemoryItem, UserProfile, YouthProfileDraft } from '../types';
 
@@ -183,6 +184,7 @@ export default function PeoplePage({
       setIsSaving(true);
       await onUpdateProfile(draft);
       setLocalSuccess('Đã lưu hồ sơ thanh xuân của bạn.');
+      setIsEditorOpen(false);
     } catch (caught) {
       setLocalError(caught instanceof Error ? caught.message : 'Không thể lưu hồ sơ lúc này.');
     } finally {
@@ -214,7 +216,7 @@ export default function PeoplePage({
 
       <section className="mx-auto grid max-w-7xl gap-5 px-4 pb-10 sm:px-6 lg:grid-cols-[22rem_minmax(0,1fr)] lg:px-8">
         <aside className="grid gap-5">
-          <form className="rounded-[1.35rem] border border-white/65 bg-white/52 p-4 shadow-paper backdrop-blur-xl" onSubmit={handleSubmit}>
+          <div className="rounded-[1.35rem] border border-white/65 bg-white/52 p-4 shadow-paper backdrop-blur-xl">
             <div className="flex items-center gap-3">
               <span className="grid h-11 w-11 place-items-center rounded-full bg-ink text-paper">
                 <UserRound size={20} />
@@ -247,104 +249,21 @@ export default function PeoplePage({
                   <button
                     type="button"
                     className="secondary-button mt-4 w-full justify-center"
-                    onClick={() => setIsEditorOpen((open) => !open)}
+                    onClick={() => setIsEditorOpen(true)}
                   >
                     <UserRound size={16} />
-                    {isEditorOpen ? 'Thu gọn hồ sơ' : 'Sửa hồ sơ'}
+                    Sửa hồ sơ
                   </button>
                 </div>
-
-                {isEditorOpen ? (
-                  <>
-                <ProfileFormSection
-                  title="1. Ảnh đại diện"
-                  description="Ảnh sẽ được nén nhẹ trước khi lưu để trang tải nhanh hơn."
-                  icon={<Upload size={16} />}
-                >
-                  <div className="flex items-center gap-4">
-                    <button
-                      type="button"
-                      className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full bg-paper shadow-paper ring-1 ring-coffee/15"
-                      onClick={() => uploadRef.current?.click()}
-                    >
-                      {avatarDataUrl ? (
-                        <img src={avatarDataUrl} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <Upload size={24} className="text-coffee" />
-                      )}
-                    </button>
-                    <div className="min-w-0">
-                      <p className="break-words text-sm font-bold">{profile.name}</p>
-                      <p className="mt-1 text-xs leading-5 text-ink/58">Bấm vào vòng ảnh để chọn chân dung của bạn.</p>
-                    </div>
-                    <input ref={uploadRef} className="hidden" type="file" accept="image/*" onChange={handleAvatarChange} />
-                  </div>
-                </ProfileFormSection>
-
-                <ProfileFormSection
-                  title="2. Thông tin nhận diện"
-                  description="Biệt danh và câu nói riêng sẽ hiện trên thẻ hồ sơ."
-                  icon={<UserRound size={16} />}
-                >
-                  <div className="grid gap-3">
-                    <label className="block">
-                      <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Biệt danh</span>
-                      <input className="input-field" value={nickname} onChange={(event) => setNickname(event.target.value.slice(0, 36))} />
-                    </label>
-
-                    <label className="block">
-                      <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Câu nói riêng</span>
-                      <input className="input-field" value={quote} onChange={(event) => setQuote(event.target.value.slice(0, 120))} />
-                    </label>
-                  </div>
-                </ProfileFormSection>
-
-                <ProfileFormSection
-                  title="3. Tính cách"
-                  description="Tối đa 3 tag, ngăn cách bằng dấu phẩy."
-                  icon={<Heart size={16} />}
-                >
-                  <label className="block">
-                    <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">3 tag tính cách</span>
-                    <input
-                      className="input-field"
-                      value={tagText}
-                      onChange={(event) => setTagText(event.target.value.slice(0, 80))}
-                      placeholder="ấm áp, hài hước, đáng nhớ"
-                    />
-                  </label>
-                </ProfileFormSection>
-
-                <ProfileFormSection
-                  title="4. Lời gửi lớp 9/8"
-                  description="Viết một đoạn ngắn để sau này đọc lại vẫn thấy thương."
-                  icon={<MessageCircle size={16} />}
-                >
-                  <label className="block">
-                    <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Lời gửi lớp 9/8</span>
-                    <textarea
-                      className="input-field min-h-28 resize-none"
-                      value={classMessage}
-                      onChange={(event) => setClassMessage(event.target.value.slice(0, 360))}
-                    />
-                  </label>
-                </ProfileFormSection>
 
                 {(localError || localSuccess) && (
                   <p className={`mt-3 text-sm font-bold ${localError ? 'text-[#9d3b4b]' : 'text-chalk'}`}>
                     {localError || localSuccess}
                   </p>
                 )}
-
-                <button className="primary-button mt-5 w-full" disabled={isSaving}>
-                  <Send size={17} />
-                  {isSaving ? 'Đang lưu...' : 'Lưu hồ sơ'}
-                </button>
-                  </>
-                ) : null}
               </>
             )}
-          </form>
+          </div>
 
           <div className="rounded-[1.35rem] border border-white/65 bg-white/44 p-4 shadow-paper backdrop-blur-xl">
             <label className="relative block">
@@ -433,6 +352,99 @@ export default function PeoplePage({
           )}
         </main>
       </section>
+
+      <ActionModal
+        isOpen={Boolean(profile && isEditorOpen)}
+        title="Sửa hồ sơ"
+        description="Chỉnh lại ảnh đại diện, biệt danh, câu nói riêng và lời gửi lớp 9/8."
+        icon={<UserRound size={20} />}
+        onClose={() => setIsEditorOpen(false)}
+      >
+        {profile && (
+          <form onSubmit={handleSubmit}>
+            <ProfileFormSection
+              title="1. Ảnh đại diện"
+              description="Ảnh sẽ được nén nhẹ trước khi lưu để trang tải nhanh hơn."
+              icon={<Upload size={16} />}
+            >
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full bg-paper shadow-paper ring-1 ring-coffee/15"
+                  onClick={() => uploadRef.current?.click()}
+                >
+                  {avatarDataUrl ? (
+                    <img src={avatarDataUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <Upload size={24} className="text-coffee" />
+                  )}
+                </button>
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-bold">{profile.name}</p>
+                  <p className="mt-1 text-xs leading-5 text-ink/58">Bấm vào vòng ảnh để chọn chân dung của bạn.</p>
+                </div>
+                <input ref={uploadRef} className="hidden" type="file" accept="image/*" onChange={handleAvatarChange} />
+              </div>
+            </ProfileFormSection>
+
+            <ProfileFormSection
+              title="2. Thông tin nhận diện"
+              description="Biệt danh và câu nói riêng sẽ hiện trên thẻ hồ sơ."
+              icon={<UserRound size={16} />}
+            >
+              <div className="grid gap-3">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Biệt danh</span>
+                  <input className="input-field" value={nickname} onChange={(event) => setNickname(event.target.value.slice(0, 36))} />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Câu nói riêng</span>
+                  <input className="input-field" value={quote} onChange={(event) => setQuote(event.target.value.slice(0, 120))} />
+                </label>
+              </div>
+            </ProfileFormSection>
+
+            <ProfileFormSection
+              title="3. Tính cách"
+              description="Tối đa 3 tag, ngăn cách bằng dấu phẩy."
+              icon={<Heart size={16} />}
+            >
+              <label className="block">
+                <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">3 tag tính cách</span>
+                <input
+                  className="input-field"
+                  value={tagText}
+                  onChange={(event) => setTagText(event.target.value.slice(0, 80))}
+                  placeholder="ấm áp, hài hước, đáng nhớ"
+                />
+              </label>
+            </ProfileFormSection>
+
+            <ProfileFormSection
+              title="4. Lời gửi lớp 9/8"
+              description="Viết một đoạn ngắn để sau này đọc lại vẫn thấy thương."
+              icon={<MessageCircle size={16} />}
+            >
+              <label className="block">
+                <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Lời gửi lớp 9/8</span>
+                <textarea
+                  className="input-field min-h-28 resize-none"
+                  value={classMessage}
+                  onChange={(event) => setClassMessage(event.target.value.slice(0, 360))}
+                />
+              </label>
+            </ProfileFormSection>
+
+            {localError && <p className="mt-3 text-sm font-bold text-[#9d3b4b]">{localError}</p>}
+
+            <button className="primary-button mt-5 w-full justify-center" disabled={isSaving}>
+              <Send size={17} />
+              {isSaving ? 'Đang lưu...' : 'Lưu hồ sơ'}
+            </button>
+          </form>
+        )}
+      </ActionModal>
 
       <FirebaseNotice message={firebaseNotice} />
     </div>

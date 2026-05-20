@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
+import ActionModal from '../components/ActionModal';
 import FirebaseNotice from '../components/FirebaseNotice';
 import type { ClassmateProfile, UserProfile, VoteCategory, VoteCategoryDraft, VoteCategoryTone, VoteRecord } from '../types';
 import { formatMemoryDate } from '../utils/date';
@@ -183,7 +184,7 @@ export default function VotesPage({
 
       <section className="mx-auto grid max-w-7xl gap-5 px-4 pb-10 sm:px-6 lg:grid-cols-[22rem_minmax(0,1fr)] lg:px-8">
         <aside className="grid h-fit gap-5 lg:sticky lg:top-20">
-          <form className="rounded-[1.35rem] border border-white/65 bg-white/52 p-4 shadow-paper backdrop-blur-xl" onSubmit={handleCreate}>
+          <div className="rounded-[1.35rem] border border-white/65 bg-white/52 p-4 shadow-paper backdrop-blur-xl">
             <div className="flex items-center gap-3">
               <span className="grid h-11 w-11 place-items-center rounded-full bg-ink text-paper">
                 <BadgeCheck size={20} />
@@ -206,90 +207,19 @@ export default function VotesPage({
                 <button
                   type="button"
                   className="primary-button mt-5 w-full justify-center"
-                  onClick={() => setIsCreatorOpen((open) => !open)}
+                  onClick={() => setIsCreatorOpen(true)}
                 >
                   <BadgeCheck size={17} />
-                  {isCreatorOpen ? 'Thu gọn tạo hạng mục' : 'Tạo hạng mục mới'}
+                  Tạo hạng mục mới
                 </button>
 
-                {!isCreatorOpen && (
-                  <div className="mt-4 rounded-[0.9rem] bg-paper/72 p-4 text-sm leading-6 text-ink/64">
-                    Bảng bình chọn đang hiển thị bên phải. Khi muốn thêm danh hiệu mới cho lớp, bấm nút tạo hạng mục ở trên.
-                  </div>
-                )}
-
-                {isCreatorOpen ? (
-                  <>
-                <label className="mt-5 block">
-                  <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Tên hạng mục</span>
-                  <input
-                    className="input-field"
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value.slice(0, 80))}
-                    placeholder="VD: Người ấm áp nhất lớp"
-                  />
-                </label>
-
-                <label className="mt-3 block">
-                  <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Mô tả ngắn</span>
-                  <textarea
-                    className="input-field min-h-24 resize-none"
-                    value={description}
-                    onChange={(event) => setDescription(event.target.value.slice(0, 180))}
-                    placeholder="Một dòng giải thích cho danh hiệu này..."
-                  />
-                </label>
-
-                <div className="mt-4">
-                  <p className="mb-2 text-xs font-bold uppercase text-coffee/70">Biểu tượng</p>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {iconOptions.map(({ id, label, Icon }) => (
-                      <button
-                        key={id}
-                        type="button"
-                        className={`grid min-h-14 place-items-center rounded-[0.85rem] px-2 py-2 text-center transition ${
-                          icon === id ? 'bg-ink text-paper shadow-paper' : 'bg-paper/72 text-coffee hover:bg-white/72'
-                        }`}
-                        onClick={() => setIcon(id)}
-                        title={label}
-                      >
-                        <Icon size={18} />
-                        <span className="mt-1 block text-[10px] font-black leading-tight">{label}</span>
-                      </button>
-                    ))}
-                  </div>
+                <div className="mt-4 rounded-[0.9rem] bg-paper/72 p-4 text-sm leading-6 text-ink/64">
+                  Bảng bình chọn đang hiển thị bên phải. Khi muốn thêm danh hiệu mới cho lớp, bấm nút tạo hạng mục ở trên.
                 </div>
-
-                <div className="mt-4">
-                  <p className="mb-2 text-xs font-bold uppercase text-coffee/70">Tone màu</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {toneOptions.map((option) => (
-                      <button
-                        key={option.id}
-                        type="button"
-                        className={`rounded-[0.75rem] bg-gradient-to-br px-3 py-3 text-xs font-black ${
-                          option.className
-                        } ${tone === option.id ? 'ring-2 ring-ink' : ''}`}
-                        onClick={() => setTone(option.id)}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 {localError && <p className="mt-3 text-sm font-bold text-[#9d3b4b]">{localError}</p>}
-
-                <button className="primary-button mt-5 w-full" disabled={isCreating || !title.trim()}>
-                  <Send size={17} />
-                  {isCreating ? 'Đang tạo...' : 'Tạo bình chọn'}
-                </button>
-                  </>
-                ) : null}
-                {localError && !isCreatorOpen && <p className="mt-3 text-sm font-bold text-[#9d3b4b]">{localError}</p>}
               </>
             )}
-          </form>
+          </div>
 
           <div className="rounded-[1.35rem] border border-white/65 bg-white/44 p-4 shadow-paper backdrop-blur-xl">
             <label className="relative block">
@@ -341,6 +271,81 @@ export default function VotesPage({
           )}
         </main>
       </section>
+
+      <ActionModal
+        isOpen={Boolean(profile && isCreatorOpen)}
+        title="Tạo hạng mục"
+        description="Tạo một danh hiệu vui để cả lớp cùng bình chọn."
+        icon={<BadgeCheck size={20} />}
+        onClose={() => setIsCreatorOpen(false)}
+      >
+        <form onSubmit={handleCreate}>
+          <label className="block">
+            <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Tên hạng mục</span>
+            <input
+              className="input-field"
+              value={title}
+              onChange={(event) => setTitle(event.target.value.slice(0, 80))}
+              placeholder="VD: Người ấm áp nhất lớp"
+            />
+          </label>
+
+          <label className="mt-3 block">
+            <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Mô tả ngắn</span>
+            <textarea
+              className="input-field min-h-24 resize-none"
+              value={description}
+              onChange={(event) => setDescription(event.target.value.slice(0, 180))}
+              placeholder="Một dòng giải thích cho danh hiệu này..."
+            />
+          </label>
+
+          <div className="mt-4">
+            <p className="mb-2 text-xs font-bold uppercase text-coffee/70">Biểu tượng</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {iconOptions.map(({ id, label, Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={`grid min-h-14 place-items-center rounded-[0.85rem] px-2 py-2 text-center transition ${
+                    icon === id ? 'bg-ink text-paper shadow-paper' : 'bg-paper/72 text-coffee hover:bg-white/72'
+                  }`}
+                  onClick={() => setIcon(id)}
+                  title={label}
+                >
+                  <Icon size={18} />
+                  <span className="mt-1 block text-[10px] font-black leading-tight">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <p className="mb-2 text-xs font-bold uppercase text-coffee/70">Tone màu</p>
+            <div className="grid grid-cols-2 gap-2">
+              {toneOptions.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={`rounded-[0.75rem] bg-gradient-to-br px-3 py-3 text-xs font-black ${option.className} ${
+                    tone === option.id ? 'ring-2 ring-ink' : ''
+                  }`}
+                  onClick={() => setTone(option.id)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {localError && <p className="mt-3 text-sm font-bold text-[#9d3b4b]">{localError}</p>}
+
+          <button className="primary-button mt-5 w-full justify-center" disabled={isCreating || !title.trim()}>
+            <Send size={17} />
+            {isCreating ? 'Đang tạo...' : 'Tạo bình chọn'}
+          </button>
+        </form>
+      </ActionModal>
 
       <FirebaseNotice message={firebaseNotice} />
     </div>
