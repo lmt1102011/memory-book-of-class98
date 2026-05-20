@@ -1,4 +1,4 @@
-import { BadgeCheck, Camera, Heart, MessageCircle, Search, Send, Sparkles, Upload, UserRound, X } from 'lucide-react';
+import { BadgeCheck, Camera, Heart, MessageCircle, Search, Send, Upload, UserRound } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import ActionModal from '../components/ActionModal';
 import FirebaseNotice from '../components/FirebaseNotice';
@@ -287,7 +287,7 @@ export default function PeoplePage({
               </div>
             </div>
           ) : (
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
+            <div className="grid gap-5">
               <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
                 {filteredClassmates.map((person) => {
                   const stats = statsByKey[getPersonKey(person)] || { memories: [], hearts: 0, comments: 0 };
@@ -341,17 +341,21 @@ export default function PeoplePage({
                   );
                 })}
               </div>
-
-              <PersonDetail
-                person={selectedPerson}
-                stats={selectedStats}
-                onPhotobook={onPhotobook}
-                onClear={() => setSelectedNameKey('')}
-              />
             </div>
           )}
         </main>
       </section>
+
+      <ActionModal
+        isOpen={Boolean(selectedPerson)}
+        title={selectedPerson ? `Hồ sơ ${selectedPerson.name}` : 'Hồ sơ lớp'}
+        description="Thông tin cá nhân, lời gửi lớp và album ảnh riêng của bạn này."
+        icon={<UserRound size={20} />}
+        wide
+        onClose={() => setSelectedNameKey('')}
+      >
+        <PersonDetail person={selectedPerson} stats={selectedStats} onPhotobook={onPhotobook} />
+      </ActionModal>
 
       <ActionModal
         isOpen={Boolean(profile && isEditorOpen)}
@@ -508,26 +512,19 @@ function PersonDetail({
   person,
   stats,
   onPhotobook,
-  onClear,
 }: {
   person: ClassmateProfile | null;
   stats?: { memories: MemoryItem[]; hearts: number; comments: number };
   onPhotobook: () => void;
-  onClear: () => void;
 }) {
   if (!person) {
-    return (
-      <aside className="rounded-[1.35rem] border border-white/65 bg-white/48 p-5 text-center shadow-paper backdrop-blur-xl">
-        <Sparkles className="mx-auto text-coffee" size={30} />
-        <p className="mt-3 font-hand text-3xl font-bold text-coffee">Chọn một bạn để mở album riêng.</p>
-      </aside>
-    );
+    return null;
   }
 
   const personStats = stats || { memories: [], hearts: 0, comments: 0 };
 
   return (
-    <aside className="sticky top-20 h-fit rounded-[1.35rem] border border-white/65 bg-white/52 p-4 shadow-paper backdrop-blur-xl">
+    <div className="rounded-[1rem] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.08)]">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <Avatar person={person} />
@@ -536,9 +533,6 @@ function PersonDetail({
             <p className="mt-1 text-sm font-bold text-coffee/70">{person.nickname || 'Bạn lớp 9/8'}</p>
           </div>
         </div>
-        <button className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-coffee/10 text-coffee xl:hidden" onClick={onClear}>
-          <X size={16} />
-        </button>
       </div>
 
       <p className="mt-4 rounded-[0.9rem] bg-paper/72 px-3 py-3 text-sm leading-7 text-ink/72">
@@ -592,6 +586,6 @@ function PersonDetail({
           </div>
         )}
       </div>
-    </aside>
+    </div>
   );
 }

@@ -1,5 +1,23 @@
 import { AnimatePresence, m } from 'framer-motion';
-import { BookOpen, Camera, Music, Music2, Sparkles, X } from 'lucide-react';
+import {
+  BadgeCheck,
+  BookOpen,
+  Camera,
+  Download,
+  Heart,
+  Home,
+  Lock,
+  MessageCircle,
+  Music,
+  Music2,
+  Search,
+  Send,
+  Sparkles,
+  Upload,
+  UserRound,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { LANDING_SLIDES } from '../data/memories';
 import { useAmbientTone } from '../hooks/useAmbientTone';
@@ -22,32 +40,241 @@ const logoSrc = `${import.meta.env.BASE_URL}logo-web-class-98.svg`;
 
 const tutorialImage = (index: number) => LANDING_SLIDES[index % LANDING_SLIDES.length].src.replace('w=1800', 'w=900');
 
-const tutorialSteps = [
+type TutorialKind = 'join' | 'feed' | 'photobook' | 'profile' | 'votes' | 'letters' | 'secret' | 'diary';
+
+type TutorialStep = {
+  title: string;
+  text: string;
+  where: string;
+  action: string;
+  result: string;
+  highlight: string;
+  image: string;
+  alt: string;
+  kind: TutorialKind;
+};
+
+const tutorialSteps: TutorialStep[] = [
   {
     title: '1. Vào lớp 9/8',
-    text: 'Bấm Join Memory Book, nhập họ tên của bạn. Nếu tên mới, hãy đặt mật khẩu; nếu tên đã có, nhập mật khẩu để tiếp tục.',
+    text: 'Bắt đầu bằng tài khoản theo họ tên thật trong lớp. Nếu tên chưa có, bạn đặt mật khẩu mới; nếu tên đã tồn tại, nhập đúng mật khẩu để quay lại hồ sơ của mình.',
+    where: 'Intro → Join Memory Book',
+    action: 'Nhập họ tên, sau đó đặt hoặc nhập mật khẩu.',
+    result: 'Web nhận ra bạn để lưu ảnh, tim, bình luận, thư và nhật ký riêng.',
+    highlight: 'Join Memory Book',
     image: tutorialImage(0),
     alt: 'Học sinh chụp ảnh kỷ niệm trong lớp học',
+    kind: 'join',
   },
   {
-    title: '2. Đăng photobook',
-    text: 'Vào Đăng ảnh, chọn số ảnh, kiểu chụp, chất lượng và nền. Bạn có thể chụp bằng camera hoặc upload ảnh có sẵn.',
+    title: '2. Xem ký ức, tim và bình luận',
+    text: 'Ở trang Ký ức, ảnh cập nhật theo thời gian thực. Bạn có thể tìm theo tên, lọc hashtag, bấm vào ảnh để xem rõ hơn, thả tim một lần và viết bình luận.',
+    where: 'Navbar → Ký ức',
+    action: 'Bấm ảnh để phóng to; dùng tim, bình luận hoặc nút tải ảnh trong popup xem ảnh.',
+    result: 'Mỗi bức ảnh có tương tác rõ ràng và tải được trên điện thoại.',
+    highlight: 'Ký ức',
     image: tutorialImage(1),
     alt: 'Bạn bè học sinh tạo dáng trong ngày tốt nghiệp',
+    kind: 'feed',
   },
   {
-    title: '3. Xem feed realtime',
-    text: 'Trang Ký ức cập nhật theo thời gian thực. Bạn có thể thả tim một lần, bình luận và bấm vào ảnh để xem rõ hơn.',
+    title: '3. Chụp hoặc upload photobook',
+    text: 'Bấm Đăng ảnh hoặc Photobook, chọn số ảnh, kiểu layout, chất lượng, nền. Sau đó mở camera toàn màn hình hoặc upload ảnh có sẵn, chỉnh ảnh và chọn có làm đẹp hay không.',
+    where: 'Ký ức / Hồ sơ → Đăng ảnh',
+    action: 'Chọn layout, chụp từng tấm hoặc upload ảnh, xem trước rồi tạo photobook.',
+    result: 'Ảnh cuối có thể đăng công khai lên Ký ức hoặc tải riêng về máy.',
+    highlight: 'Đăng ảnh',
     image: tutorialImage(2),
     alt: 'Học sinh tốt nghiệp tung mũ trước trường',
+    kind: 'photobook',
   },
   {
-    title: '4. Gửi điều chưa kịp nói',
-    text: 'Dùng Thư lớp để gửi lời nhắn cho lớp. Nhật ký là nơi riêng tư để viết những điều tiếc nuối chỉ mình bạn thấy.',
+    title: '4. Hồ sơ lớp và album từng người',
+    text: 'Trong Hồ sơ lớp, bấm vào một bạn để xem thông tin, ảnh đại diện, câu nói riêng và album của bạn đó. Muốn sửa hồ sơ của mình thì bấm Sửa hồ sơ để mở popup.',
+    where: 'Navbar → Hồ sơ lớp',
+    action: 'Bấm Xem hồ sơ trên thẻ bạn bè; bấm Sửa hồ sơ để cập nhật thông tin của mình.',
+    result: 'Mỗi người có một góc kỷ yếu riêng, dễ tìm và dễ xem trên điện thoại.',
+    highlight: 'Xem hồ sơ',
     image: tutorialImage(0),
     alt: 'Không khí lớp học và kỷ niệm tuổi học trò',
+    kind: 'profile',
+  },
+  {
+    title: '5. Bình chọn lớp 9/8',
+    text: 'Bấm Tạo hạng mục mới để mở popup tạo danh hiệu. Sau đó cả lớp có thể vote một bạn trong từng hạng mục và đổi vote nếu bấm nhầm.',
+    where: 'Navbar → Bình chọn',
+    action: 'Tạo hạng mục, chọn biểu tượng, chọn tone màu rồi vote cho một bạn.',
+    result: 'Bảng bình chọn hiện top 3, tổng lượt vote và lựa chọn của bạn.',
+    highlight: 'Tạo hạng mục mới',
+    image: tutorialImage(1),
+    alt: 'Nhóm học sinh trong không khí kỷ yếu',
+    kind: 'votes',
+  },
+  {
+    title: '6. Bảng thư lớp',
+    text: 'Bảng thư là nơi các mảnh thư được dán trên nền bảng học. Bấm một mảnh thư để đọc rõ hơn; bấm Viết thư để mở popup gửi có tên hoặc gửi ẩn danh.',
+    where: 'Navbar → Bảng thư',
+    action: 'Bấm Viết thư, chọn gửi có tên hoặc gửi ẩn danh.',
+    result: 'Lời nhắn xuất hiện như giấy nhớ trên bảng lớp.',
+    highlight: 'Viết thư',
+    image: tutorialImage(2),
+    alt: 'Bảng lớp và những mảnh ký ức học trò',
+    kind: 'letters',
+  },
+  {
+    title: '7. Secret Message',
+    text: 'Secret Message có hai tab: Thư mình nhận và Thư mình gửi. Bấm Viết thư cho ai đó để chọn đúng một người trong lớp và gửi lời chưa kịp nói.',
+    where: 'Navbar → Secret Message',
+    action: 'Chọn người nhận, viết thư, chọn ẩn danh hoặc hiện tên, rồi gửi.',
+    result: 'Người nhận có thể phản hồi bằng cảm xúc; người gửi xem được trạng thái đã gửi/đã xem.',
+    highlight: 'Viết thư cho ai đó',
+    image: tutorialImage(0),
+    alt: 'Một góc lưu bút tuổi học trò',
+    kind: 'secret',
+  },
+  {
+    title: '8. Nhật ký bí mật',
+    text: 'Nhật ký là nơi riêng tư cho những điều không chia sẻ với ai. Bấm Tạo nhật ký để mở popup viết; chỉ tài khoản của bạn thấy các trang nhật ký của mình.',
+    where: 'Navbar → Nhật ký',
+    action: 'Bấm Tạo nhật ký, viết nội dung rồi lưu.',
+    result: 'Nhật ký được lưu riêng theo tên người viết và có thể xóa khi cần.',
+    highlight: 'Tạo nhật ký',
+    image: tutorialImage(1),
+    alt: 'Trang giấy lưu bút và ký ức học trò',
+    kind: 'diary',
   },
 ];
+
+const tutorialVisuals: Record<
+  TutorialKind,
+  { Icon: LucideIcon; nav: string[]; primary: string; secondary: string; details: string[] }
+> = {
+  join: {
+    Icon: UserRound,
+    nav: ['Intro', 'Join'],
+    primary: 'Join Memory Book',
+    secondary: 'Họ tên + mật khẩu',
+    details: ['Tên lớp 9/8', 'Mật khẩu riêng', 'Lưu hồ sơ'],
+  },
+  feed: {
+    Icon: Home,
+    nav: ['Ký ức', 'Tìm kiếm', '#tag'],
+    primary: 'Bấm ảnh để xem rõ',
+    secondary: 'Tim • Bình luận • Tải ảnh',
+    details: ['Realtime', 'Mỗi người 1 tim', 'Popup xem ảnh'],
+  },
+  photobook: {
+    Icon: Camera,
+    nav: ['Đăng ảnh', 'Layout', 'Camera'],
+    primary: 'Chụp / Upload ảnh',
+    secondary: 'Tạo photobook sắc nét',
+    details: ['1/2/4/6 ảnh', 'Làm đẹp tùy chọn', 'Download hoặc đăng'],
+  },
+  profile: {
+    Icon: UserRound,
+    nav: ['Hồ sơ lớp', 'Album', 'Sửa hồ sơ'],
+    primary: 'Xem hồ sơ',
+    secondary: 'Popup sửa hồ sơ',
+    details: ['Avatar', 'Biệt danh', 'Album riêng'],
+  },
+  votes: {
+    Icon: BadgeCheck,
+    nav: ['Bình chọn', 'Top 3', 'Vote'],
+    primary: 'Tạo hạng mục mới',
+    secondary: 'Chọn biểu tượng + tone màu',
+    details: ['Một vote mỗi mục', 'Đổi vote được', 'Top 3 tự cập nhật'],
+  },
+  letters: {
+    Icon: MessageCircle,
+    nav: ['Bảng thư', 'Letters Wall', 'Popup đọc thư'],
+    primary: 'Viết thư',
+    secondary: 'Có tên hoặc ẩn danh',
+    details: ['Dán lên bảng', 'Bấm để xem rõ', 'Xóa thư của mình'],
+  },
+  secret: {
+    Icon: Heart,
+    nav: ['Secret Message', 'Thư nhận', 'Thư gửi'],
+    primary: 'Viết thư cho ai đó',
+    secondary: 'Chọn người nhận',
+    details: ['Ẩn danh tùy chọn', 'Cảm xúc phản hồi', 'Xóa thư đã gửi'],
+  },
+  diary: {
+    Icon: Lock,
+    nav: ['Nhật ký', 'Riêng tư', 'Lưu lại'],
+    primary: 'Tạo nhật ký',
+    secondary: 'Chỉ mình bạn thấy',
+    details: ['Viết điều tiếc nuối', 'Lưu theo tài khoản', 'Có thể xóa'],
+  },
+};
+
+function TutorialIllustration({ step }: { step: TutorialStep }) {
+  const visual = tutorialVisuals[step.kind];
+  const Icon = visual.Icon;
+  const toolPills = [
+    { Icon: Search, label: 'Tìm' },
+    { Icon: Upload, label: 'Thêm' },
+    { Icon: Download, label: 'Tải' },
+    { Icon: Send, label: 'Gửi' },
+  ];
+
+  return (
+    <div className="relative min-h-64 overflow-hidden bg-ink">
+      <img
+        src={step.image}
+        alt={step.alt}
+        loading="lazy"
+        decoding="async"
+        sizes="(min-width: 1280px) 42vw, 92vw"
+        className="absolute inset-0 h-full w-full object-cover opacity-70"
+      />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(21,16,12,.16),rgba(21,16,12,.58))]" />
+
+      <div className="relative z-10 flex min-h-64 flex-col justify-between p-3 text-paper sm:p-4">
+        <div className="flex flex-wrap gap-1.5">
+          {visual.nav.map((item) => (
+            <span key={item} className="rounded-full bg-white/18 px-2.5 py-1 text-[10px] font-black uppercase text-paper/88 backdrop-blur-md">
+              {item}
+            </span>
+          ))}
+        </div>
+
+        <div className="rounded-[1rem] border border-white/24 bg-white/18 p-3 shadow-glass backdrop-blur-xl">
+          <div className="flex items-start gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-paper text-coffee shadow-paper">
+              <Icon size={20} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-paper/72">Chỗ thực hiện</p>
+              <p className="mt-1 break-words text-base font-black leading-5">{step.highlight}</p>
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div className="rounded-[0.8rem] bg-paper px-3 py-2 text-ink shadow-paper">
+              <p className="text-sm font-black">{visual.primary}</p>
+              <p className="mt-0.5 text-xs font-bold text-coffee/70">{visual.secondary}</p>
+            </div>
+            <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-2">
+              {toolPills.map(({ Icon: ToolIcon, label }) => (
+                <span key={label} className="grid h-10 min-w-10 place-items-center rounded-[0.7rem] bg-ink/72 text-paper" title={label}>
+                  <ToolIcon size={15} />
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {visual.details.map((detail) => (
+              <span key={detail} className="rounded-full bg-paper/16 px-2.5 py-1 text-[11px] font-bold text-paper/86">
+                {detail}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
   const [active, setActive] = useState(0);
@@ -269,24 +496,46 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
                 <p className="section-kicker">Tutorial</p>
                 <h2 className="font-display text-5xl leading-none sm:text-7xl">Cách dùng Memory Book</h2>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-ink/66">
-                  Một vòng hướng dẫn nhanh để bạn biết cách vào lớp, tạo photobook, tương tác với ảnh và viết những điều còn giữ trong lòng.
+                  Hướng dẫn đầy đủ từng chỗ cần bấm: vào lớp, đăng photobook, xem ảnh, hồ sơ, bình chọn, bảng thư, Secret Message và nhật ký riêng.
                 </p>
               </div>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <div className="mt-5 grid gap-2 rounded-[1rem] bg-white/55 p-2 sm:grid-cols-4">
+                {[
+                  ['1', 'Vào lớp'],
+                  ['2', 'Đăng ảnh'],
+                  ['3', 'Tương tác'],
+                  ['4', 'Gửi lời nhắn'],
+                ].map(([index, label]) => (
+                  <div key={index} className="rounded-[0.8rem] bg-paper/78 px-3 py-3 text-center">
+                    <span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-ink text-xs font-black text-paper">{index}</span>
+                    <p className="mt-2 text-xs font-black uppercase text-coffee/70">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 grid gap-4 xl:grid-cols-2">
                 {tutorialSteps.map((step) => (
-                  <article key={step.title} className="overflow-hidden rounded-[0.8rem] bg-white/58 shadow-paper">
-                    <img
-                      src={step.image}
-                      alt={step.alt}
-                      loading="lazy"
-                      decoding="async"
-                      sizes="(min-width: 768px) 42vw, 92vw"
-                      className="h-44 w-full object-cover sm:h-52"
-                    />
+                  <article key={step.title} className="overflow-hidden rounded-[1rem] bg-white/62 shadow-paper">
+                    <TutorialIllustration step={step} />
                     <div className="p-4">
-                      <h3 className="font-display text-4xl leading-none">{step.title}</h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-display text-4xl leading-none">{step.title}</h3>
+                        <span className="rounded-full bg-coffee/10 px-3 py-1 text-[11px] font-black uppercase text-coffee">
+                          {step.where}
+                        </span>
+                      </div>
                       <p className="mt-2 text-sm leading-7 text-ink/68">{step.text}</p>
+                      <div className="mt-3 grid gap-2 text-xs font-bold text-ink/64 sm:grid-cols-2">
+                        <p className="rounded-[0.75rem] bg-paper/76 px-3 py-2">
+                          <span className="block uppercase text-coffee/70">Cách làm</span>
+                          {step.action}
+                        </p>
+                        <p className="rounded-[0.75rem] bg-paper/76 px-3 py-2">
+                          <span className="block uppercase text-coffee/70">Kết quả</span>
+                          {step.result}
+                        </p>
+                      </div>
                     </div>
                   </article>
                 ))}
