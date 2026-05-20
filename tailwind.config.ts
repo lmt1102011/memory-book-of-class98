@@ -15,9 +15,9 @@ export default {
         chalk: '#385b58',
       },
       fontFamily: {
-        sans: ['Poppins', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        hand: ['Caveat', 'cursive'],
-        display: ['Bebas Neue', 'Impact', 'sans-serif'],
+        sans: ['Poppins', 'Be Vietnam Pro', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        hand: ['Mali', 'Be Vietnam Pro', 'cursive'],
+        display: ['Saira Condensed', 'Be Vietnam Pro', 'Impact', 'sans-serif'],
       },
       boxShadow: {
         paper: '0 18px 45px rgba(84, 57, 35, 0.16)',

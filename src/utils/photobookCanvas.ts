@@ -320,16 +320,16 @@ const drawDecorations = (
   ctx.fillStyle = 'rgba(53, 41, 31, .86)';
   ctx.textAlign = layout === 'horizontal' ? 'left' : 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `${Math.round(base * 0.058)}px "Bebas Neue", Impact, sans-serif`;
+  ctx.font = `${Math.round(base * 0.058)}px "Saira Condensed", "Be Vietnam Pro", Impact, sans-serif`;
   const titleX = layout === 'horizontal' ? width * 0.07 : width / 2;
   ctx.fillText('SCHOOL MEMORY PHOTOBOOK', titleX, layout === 'horizontal' ? height * 0.82 : height * 0.06);
 
-  ctx.font = `${Math.round(base * 0.04)}px "Caveat", cursive`;
+  ctx.font = `${Math.round(base * 0.04)}px "Mali", "Be Vietnam Pro", cursive`;
   ctx.fillStyle = 'rgba(122, 86, 57, .88)';
   const subtitle = `${profile.name} · Class ${profile.className} · ${new Date().toLocaleDateString()}`;
   ctx.fillText(subtitle, titleX, layout === 'horizontal' ? height * 0.9 : height * 0.096);
 
-  ctx.font = `${Math.round(base * 0.032)}px "Caveat", cursive`;
+  ctx.font = `${Math.round(base * 0.032)}px "Mali", "Be Vietnam Pro", cursive`;
   ctx.fillStyle = 'rgba(53, 41, 31, .72)';
   const maxTextWidth = width * (layout === 'horizontal' ? 0.38 : 0.74);
   const words = caption.split(' ');
