@@ -34,6 +34,7 @@ import type {
   PublishMemoryDraft,
   RememberNote,
   RememberNoteDraft,
+  RememberReactionId,
   SecretDiaryEntry,
   UserProfile,
 } from '../types';
@@ -51,6 +52,13 @@ const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
 const FIREBASE_RETRY_DELAYS = [0, 450, 1000, 1800];
 const FIREBASE_TIMEOUT_MS = 12_000;
 const FIREBASE_POLL_MS = 20_000;
+const REMEMBER_REACTION_LABELS: Record<RememberReactionId, string> = {
+  'miss-you': 'Nhớ cậu',
+  'thank-you': 'Cảm ơn',
+  regret: 'Tiếc nuối',
+  'good-luck': 'Chúc may mắn',
+};
+const REMEMBER_REACTION_IDS = Object.keys(REMEMBER_REACTION_LABELS) as RememberReactionId[];
 
 export const cleanDisplayName = (name: string) => name.trim().replace(/\s+/g, ' ');
 
@@ -277,7 +285,15 @@ const classmateFromDoc = (id: string, data: DocumentData): ClassmateProfile => (
   className: String(data.className || CLASS_NAME),
 });
 
-const rememberNoteFromDoc = (id: string, data: DocumentData): RememberNote => ({
+const parseRememberReactionId = (value: unknown): RememberReactionId | undefined => {
+  const reactionId = String(value || '') as RememberReactionId;
+  return REMEMBER_REACTION_IDS.includes(reactionId) ? reactionId : undefined;
+};
+
+const rememberNoteFromDoc = (id: string, data: DocumentData): RememberNote => {
+  const reactionId = parseRememberReactionId(data.reactionId);
+
+  return {
   id,
   fromUid: String(data.fromUid || ''),
   fromName: String(data.fromName || 'Bạn cùng lớp'),
@@ -289,7 +305,12 @@ const rememberNoteFromDoc = (id: string, data: DocumentData): RememberNote => ({
   createdAt: timestampToIso(data.createdAt),
   viewedAt: data.viewedAt ? timestampToIso(data.viewedAt) : undefined,
   heartedBy: Array.isArray(data.heartedBy) ? data.heartedBy.map(String).slice(0, 120) : [],
-});
+    reactionId,
+    reactionLabel: reactionId ? String(data.reactionLabel || REMEMBER_REACTION_LABELS[reactionId]) : undefined,
+    reactedAt: data.reactedAt ? timestampToIso(data.reactedAt) : undefined,
+    reactedBy: data.reactedBy ? String(data.reactedBy) : undefined,
+  };
+};
 
 export const checkStudentName = async (name: string) => {
   const nameKey = makeNameKey(name);
@@ -797,6 +818,31 @@ export const heartRememberNote = async (profile: UserProfile, note: RememberNote
   await withFirebaseRetry(() =>
     updateDoc(doc(db, REMEMBER_NOTES_COLLECTION, note.id), {
       heartedBy: arrayUnion(profile.uid),
+      updatedAt: serverTimestamp(),
+    }),
+  );
+};
+
+export const reactRememberNote = async (profile: UserProfile, note: RememberNote, reactionId: RememberReactionId) => {
+  if (note.toNameKey !== profile.nameKey) {
+    throw new Error('Chỉ người nhận mới có thể phản hồi Secret Message này.');
+  }
+
+  if (note.fromUid === profile.uid) {
+    throw new Error('Bạn không thể tự phản hồi Secret Message của chính mình.');
+  }
+
+  const reactionLabel = REMEMBER_REACTION_LABELS[reactionId];
+  if (!reactionLabel) {
+    throw new Error('Cảm xúc này chưa hợp lệ.');
+  }
+
+  await withFirebaseRetry(() =>
+    updateDoc(doc(db, REMEMBER_NOTES_COLLECTION, note.id), {
+      reactionId,
+      reactionLabel,
+      reactedAt: serverTimestamp(),
+      reactedBy: profile.uid,
       updatedAt: serverTimestamp(),
     }),
   );

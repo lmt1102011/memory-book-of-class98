@@ -140,7 +140,13 @@ export interface RememberNote {
   createdAt: string;
   viewedAt?: string;
   heartedBy: string[];
+  reactionId?: RememberReactionId;
+  reactionLabel?: string;
+  reactedAt?: string;
+  reactedBy?: string;
 }
+
+export type RememberReactionId = 'miss-you' | 'thank-you' | 'regret' | 'good-luck';
 
 export interface RememberNoteDraft {
   toName: string;

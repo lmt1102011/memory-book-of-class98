@@ -15,6 +15,7 @@ import type {
   PublishMemoryDraft,
   RememberNote,
   RememberNoteDraft,
+  RememberReactionId,
   SecretDiaryEntry,
   UserProfile,
 } from './types';
@@ -39,6 +40,13 @@ const navItems: Array<{ route: AppRoute; label: string; icon: typeof Home }> = [
   { route: 'diary', label: 'Nhật ký', icon: Lock },
   { route: 'photobook', label: 'Đăng ảnh', icon: Camera },
 ];
+
+const rememberReactionLabels: Record<RememberReactionId, string> = {
+  'miss-you': 'Nhớ cậu',
+  'thank-you': 'Cảm ơn',
+  regret: 'Tiếc nuối',
+  'good-luck': 'Chúc may mắn',
+};
 
 const logoSrc = `${import.meta.env.BASE_URL}logo-web-class-98.svg`;
 
@@ -603,6 +611,45 @@ export default function App() {
     [navigate, profile],
   );
 
+  const handleRememberNoteReact = useCallback(
+    async (note: RememberNote, reactionId: RememberReactionId) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+
+      const previousReaction = {
+        reactionId: note.reactionId,
+        reactionLabel: note.reactionLabel,
+        reactedAt: note.reactedAt,
+        reactedBy: note.reactedBy,
+      };
+      const nextReaction = {
+        reactionId,
+        reactionLabel: rememberReactionLabels[reactionId],
+        reactedAt: new Date().toISOString(),
+        reactedBy: profile.uid,
+      };
+
+      const applyReaction = (item: RememberNote) => (item.id === note.id ? { ...item, ...nextReaction } : item);
+      const rollbackReaction = (item: RememberNote) => (item.id === note.id ? { ...item, ...previousReaction } : item);
+
+      setRememberNotes((items) => items.map(applyReaction));
+      setSentRememberNotes((items) => items.map(applyReaction));
+
+      try {
+        const service = await import('./services/firebaseMemoryBook');
+        await service.reactRememberNote(profile, note, reactionId);
+        setFirebaseNotice('');
+      } catch (caught) {
+        setRememberNotes((items) => items.map(rollbackReaction));
+        setSentRememberNotes((items) => items.map(rollbackReaction));
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể phản hồi Secret Message lúc này.');
+      }
+    },
+    [navigate, profile],
+  );
+
   const renderRoute = () => {
     if (route === 'landing') {
       return <LandingPage onJoin={() => navigate(profile ? 'home' : 'join')} onExplore={() => navigate('home')} />;
@@ -655,7 +702,7 @@ export default function App() {
             onAddNote={handleRememberNoteAdd}
             onDeleteNote={handleRememberNoteDelete}
             onMarkNotesViewed={handleRememberNotesViewed}
-            onHeartNote={handleRememberNoteHeart}
+            onReactNote={handleRememberNoteReact}
           />
         </Suspense>
       );

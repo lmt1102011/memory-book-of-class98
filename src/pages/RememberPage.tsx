@@ -1,7 +1,7 @@
 import { CheckCheck, Eye, Heart, Lock, Search, Send, Trash2, UserRound } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import FirebaseNotice from '../components/FirebaseNotice';
-import type { ClassmateProfile, RememberNote, RememberNoteDraft, UserProfile } from '../types';
+import type { ClassmateProfile, RememberNote, RememberNoteDraft, RememberReactionId, UserProfile } from '../types';
 import { formatMemoryDate } from '../utils/date';
 
 interface RememberPageProps {
@@ -16,10 +16,30 @@ interface RememberPageProps {
   onAddNote: (draft: RememberNoteDraft) => Promise<void> | void;
   onDeleteNote: (note: RememberNote) => Promise<void> | void;
   onMarkNotesViewed: (notes: RememberNote[]) => Promise<void> | void;
-  onHeartNote: (note: RememberNote) => Promise<void> | void;
+  onReactNote: (note: RememberNote, reactionId: RememberReactionId) => Promise<void> | void;
 }
 
+type MailboxTab = 'received' | 'sent';
+
 const noteTone = ['bg-blush/35', 'bg-skySoft/35', 'bg-[#f4dfbf]/58', 'bg-white/62'];
+
+const reactionOptions: Array<{ id: RememberReactionId; label: string; tone: string }> = [
+  { id: 'miss-you', label: 'Nhớ cậu', tone: 'bg-blush/45 text-[#8b3544]' },
+  { id: 'thank-you', label: 'Cảm ơn', tone: 'bg-skySoft/45 text-[#31536f]' },
+  { id: 'regret', label: 'Tiếc nuối', tone: 'bg-[#f4dfbf]/75 text-coffee' },
+  { id: 'good-luck', label: 'Chúc may mắn', tone: 'bg-chalk/20 text-chalk' },
+];
+
+const reactionLabelById = reactionOptions.reduce(
+  (labels, option) => ({ ...labels, [option.id]: option.label }),
+  {} as Record<RememberReactionId, string>,
+);
+
+const getReactionLabel = (note: RememberNote) => {
+  if (note.reactionId) return note.reactionLabel || reactionLabelById[note.reactionId];
+  if (note.heartedBy.length > 0) return 'Đã tim';
+  return '';
+};
 
 export default function RememberPage({
   classmates,
@@ -33,8 +53,9 @@ export default function RememberPage({
   onAddNote,
   onDeleteNote,
   onMarkNotesViewed,
-  onHeartNote,
+  onReactNote,
 }: RememberPageProps) {
+  const [activeTab, setActiveTab] = useState<MailboxTab>('received');
   const [query, setQuery] = useState('');
   const [selectedNameKey, setSelectedNameKey] = useState('');
   const [message, setMessage] = useState('');
@@ -63,7 +84,7 @@ export default function RememberPage({
 
   const anonymousCount = useMemo(() => notes.filter((note) => note.anonymous).length, [notes]);
   const viewedSentCount = useMemo(() => sentNotes.filter((note) => note.viewedAt).length, [sentNotes]);
-  const heartedSentCount = useMemo(() => sentNotes.filter((note) => note.heartedBy.length).length, [sentNotes]);
+  const reactedSentCount = useMemo(() => sentNotes.filter((note) => getReactionLabel(note)).length, [sentNotes]);
 
   useEffect(() => {
     if (!profile || !notes.length) return;
@@ -106,6 +127,7 @@ export default function RememberPage({
       });
       setMessage('');
       setSelectedNameKey('');
+      setActiveTab('sent');
       setSuccess(`Đã gửi Secret Message đến ${selectedClassmate.name}.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Không thể gửi Secret Message lúc này.');
@@ -114,11 +136,11 @@ export default function RememberPage({
     }
   };
 
-  const handleDelete = async (note: RememberNote, mode: 'received' | 'sent' = 'received') => {
+  const handleDelete = async (note: RememberNote, mode: MailboxTab) => {
     const confirmText =
       mode === 'sent'
         ? `Xóa Secret Message đã gửi cho ${note.toName}? Người nhận cũng sẽ không còn thấy tin này.`
-        : 'Xóa Secret Message này khỏi hộp của bạn?';
+        : 'Xóa Secret Message này khỏi hộp thư của bạn?';
 
     if (!window.confirm(confirmText)) return;
 
@@ -129,20 +151,20 @@ export default function RememberPage({
     }
   };
 
-  const handleHeart = async (note: RememberNote) => {
+  const handleReact = async (note: RememberNote, reactionId: RememberReactionId) => {
     if (!profile) {
       onJoin();
       return;
     }
 
-    if (note.heartedBy.includes(profile.uid)) return;
+    if (note.reactionId === reactionId) return;
 
     try {
-      setReactingId(note.id);
-      await onHeartNote(note);
+      setReactingId(`${note.id}:${reactionId}`);
+      await onReactNote(note, reactionId);
       setError('');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Không thể thả tim Secret Message lúc này.');
+      setError(caught instanceof Error ? caught.message : 'Không thể phản hồi Secret Message lúc này.');
     } finally {
       setReactingId('');
     }
@@ -155,48 +177,47 @@ export default function RememberPage({
           <div>
             <p className="section-kicker">Secret Message</p>
             <h1 className="max-w-4xl font-display text-5xl leading-[0.9] sm:text-8xl">
-              Gửi điều chưa kịp nói.
+              Hộp thư của những điều chưa kịp nói.
             </h1>
             <p className="mt-5 max-w-2xl text-sm leading-7 text-ink/66 sm:text-base">
-              Chọn một bạn trong lớp 9/8 và gửi riêng một lời nhắn. Người nhận sẽ thấy trong hộp Secret Message của mình,
-              có thể thả tim cho tin đó, còn tin ẩn danh vẫn không lộ tên người gửi.
+              Gửi riêng một lời nhắn cho một người trong lớp 9/8. Người nhận có thể phản hồi bằng một cảm xúc, còn tin ẩn danh
+              vẫn giữ kín người gửi.
             </p>
           </div>
 
           <div className="rounded-[1.35rem] border border-white/60 bg-white/48 p-4 shadow-paper backdrop-blur-xl">
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-[0.75rem] bg-paper/72 px-3 py-4">
-                <p className="font-display text-4xl leading-none">{notes.length}</p>
-                <p className="mt-1 text-[11px] font-bold uppercase text-coffee/62">Gửi đến bạn</p>
-              </div>
-              <div className="rounded-[0.75rem] bg-blush/30 px-3 py-4">
-                <p className="font-display text-4xl leading-none">{anonymousCount}</p>
-                <p className="mt-1 text-[11px] font-bold uppercase text-coffee/62">Ẩn danh</p>
-              </div>
-              <div className="rounded-[0.75rem] bg-skySoft/30 px-3 py-4">
-                <p className="font-display text-4xl leading-none">{heartedSentCount}</p>
-                <p className="mt-1 text-[11px] font-bold uppercase text-coffee/62">Được tim</p>
-              </div>
+              <StatTile label="Gửi đến bạn" value={notes.length} />
+              <StatTile label="Ẩn danh" value={anonymousCount} tone="bg-blush/30" />
+              <StatTile label="Đã phản hồi" value={reactedSentCount} tone="bg-skySoft/30" />
             </div>
             <p className="mt-3 text-xs leading-5 text-ink/58">
-              Người gửi thấy được trạng thái đã xem và đã được tim, nhưng nếu đã chọn ẩn danh thì danh tính vẫn được giữ kín.
+              Người gửi thấy được trạng thái đã xem và cảm xúc phản hồi. Người nhận có thể đổi cảm xúc nếu bấm nhầm.
             </p>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-5 px-4 pb-10 sm:px-6 lg:grid-cols-[0.88fr_1.12fr] lg:px-8">
-        <form className="rounded-[1.35rem] border border-white/65 bg-white/52 p-4 shadow-paper backdrop-blur-xl sm:p-5" onSubmit={handleSubmit}>
-          <div className="flex items-center gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-ink text-paper">
-              <Heart size={20} fill="currentColor" />
-            </span>
-            <div className="min-w-0">
-              <h2 className="font-display text-4xl leading-none sm:text-5xl">Viết Secret Message</h2>
-              <p className="mt-1 text-xs leading-5 text-ink/58">
-                Như một tờ giấy nhỏ được gấp lại và gửi riêng cho một người.
-              </p>
+      <section className="mx-auto max-w-7xl px-4 pb-6 sm:px-6 lg:px-8">
+        <form
+          className="rounded-[1.35rem] border border-white/65 bg-white/52 p-4 shadow-paper backdrop-blur-xl sm:p-5"
+          onSubmit={handleSubmit}
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-ink text-paper">
+                <Heart size={20} fill="currentColor" />
+              </span>
+              <div className="min-w-0">
+                <h2 className="font-display text-4xl leading-none sm:text-5xl">Viết Secret Message</h2>
+                <p className="mt-1 text-xs leading-5 text-ink/58">Một mảnh lưu bút riêng, gửi đúng người, đúng cảm xúc.</p>
+              </div>
             </div>
+            {profile && (
+              <span className="w-fit rounded-full bg-paper/78 px-3 py-2 text-xs font-bold text-coffee">
+                Đang viết với tên {profile.name}
+              </span>
+            )}
           </div>
 
           {!profile ? (
@@ -208,250 +229,429 @@ export default function RememberPage({
               </button>
             </div>
           ) : (
-            <>
-              <label className="mt-5 block">
-                <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Tìm người nhận</span>
-                <span className="relative block">
-                  <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-coffee/55" size={17} />
-                  <input
-                    className="input-field pl-11"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Gõ tên một bạn trong lớp"
-                  />
-                </span>
-              </label>
+            <div className="mt-5 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+              <div className="min-w-0">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Tìm người nhận</span>
+                  <span className="relative block">
+                    <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-coffee/55" size={17} />
+                    <input
+                      className="input-field pl-11"
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="Gõ tên một bạn trong lớp"
+                    />
+                  </span>
+                </label>
 
-              <div className="mt-3 grid max-h-52 gap-2 overflow-auto pr-1">
-                {filteredClassmates.map((classmate) => (
-                  <button
-                    key={classmate.nameKey}
-                    className={`flex min-h-12 items-center justify-between gap-3 rounded-[0.75rem] px-3 text-left text-sm font-bold transition ${
-                      selectedNameKey === classmate.nameKey
-                        ? 'bg-ink text-paper shadow-paper'
-                        : 'bg-paper/72 text-ink hover:bg-paper'
-                    }`}
-                    type="button"
-                    onClick={() => setSelectedNameKey(classmate.nameKey)}
-                  >
-                    <span className="inline-flex min-w-0 items-center gap-2">
-                      <UserRound size={16} />
-                      <span className="truncate">{classmate.name}</span>
-                    </span>
-                    <span className="shrink-0 text-[11px] opacity-70">9/8</span>
-                  </button>
-                ))}
-                {!filteredClassmates.length && (
-                  <p className="rounded-[0.75rem] bg-paper/72 px-3 py-4 text-center text-xs font-bold text-coffee/70">
-                    Chưa tìm thấy bạn nào phù hợp.
+                <div className="mt-3 grid max-h-64 gap-2 overflow-auto pr-1">
+                  {filteredClassmates.map((classmate) => (
+                    <button
+                      key={classmate.nameKey}
+                      className={`flex min-h-12 items-center justify-between gap-3 rounded-[0.75rem] px-3 text-left text-sm font-bold transition ${
+                        selectedNameKey === classmate.nameKey
+                          ? 'bg-ink text-paper shadow-paper'
+                          : 'bg-paper/72 text-ink hover:bg-paper'
+                      }`}
+                      type="button"
+                      onClick={() => setSelectedNameKey(classmate.nameKey)}
+                    >
+                      <span className="inline-flex min-w-0 items-center gap-2">
+                        <UserRound size={16} />
+                        <span className="truncate">{classmate.name}</span>
+                      </span>
+                      <span className="shrink-0 text-[11px] opacity-70">9/8</span>
+                    </button>
+                  ))}
+                  {!filteredClassmates.length && (
+                    <p className="rounded-[0.75rem] bg-paper/72 px-3 py-4 text-center text-xs font-bold text-coffee/70">
+                      Chưa tìm thấy bạn nào phù hợp.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="min-w-0">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Điều chưa kịp nói</span>
+                  <textarea
+                    className="input-field min-h-40 resize-none leading-6"
+                    value={message}
+                    onChange={(event) => setMessage(event.target.value.slice(0, 420))}
+                    placeholder="Viết một điều thật lòng mà bạn muốn gửi lại cho người ấy..."
+                    maxLength={420}
+                  />
+                </label>
+
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-[0.85rem] bg-paper/68 px-3 py-3">
+                  <label className="flex min-w-0 items-center gap-3 text-sm font-bold text-ink">
+                    <input
+                      className="h-5 w-5 accent-coffee"
+                      type="checkbox"
+                      checked={anonymous}
+                      onChange={(event) => setAnonymous(event.target.checked)}
+                    />
+                    <span>{anonymous ? 'Gửi ẩn danh' : 'Hiện tên của bạn'}</span>
+                  </label>
+                  <span className="shrink-0 text-xs font-bold text-coffee/62">{message.length}/420</span>
+                </div>
+
+                {(error || success) && (
+                  <p className={`mt-3 text-sm font-bold ${error ? 'text-[#9d3b4b]' : 'text-chalk'}`}>
+                    {error || success}
                   </p>
                 )}
+
+                <button className="primary-button mt-5 w-full" disabled={isSending || !selectedClassmate || !message.trim()}>
+                  <Send size={17} />
+                  {isSending ? 'Đang gửi...' : 'Gửi Secret Message'}
+                </button>
               </div>
-
-              <label className="mt-4 block">
-                <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Điều chưa kịp nói</span>
-                <textarea
-                  className="input-field min-h-36 resize-none leading-6"
-                  value={message}
-                  onChange={(event) => setMessage(event.target.value.slice(0, 420))}
-                  placeholder="Ví dụ: Tớ chưa từng nói, nhưng cảm ơn vì ngày đó cậu đã làm giờ học bớt nặng nề hơn..."
-                  maxLength={420}
-                />
-              </label>
-
-              <div className="mt-3 flex items-center justify-between gap-3 rounded-[0.85rem] bg-paper/68 px-3 py-3">
-                <label className="flex min-w-0 items-center gap-3 text-sm font-bold text-ink">
-                  <input
-                    className="h-5 w-5 accent-coffee"
-                    type="checkbox"
-                    checked={anonymous}
-                    onChange={(event) => setAnonymous(event.target.checked)}
-                  />
-                  <span>{anonymous ? 'Gửi ẩn danh' : 'Hiện tên của bạn'}</span>
-                </label>
-                <span className="shrink-0 text-xs font-bold text-coffee/62">{message.length}/420</span>
-              </div>
-
-              {(error || success) && (
-                <p className={`mt-3 text-sm font-bold ${error ? 'text-[#9d3b4b]' : 'text-chalk'}`}>
-                  {error || success}
-                </p>
-              )}
-
-              <button className="primary-button mt-5 w-full" disabled={isSending || !selectedClassmate || !message.trim()}>
-                <Send size={17} />
-                {isSending ? 'Đang gửi...' : 'Gửi Secret Message'}
-              </button>
-            </>
+            </div>
           )}
         </form>
+      </section>
 
-        <section className="min-w-0 rounded-[1.35rem] border border-white/65 bg-white/42 p-4 shadow-paper backdrop-blur-xl sm:p-5">
-          <div className="flex flex-wrap items-end justify-between gap-3">
+      <section className="mx-auto max-w-7xl px-4 pb-10 sm:px-6 lg:px-8">
+        <div className="rounded-[1.35rem] border border-white/65 bg-white/44 p-4 shadow-paper backdrop-blur-xl sm:p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="section-kicker">Hộp của bạn</p>
+              <p className="section-kicker">Hộp thư</p>
               <h2 className="font-display text-4xl leading-none sm:text-5xl">Secret Message của bạn</h2>
             </div>
-            {profile && <span className="rounded-full bg-paper/78 px-3 py-2 text-xs font-bold text-coffee">{profile.name}</span>}
+            {profile && <span className="w-fit rounded-full bg-paper/78 px-3 py-2 text-xs font-bold text-coffee">{profile.name}</span>}
           </div>
 
-          {isLoading ? (
-            <div className="grid min-h-72 place-items-center text-center">
-              <div>
-                <div className="memory-loading-spinner mx-auto mb-4 h-12 w-12 rounded-full border-4 border-coffee/15 border-t-coffee" />
-                <p className="font-hand text-3xl text-coffee">Đang mở Secret Message...</p>
-              </div>
-            </div>
-          ) : !profile ? (
-            <div className="mt-5 rounded-[1rem] bg-paper/72 p-6 text-center">
-              <p className="font-hand text-3xl font-bold text-coffee">Vào lớp để xem những lời nhắn dành cho bạn.</p>
-            </div>
-          ) : notes.length ? (
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              {notes.map((note, index) => {
-                const hearted = Boolean(profile && note.heartedBy.includes(profile.uid));
-
-                return (
-                  <article
-                    key={note.id}
-                    className={`relative overflow-hidden rounded-[0.9rem] p-4 shadow-[0_14px_30px_rgba(84,57,35,0.12)] ${
-                      noteTone[index % noteTone.length]
-                    }`}
-                  >
-                    <div className="scrapbook-tape left-7 top-0 -rotate-6" />
-                    <div className="mt-3 flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold uppercase text-coffee/62">
-                          {note.anonymous ? 'Từ một người trong lớp' : `Từ ${note.fromName}`}
-                        </p>
-                        <p className="mt-1 text-xs font-semibold text-ink/52">{formatMemoryDate(note.createdAt)}</p>
-                      </div>
-                      <button
-                        className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-coffee/10 text-coffee transition hover:bg-coffee/18"
-                        onClick={() => void handleDelete(note)}
-                        aria-label="Xóa Secret Message"
-                        title="Xóa Secret Message"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                    <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-ink/78">{note.message}</p>
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-white/50 px-2.5 py-1 text-[11px] font-bold text-coffee/70">
-                        <Eye size={13} />
-                        Đã mở
-                      </span>
-                      <button
-                        className={`inline-flex items-center gap-1 rounded-full px-3 py-2 text-xs font-extrabold transition ${
-                          hearted ? 'bg-[#9d3b4b] text-paper' : 'bg-white/62 text-coffee hover:bg-white/78'
-                        }`}
-                        type="button"
-                        onClick={() => void handleHeart(note)}
-                        disabled={hearted || reactingId === note.id}
-                      >
-                        <Heart size={14} fill={hearted ? 'currentColor' : 'none'} />
-                        {hearted ? 'Đã tim' : 'Thả tim'}
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="mt-5 grid min-h-72 place-items-center rounded-[1rem] bg-paper/66 p-6 text-center">
-              <div>
-                <Heart className="mx-auto text-coffee/70" size={32} />
-                <h3 className="mt-3 font-display text-5xl leading-none">Chưa có Secret Message</h3>
-                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-ink/60">
-                  Khi ai đó gửi cho bạn, nó sẽ nằm ở đây như một mảnh lưu bút riêng.
-                </p>
-              </div>
-            </div>
-          )}
-        </section>
-
-        <section className="min-w-0 rounded-[1.35rem] border border-white/65 bg-white/44 p-4 shadow-paper backdrop-blur-xl sm:p-5 lg:col-span-2">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="section-kicker">Tin đã gửi</p>
-              <h2 className="font-display text-4xl leading-none sm:text-5xl">Secret Message bạn đã gửi</h2>
-            </div>
-            {profile && (
-              <span className="rounded-full bg-paper/78 px-3 py-2 text-xs font-bold text-coffee">
-                {sentNotes.length} tin · {viewedSentCount} đã xem · {heartedSentCount} được tim
-              </span>
-            )}
+          <div className="mt-5 grid grid-cols-2 gap-2 rounded-[0.95rem] bg-paper/58 p-1.5">
+            <MailboxTabButton active={activeTab === 'received'} count={notes.length} label="Thư mình nhận" onClick={() => setActiveTab('received')} />
+            <MailboxTabButton active={activeTab === 'sent'} count={sentNotes.length} label="Thư mình gửi" onClick={() => setActiveTab('sent')} />
           </div>
 
-          {isLoadingSent ? (
-            <div className="mt-5 grid min-h-44 place-items-center rounded-[1rem] bg-paper/58 p-6 text-center">
-              <div>
-                <div className="memory-loading-spinner mx-auto mb-4 h-10 w-10 rounded-full border-4 border-coffee/15 border-t-coffee" />
-                <p className="font-hand text-3xl text-coffee">Đang mở tin đã gửi...</p>
-              </div>
-            </div>
-          ) : !profile ? (
-            <div className="mt-5 rounded-[1rem] bg-paper/72 p-6 text-center">
-              <p className="font-hand text-3xl font-bold text-coffee">Vào lớp để xem và xóa tin bạn đã gửi.</p>
-            </div>
-          ) : sentNotes.length ? (
-            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {sentNotes.map((note, index) => (
-                <article
-                  key={note.id}
-                  className={`relative overflow-hidden rounded-[0.9rem] p-4 shadow-[0_14px_30px_rgba(84,57,35,0.12)] ${
-                    noteTone[(index + 1) % noteTone.length]
-                  }`}
-                >
-                  <div className="scrapbook-tape right-7 top-0 rotate-6" />
-                  <div className="mt-3 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold uppercase text-coffee/62">Gửi đến {note.toName}</p>
-                      <p className="mt-1 text-xs font-semibold text-ink/52">{formatMemoryDate(note.createdAt)}</p>
-                    </div>
-                    <button
-                      className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-coffee/10 text-coffee transition hover:bg-coffee/18"
-                      onClick={() => void handleDelete(note, 'sent')}
-                      aria-label="Xóa tin đã gửi"
-                      title="Xóa tin đã gửi"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <span className="inline-flex rounded-full bg-white/50 px-2.5 py-1 text-[11px] font-bold text-coffee/70">
-                      {note.anonymous ? 'Bạn đã gửi ẩn danh' : 'Bạn đã hiện tên'}
-                    </span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-white/50 px-2.5 py-1 text-[11px] font-bold text-coffee/70">
-                      <CheckCheck size={13} />
-                      {note.viewedAt ? 'Đã xem' : 'Chưa xem'}
-                    </span>
-                    {note.heartedBy.length > 0 && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-blush/42 px-2.5 py-1 text-[11px] font-bold text-coffee">
-                        <Heart size={13} fill="currentColor" />
-                        Người nhận đã tim
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-ink/78">{note.message}</p>
-                </article>
-              ))}
-            </div>
+          {activeTab === 'received' ? (
+            <ReceivedMailbox
+              isLoading={isLoading}
+              notes={notes}
+              profile={profile}
+              reactingId={reactingId}
+              onJoin={onJoin}
+              onDelete={(note) => void handleDelete(note, 'received')}
+              onReact={(note, reactionId) => void handleReact(note, reactionId)}
+            />
           ) : (
-            <div className="mt-5 grid min-h-44 place-items-center rounded-[1rem] bg-paper/66 p-6 text-center">
-              <div>
-                <Send className="mx-auto text-coffee/70" size={30} />
-                <h3 className="mt-3 font-display text-5xl leading-none">Chưa gửi tin nào</h3>
-                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-ink/60">
-                  Khi bạn gửi Secret Message cho ai đó, bạn có thể quay lại đây để xem trạng thái và xóa tin đã gửi.
-                </p>
-              </div>
-            </div>
+            <SentMailbox
+              isLoading={isLoadingSent}
+              notes={sentNotes}
+              profile={profile}
+              viewedCount={viewedSentCount}
+              reactedCount={reactedSentCount}
+              onJoin={onJoin}
+              onDelete={(note) => void handleDelete(note, 'sent')}
+            />
           )}
-        </section>
+        </div>
       </section>
 
       <FirebaseNotice message={firebaseNotice} />
+    </div>
+  );
+}
+
+function StatTile({ label, value, tone = 'bg-paper/72' }: { label: string; value: number; tone?: string }) {
+  return (
+    <div className={`rounded-[0.75rem] px-3 py-4 ${tone}`}>
+      <p className="font-display text-4xl leading-none">{value}</p>
+      <p className="mt-1 text-[11px] font-bold uppercase text-coffee/62">{label}</p>
+    </div>
+  );
+}
+
+function MailboxTabButton({ active, count, label, onClick }: { active: boolean; count: number; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className={`min-h-12 rounded-[0.75rem] px-3 text-sm font-black transition ${
+        active ? 'bg-ink text-paper shadow-paper' : 'text-ink/68 hover:bg-white/48'
+      }`}
+      onClick={onClick}
+    >
+      <span className="block truncate">{label}</span>
+      <span className="mt-0.5 block text-[11px] opacity-70">{count} tin</span>
+    </button>
+  );
+}
+
+function ReceivedMailbox({
+  isLoading,
+  notes,
+  profile,
+  reactingId,
+  onJoin,
+  onDelete,
+  onReact,
+}: {
+  isLoading: boolean;
+  notes: RememberNote[];
+  profile: UserProfile | null;
+  reactingId: string;
+  onJoin: () => void;
+  onDelete: (note: RememberNote) => void;
+  onReact: (note: RememberNote, reactionId: RememberReactionId) => void;
+}) {
+  if (isLoading) {
+    return <MailboxLoading label="Đang mở thư mình nhận..." />;
+  }
+
+  if (!profile) {
+    return <MailboxJoinPrompt text="Vào lớp để xem những Secret Message gửi cho bạn." onJoin={onJoin} />;
+  }
+
+  if (!notes.length) {
+    return (
+      <MailboxEmpty
+        title="Chưa có Secret Message"
+        text="Khi ai đó gửi cho bạn, tin sẽ nằm ở đây như một mảnh lưu bút riêng."
+      />
+    );
+  }
+
+  return (
+    <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {notes.map((note, index) => (
+        <ReceivedNoteCard
+          key={note.id}
+          note={note}
+          profile={profile}
+          reactingId={reactingId}
+          tone={noteTone[index % noteTone.length]}
+          onDelete={onDelete}
+          onReact={onReact}
+        />
+      ))}
+    </div>
+  );
+}
+
+function SentMailbox({
+  isLoading,
+  notes,
+  profile,
+  viewedCount,
+  reactedCount,
+  onJoin,
+  onDelete,
+}: {
+  isLoading: boolean;
+  notes: RememberNote[];
+  profile: UserProfile | null;
+  viewedCount: number;
+  reactedCount: number;
+  onJoin: () => void;
+  onDelete: (note: RememberNote) => void;
+}) {
+  if (isLoading) {
+    return <MailboxLoading label="Đang mở thư mình gửi..." />;
+  }
+
+  if (!profile) {
+    return <MailboxJoinPrompt text="Vào lớp để xem lại những Secret Message bạn đã gửi." onJoin={onJoin} />;
+  }
+
+  if (!notes.length) {
+    return (
+      <MailboxEmpty
+        title="Chưa gửi tin nào"
+        text="Khi bạn gửi Secret Message cho ai đó, bạn có thể quay lại đây để xem trạng thái và xóa tin đã gửi."
+      />
+    );
+  }
+
+  return (
+    <>
+      <div className="mt-4 flex flex-wrap gap-2 text-xs font-bold text-coffee/70">
+        <span className="rounded-full bg-paper/72 px-3 py-2">{notes.length} đã gửi</span>
+        <span className="rounded-full bg-paper/72 px-3 py-2">{viewedCount} đã xem</span>
+        <span className="rounded-full bg-paper/72 px-3 py-2">{reactedCount} đã phản hồi</span>
+      </div>
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {notes.map((note, index) => (
+          <SentNoteCard
+            key={note.id}
+            note={note}
+            tone={noteTone[(index + 1) % noteTone.length]}
+            onDelete={onDelete}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function ReceivedNoteCard({
+  note,
+  profile,
+  reactingId,
+  tone,
+  onDelete,
+  onReact,
+}: {
+  note: RememberNote;
+  profile: UserProfile;
+  reactingId: string;
+  tone: string;
+  onDelete: (note: RememberNote) => void;
+  onReact: (note: RememberNote, reactionId: RememberReactionId) => void;
+}) {
+  return (
+    <article className={`relative overflow-hidden rounded-[0.9rem] p-4 shadow-[0_14px_30px_rgba(84,57,35,0.12)] ${tone}`}>
+      <div className="scrapbook-tape left-7 top-0 -rotate-6" />
+      <div className="mt-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase text-coffee/62">
+            {note.anonymous ? 'Từ một người trong lớp' : `Từ ${note.fromName}`}
+          </p>
+          <p className="mt-1 text-xs font-semibold text-ink/52">{formatMemoryDate(note.createdAt)}</p>
+        </div>
+        <button
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-coffee/10 text-coffee transition hover:bg-coffee/18"
+          onClick={() => onDelete(note)}
+          aria-label="Xóa Secret Message"
+          title="Xóa Secret Message"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+      <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-ink/78">{note.message}</p>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1 rounded-full bg-white/50 px-2.5 py-1 text-[11px] font-bold text-coffee/70">
+          <Eye size={13} />
+          Đã mở
+        </span>
+        {note.reactedAt && (
+          <span className="inline-flex rounded-full bg-white/50 px-2.5 py-1 text-[11px] font-bold text-coffee/70">
+            {formatMemoryDate(note.reactedAt)}
+          </span>
+        )}
+      </div>
+      <ReactionPills note={note} profile={profile} reactingId={reactingId} onReact={onReact} />
+    </article>
+  );
+}
+
+function SentNoteCard({ note, tone, onDelete }: { note: RememberNote; tone: string; onDelete: (note: RememberNote) => void }) {
+  const reactionLabel = getReactionLabel(note);
+
+  return (
+    <article className={`relative overflow-hidden rounded-[0.9rem] p-4 shadow-[0_14px_30px_rgba(84,57,35,0.12)] ${tone}`}>
+      <div className="scrapbook-tape right-7 top-0 rotate-6" />
+      <div className="mt-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase text-coffee/62">Gửi đến {note.toName}</p>
+          <p className="mt-1 text-xs font-semibold text-ink/52">{formatMemoryDate(note.createdAt)}</p>
+        </div>
+        <button
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-coffee/10 text-coffee transition hover:bg-coffee/18"
+          onClick={() => onDelete(note)}
+          aria-label="Xóa tin đã gửi"
+          title="Xóa tin đã gửi"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <StatusBadge>{note.anonymous ? 'Bạn đã gửi ẩn danh' : 'Bạn đã hiện tên'}</StatusBadge>
+        <StatusBadge icon={<CheckCheck size={13} />}>{note.viewedAt ? 'Đã xem' : 'Đã gửi'}</StatusBadge>
+        {reactionLabel && (
+          <StatusBadge icon={<Heart size={13} fill="currentColor" />}>
+            {note.reactionId ? `Người nhận đã thả: ${reactionLabel}` : 'Người nhận đã tim'}
+          </StatusBadge>
+        )}
+      </div>
+      <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-ink/78">{note.message}</p>
+    </article>
+  );
+}
+
+function ReactionPills({
+  note,
+  profile,
+  reactingId,
+  onReact,
+}: {
+  note: RememberNote;
+  profile: UserProfile;
+  reactingId: string;
+  onReact: (note: RememberNote, reactionId: RememberReactionId) => void;
+}) {
+  return (
+    <div className="mt-4">
+      <p className="mb-2 text-[11px] font-black uppercase text-coffee/62">Phản hồi cảm xúc</p>
+      <div className="grid grid-cols-2 gap-2">
+        {reactionOptions.map((option) => {
+          const active = note.reactionId === option.id;
+          const busy = reactingId === `${note.id}:${option.id}`;
+
+          return (
+            <button
+              key={option.id}
+              type="button"
+              className={`min-h-10 rounded-full px-3 text-xs font-black transition ${
+                active ? `${option.tone} shadow-paper` : 'bg-white/58 text-coffee hover:bg-white/78'
+              }`}
+              disabled={busy || note.fromUid === profile.uid}
+              onClick={() => onReact(note, option.id)}
+            >
+              {busy ? 'Đang lưu...' : option.label}
+            </button>
+          );
+        })}
+      </div>
+      {!note.reactionId && note.heartedBy.length > 0 && (
+        <p className="mt-2 text-xs font-bold text-coffee/64">Thư cũ này từng được thả tim.</p>
+      )}
+    </div>
+  );
+}
+
+function StatusBadge({ children, icon }: { children: ReactNode; icon?: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-white/50 px-2.5 py-1 text-[11px] font-bold text-coffee/70">
+      {icon}
+      {children}
+    </span>
+  );
+}
+
+function MailboxLoading({ label }: { label: string }) {
+  return (
+    <div className="mt-5 grid min-h-64 place-items-center rounded-[1rem] bg-paper/58 p-6 text-center">
+      <div>
+        <div className="memory-loading-spinner mx-auto mb-4 h-10 w-10 rounded-full border-4 border-coffee/15 border-t-coffee" />
+        <p className="font-hand text-3xl text-coffee">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+function MailboxJoinPrompt({ text, onJoin }: { text: string; onJoin: () => void }) {
+  return (
+    <div className="mt-5 rounded-[1rem] bg-paper/72 p-6 text-center">
+      <Lock className="mx-auto text-coffee" size={28} />
+      <p className="mx-auto mt-3 max-w-md font-hand text-3xl font-bold text-coffee">{text}</p>
+      <button type="button" className="primary-button mx-auto mt-4" onClick={onJoin}>
+        Vào lớp 9/8
+      </button>
+    </div>
+  );
+}
+
+function MailboxEmpty({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="mt-5 grid min-h-64 place-items-center rounded-[1rem] bg-paper/66 p-6 text-center">
+      <div>
+        <Heart className="mx-auto text-coffee/70" size={32} />
+        <h3 className="mt-3 font-display text-5xl leading-none">{title}</h3>
+        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-ink/60">{text}</p>
+      </div>
     </div>
   );
 }

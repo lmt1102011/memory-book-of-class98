@@ -68,6 +68,22 @@ service cloud.firestore {
         && request.resource.data.heartedBy.hasAll(oldHeartedBy());
     }
 
+    function validRememberReactionUpdate() {
+      return isRememberReceiver()
+        && resource.data.fromUid != request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'reactionId',
+          'reactionLabel',
+          'reactedAt',
+          'reactedBy',
+          'updatedAt'
+        ])
+        && request.resource.data.reactionId in ['miss-you', 'thank-you', 'regret', 'good-luck']
+        && request.resource.data.reactionLabel in ['Nhớ cậu', 'Cảm ơn', 'Tiếc nuối', 'Chúc may mắn']
+        && request.resource.data.reactedBy == request.auth.uid
+        && request.resource.data.reactedAt is timestamp;
+    }
+
     match /students98/{nameKey} {
       allow read: if true;
       allow create: if request.auth != null
@@ -129,7 +145,7 @@ service cloud.firestore {
         && request.resource.data.message.size() <= 420
         && request.resource.data.anonymous is bool
         && request.resource.data.kind == 'remember-note';
-      allow update: if validRememberViewedUpdate() || validRememberHeartUpdate();
+      allow update: if validRememberViewedUpdate() || validRememberHeartUpdate() || validRememberReactionUpdate();
       allow delete: if true;
     }
 
