@@ -554,6 +554,16 @@
       radial-gradient(circle at 78% 78%, rgba(255, 255, 255, 0.72) 0 0.58rem, transparent 0.62rem);
   }
 
+  .mood-preview-classic-default .mood-preview-paper {
+    background:
+      linear-gradient(135deg, rgba(255, 250, 241, 0.96), rgba(255, 255, 255, 0.72)),
+      radial-gradient(circle at 82% 18%, rgba(169, 205, 232, 0.32) 0 1.1rem, transparent 1.16rem);
+  }
+
+  .mood-preview-classic-default .mood-preview-note {
+    background: rgba(53, 41, 31, 0.88);
+  }
+
   .mood-preview-farewell-day {
     background:
       radial-gradient(circle at 78% 18%, rgba(255, 250, 241, 0.8) 0 1.4rem, transparent 1.45rem),

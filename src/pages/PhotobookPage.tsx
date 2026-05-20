@@ -70,7 +70,7 @@ const defaultConfig: PhotobookConfig = {
   layout: 'vertical',
   quality: '1080p',
   backgroundId: 'pastel-dawn',
-  moodId: 'clear-youth',
+  moodId: 'classic-default',
 };
 
 const getVideoConstraints = (facingMode: 'user' | 'environment'): MediaTrackConstraints => ({
@@ -250,7 +250,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
     [config.backgroundId],
   );
   const selectedMood = useMemo(
-    () => PHOTOBOOK_MOOD_OPTIONS.find((mood) => mood.id === (config.moodId || 'clear-youth')) || PHOTOBOOK_MOOD_OPTIONS[0],
+    () => PHOTOBOOK_MOOD_OPTIONS.find((mood) => mood.id === (config.moodId || 'classic-default')) || PHOTOBOOK_MOOD_OPTIONS[0],
     [config.moodId],
   );
 
@@ -668,7 +668,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                     {PHOTOBOOK_MOOD_OPTIONS.map((mood) => (
                       <OptionButton<PhotobookMoodId>
                         key={mood.id}
-                        active={(config.moodId || 'clear-youth') === mood.id}
+                        active={(config.moodId || 'classic-default') === mood.id}
                         value={mood.id}
                         label={mood.label}
                         description={mood.description}

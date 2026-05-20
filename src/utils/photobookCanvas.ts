@@ -60,6 +60,20 @@ interface MoodTheme {
 }
 
 const moodThemes: Record<PhotobookMoodId, MoodTheme> = {
+  'classic-default': {
+    id: 'classic-default',
+    title: 'SCHOOL MEMORY PHOTOBOOK',
+    signature: 'class 9/8 memory',
+    paper: '#fffdf7',
+    ink: '#35291f',
+    mutedInk: 'rgba(122, 86, 57, .78)',
+    accent: '#d88a9a',
+    accentSoft: 'rgba(169, 205, 232, .42)',
+    tape: 'rgba(255, 246, 219, .76)',
+    overlay: 'rgba(255, 250, 241, .18)',
+    photoBorder: '#fffdf7',
+    captionPrefix: 'Memory note,',
+  },
   'clear-youth': {
     id: 'clear-youth',
     title: 'OUR CLEAR YOUTH',
@@ -132,7 +146,8 @@ const moodThemes: Record<PhotobookMoodId, MoodTheme> = {
   },
 };
 
-const getMoodTheme = (moodId?: PhotobookMoodId) => moodThemes[moodId || 'clear-youth'] || moodThemes['clear-youth'];
+const getMoodTheme = (moodId?: PhotobookMoodId) =>
+  moodThemes[moodId || 'classic-default'] || moodThemes['classic-default'];
 
 const loadImage = (src: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -326,6 +341,23 @@ const drawBackground = async (
 const drawMoodBackdrop = (ctx: CanvasRenderingContext2D, width: number, height: number, theme: MoodTheme) => {
   const base = width;
   ctx.save();
+
+  if (theme.id === 'classic-default') {
+    ctx.fillStyle = 'rgba(255, 255, 255, .2)';
+    ctx.beginPath();
+    ctx.arc(width * 0.82, height * 0.16, base * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(169, 205, 232, .16)';
+    ctx.beginPath();
+    ctx.arc(width * 0.12, height * 0.86, base * 0.14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(216, 138, 154, .34)';
+    ctx.lineWidth = Math.max(2, base * 0.0035);
+    ctx.beginPath();
+    ctx.moveTo(width * 0.1, height * 0.14);
+    ctx.bezierCurveTo(width * 0.32, height * 0.08, width * 0.58, height * 0.2, width * 0.9, height * 0.1);
+    ctx.stroke();
+  }
 
   if (theme.id === 'clear-youth') {
     ctx.fillStyle = 'rgba(255, 255, 255, .24)';
@@ -726,6 +758,215 @@ const drawMoodDecorations = (
   ctx.restore();
 };
 
+const fitTextToWidth = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number) => {
+  const cleanText = text.replace(/\s+/g, ' ').trim();
+  if (!cleanText || ctx.measureText(cleanText).width <= maxWidth) return cleanText;
+
+  const ellipsis = '...';
+  let fitted = cleanText;
+  while (fitted.length > 1 && ctx.measureText(`${fitted}${ellipsis}`).width > maxWidth) {
+    fitted = fitted.slice(0, -1).trimEnd();
+  }
+
+  return fitted.length > 1 ? `${fitted}${ellipsis}` : ellipsis;
+};
+
+const wrapTextToLines = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number) => {
+  const words = text.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+  const lines: string[] = [];
+  let line = '';
+
+  for (let index = 0; index < words.length; index += 1) {
+    const word = words[index];
+    const nextLine = line ? `${line} ${word}` : word;
+
+    if (ctx.measureText(nextLine).width <= maxWidth) {
+      line = nextLine;
+      continue;
+    }
+
+    if (!line) {
+      lines.push(fitTextToWidth(ctx, word, maxWidth));
+      if (lines.length >= maxLines) {
+        const remaining = words.slice(index + 1).join(' ');
+        if (remaining) lines[maxLines - 1] = fitTextToWidth(ctx, `${lines[maxLines - 1]} ${remaining}`, maxWidth);
+        return lines;
+      }
+      continue;
+    }
+
+    lines.push(line);
+    line = word;
+
+    if (lines.length >= maxLines) {
+      const remaining = [line, ...words.slice(index + 1)].join(' ');
+      if (remaining) lines[maxLines - 1] = fitTextToWidth(ctx, `${lines[maxLines - 1]} ${remaining}`, maxWidth);
+      return lines;
+    }
+  }
+
+  if (line && lines.length < maxLines) lines.push(fitTextToWidth(ctx, line, maxWidth));
+  return lines;
+};
+
+const drawMoodDecorationsSafe = (
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  layout: LayoutType,
+  profile: UserProfile,
+  theme: MoodTheme,
+  caption = 'One day, these memories will become the most beautiful part of our youth.',
+) => {
+  const base = width;
+  const isHorizontal = layout === 'horizontal';
+  const isSquare = layout === 'square';
+  const subtitle = `${profile.name} - Lớp ${profile.className} - ${new Date().toLocaleDateString('vi-VN')}`;
+  const captionText = `${theme.captionPrefix} ${caption}`;
+
+  ctx.save();
+  ctx.textBaseline = 'middle';
+
+  if (theme.id === 'vintage-final' || theme.id === 'farewell-day') {
+    ctx.strokeStyle = 'rgba(122, 86, 57, .12)';
+    ctx.lineWidth = Math.max(1, base * 0.0018);
+    for (let y = height * 0.16; y < height * (isHorizontal ? 0.66 : 0.82); y += base * 0.07) {
+      ctx.beginPath();
+      ctx.moveTo(width * 0.08, y);
+      ctx.lineTo(width * 0.92, y);
+      ctx.stroke();
+    }
+  }
+
+  ctx.strokeStyle = theme.accent;
+  ctx.lineWidth = Math.max(3, base * 0.006);
+  ctx.beginPath();
+  ctx.moveTo(width * 0.82, height * 0.05);
+  ctx.bezierCurveTo(width * 0.9, height * 0.02, width * 0.96, height * 0.09, width * 0.9, height * 0.13);
+  ctx.bezierCurveTo(width * 0.84, height * 0.09, width * 0.78, height * 0.02, width * 0.82, height * 0.05);
+  ctx.stroke();
+
+  ctx.fillStyle = theme.accentSoft;
+  ctx.beginPath();
+  ctx.arc(width * 0.09, height * 0.07, base * 0.018, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(width * 0.92, isHorizontal ? height * 0.93 : height * 0.86, base * 0.022, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (isHorizontal) {
+    const titleX = width * 0.06;
+    const leftTextWidth = width * 0.42;
+    const rightTextWidth = width * 0.38;
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = theme.ink;
+    ctx.font = `${Math.round(base * 0.045)}px "Saira Condensed", "Be Vietnam Pro", Impact, sans-serif`;
+    ctx.fillText(fitTextToWidth(ctx, theme.title, leftTextWidth), titleX, height * 0.77);
+
+    ctx.font = `${Math.round(base * 0.025)}px "Mali", "Be Vietnam Pro", cursive`;
+    ctx.fillStyle = theme.mutedInk;
+    ctx.fillText(fitTextToWidth(ctx, subtitle, leftTextWidth), titleX, height * 0.87);
+
+    ctx.textAlign = 'right';
+    ctx.font = `${Math.round(base * 0.027)}px "Mali", "Be Vietnam Pro", cursive`;
+    ctx.fillStyle = theme.accent;
+    ctx.fillText(fitTextToWidth(ctx, theme.signature, rightTextWidth), width * 0.94, height * 0.7);
+
+    ctx.font = `${Math.round(base * 0.024)}px "Mali", "Be Vietnam Pro", cursive`;
+    ctx.fillStyle = theme.mutedInk;
+    const lines = wrapTextToLines(ctx, captionText, rightTextWidth, 2);
+    const captionY = height * 0.79;
+    const lineHeight = base * 0.028;
+    lines.forEach((lineText, index) => {
+      ctx.fillText(lineText, width * 0.94, captionY + index * lineHeight);
+    });
+  } else {
+    const titleX = width * 0.5;
+    const titleWidth = width * 0.82;
+    const bodyWidth = width * 0.74;
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = theme.ink;
+    ctx.font = `${Math.round(base * (isSquare ? 0.048 : 0.054))}px "Saira Condensed", "Be Vietnam Pro", Impact, sans-serif`;
+    ctx.fillText(fitTextToWidth(ctx, theme.title, titleWidth), titleX, height * (isSquare ? 0.07 : 0.058));
+
+    ctx.font = `${Math.round(base * (isSquare ? 0.028 : 0.033))}px "Mali", "Be Vietnam Pro", cursive`;
+    ctx.fillStyle = theme.mutedInk;
+    ctx.fillText(fitTextToWidth(ctx, subtitle, bodyWidth), titleX, height * (isSquare ? 0.115 : 0.095));
+
+    ctx.font = `${Math.round(base * (isSquare ? 0.03 : 0.031))}px "Mali", "Be Vietnam Pro", cursive`;
+    ctx.fillStyle = theme.accent;
+    ctx.fillText(fitTextToWidth(ctx, theme.signature, bodyWidth), titleX, height * (isSquare ? 0.865 : 0.905));
+
+    ctx.font = `${Math.round(base * (isSquare ? 0.027 : 0.029))}px "Mali", "Be Vietnam Pro", cursive`;
+    ctx.fillStyle = theme.mutedInk;
+    const lines = wrapTextToLines(ctx, captionText, bodyWidth, 2);
+    const captionY = height * (isSquare ? 0.925 : 0.945);
+    const lineHeight = base * (isSquare ? 0.031 : 0.033);
+    lines.forEach((lineText, index) => {
+      ctx.fillText(lineText, titleX, captionY + index * lineHeight);
+    });
+  }
+
+  if (theme.id === 'best-friends') {
+    const positions = isHorizontal
+      ? [
+          [0.16, 0.18],
+          [0.52, 0.88],
+          [0.82, 0.18],
+        ]
+      : [
+          [0.14, 0.13],
+          [0.84, 0.13],
+          [0.14, 0.85],
+        ];
+
+    ctx.fillStyle = theme.accent;
+    ['BFF', '9/8', 'TEAM'].forEach((text, index) => {
+      const [xRatio, yRatio] = positions[index];
+      ctx.save();
+      ctx.translate(width * xRatio, height * yRatio);
+      ctx.rotate(index % 2 ? 0.12 : -0.1);
+      roundRect(ctx, -base * 0.05, -base * 0.026, base * 0.1, base * 0.052, base * 0.018);
+      ctx.fill();
+      ctx.fillStyle = theme.paper;
+      ctx.font = `${Math.round(base * 0.032)}px "Saira Condensed", "Be Vietnam Pro", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(text, 0, base * 0.002);
+      ctx.restore();
+      ctx.fillStyle = theme.accent;
+    });
+  }
+
+  if (theme.id === 'korean-booth') {
+    ctx.strokeStyle = theme.accent;
+    ctx.lineWidth = Math.max(2, base * 0.004);
+    const checkboxY = height * (isHorizontal ? 0.925 : 0.875);
+    for (let i = 0; i < 4; i += 1) {
+      ctx.strokeRect(width * (0.06 + i * 0.025), checkboxY, base * 0.012, base * 0.012);
+    }
+  }
+
+  if (theme.id === 'farewell-day') {
+    ctx.save();
+    ctx.translate(width * (isHorizontal ? 0.12 : 0.075), height * (isHorizontal ? 0.16 : 0.84));
+    ctx.rotate(-0.06);
+    ctx.fillStyle = 'rgba(255, 250, 241, .7)';
+    roundRect(ctx, 0, 0, base * 0.24, base * 0.105, base * 0.018);
+    ctx.fill();
+    ctx.fillStyle = theme.ink;
+    ctx.font = `${Math.round(base * 0.032)}px "Saira Condensed", "Be Vietnam Pro", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText('LAST DAY', base * 0.12, base * 0.045);
+    ctx.font = `${Math.round(base * 0.026)}px "Mali", "Be Vietnam Pro", cursive`;
+    ctx.fillText('we were here', base * 0.12, base * 0.078);
+    ctx.restore();
+  }
+
+  ctx.restore();
+};
+
 export const renderPhotobook = async ({
   photos,
   config,
@@ -754,7 +995,7 @@ export const renderPhotobook = async ({
   const frames = getFrames(config.layout, loadedPhotos.length, width, height);
 
   loadedPhotos.forEach((image, index) => drawPhotoFrame(ctx, image, frames[index], index, theme));
-  drawMoodDecorations(ctx, width, height, config.layout, profile, theme, caption);
+  drawMoodDecorationsSafe(ctx, width, height, config.layout, profile, theme, caption);
 
   const blob = await canvasToBlob(canvas, config.quality === '4k' ? 0.97 : 0.94);
   canvas.width = 1;

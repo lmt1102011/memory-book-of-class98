@@ -6,7 +6,13 @@ export type LayoutType = 'vertical' | 'square' | 'horizontal';
 
 export type ExportQuality = '1080p' | '2k' | '4k';
 
-export type PhotobookMoodId = 'clear-youth' | 'farewell-day' | 'best-friends' | 'korean-booth' | 'vintage-final';
+export type PhotobookMoodId =
+  | 'classic-default'
+  | 'clear-youth'
+  | 'farewell-day'
+  | 'best-friends'
+  | 'korean-booth'
+  | 'vintage-final';
 
 export type BackgroundKind = 'pastel' | 'classroom' | 'vintage' | 'custom';
 

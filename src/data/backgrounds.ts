@@ -47,6 +47,13 @@ export const QUALITY_OPTIONS: Array<{ id: ExportQuality; label: string; descript
 
 export const PHOTOBOOK_MOOD_OPTIONS: PhotobookMoodOption[] = [
   {
+    id: 'classic-default',
+    label: 'Mặc định',
+    shortLabel: 'Mặc định',
+    description: 'Kiểu photobook sạch, cân bằng, dễ hợp mọi ảnh và ít bị rối khi in.',
+    swatch: 'linear-gradient(135deg,#fffaf1,#f7b7c7 50%,#a9cde8)',
+  },
+  {
     id: 'clear-youth',
     label: 'Thanh xuân trong trẻo',
     shortLabel: 'Trong trẻo',
