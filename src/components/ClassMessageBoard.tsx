@@ -66,6 +66,7 @@ function ClassMessageBoard({
   const [isSendingAnonymous, setIsSendingAnonymous] = useState(false);
   const [selectedNote, setSelectedNote] = useState<BoardNote | null>(null);
   const [error, setError] = useState('');
+  const [isWriterOpen, setIsWriterOpen] = useState(false);
   const mobilePerformanceMode = useMobilePerformanceMode();
 
   const notes = useMemo<BoardNote[]>(() => {
@@ -115,6 +116,7 @@ function ClassMessageBoard({
       setError('');
       await onAddGuestbook(trimmed);
       setClassMessage('');
+      setIsWriterOpen(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Không thể gửi tin nhắn cho lớp lúc này.');
     } finally {
@@ -136,6 +138,7 @@ function ClassMessageBoard({
       setError('');
       await onAddAnonymousMessage(trimmed);
       setAnonymousMessage('');
+      setIsWriterOpen(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Không thể gửi tin nhắn ẩn danh lúc này.');
     } finally {
@@ -154,6 +157,23 @@ function ClassMessageBoard({
             trên bảng học.
           </p>
 
+          <button
+            type="button"
+            className="primary-button mt-5 w-full justify-center"
+            onClick={() => (profile ? setIsWriterOpen((open) => !open) : onJoin())}
+          >
+            <Send size={17} />
+            {isWriterOpen ? 'Thu gọn viết thư' : 'Viết thư'}
+          </button>
+
+          {!isWriterOpen && (
+            <div className="mt-4 rounded-[1rem] bg-paper/72 p-4 text-sm leading-6 text-ink/64">
+              Bấm “Viết thư” khi bạn muốn gửi lời nhắn cho lớp hoặc gửi một mảnh thư ẩn danh.
+            </div>
+          )}
+
+          {isWriterOpen ? (
+            <>
           <form className="mt-5 grid gap-3" onSubmit={submitClassMessage}>
             <label className="grid gap-2">
               <span className="text-xs font-black uppercase text-coffee/70">Tin nhắn cho lớp</span>
@@ -189,6 +209,8 @@ function ClassMessageBoard({
           </form>
 
           {error && <p className="mt-3 rounded-2xl bg-blush/30 px-4 py-3 text-sm font-semibold text-coffee">{error}</p>}
+            </>
+          ) : null}
         </aside>
 
         <div className="relative min-h-[46rem] overflow-hidden rounded-[1.6rem] border-[10px] border-[#7a5639] bg-[#2f5950] p-4 shadow-paper sm:p-6">

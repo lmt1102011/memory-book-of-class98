@@ -6,13 +6,15 @@ import { formatMemoryDate } from '../utils/date';
 interface SecretMailboxProps {
   diaries: SecretDiaryEntry[];
   profile: UserProfile | null;
+  onJoin: () => void;
   onAddDiary: (message: string) => void | Promise<void>;
   onDeleteDiary: (diary: SecretDiaryEntry) => void | Promise<void>;
 }
 
-function SecretMailbox({ diaries, profile, onAddDiary, onDeleteDiary }: SecretMailboxProps) {
+function SecretMailbox({ diaries, profile, onJoin, onAddDiary, onDeleteDiary }: SecretMailboxProps) {
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [error, setError] = useState('');
 
   const submitLetter = async (event: FormEvent) => {
@@ -25,6 +27,7 @@ function SecretMailbox({ diaries, profile, onAddDiary, onDeleteDiary }: SecretMa
       setError('');
       await onAddDiary(trimmed);
       setMessage('');
+      setIsComposerOpen(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Không thể lưu nhật ký lúc này.');
     } finally {
@@ -45,19 +48,36 @@ function SecretMailbox({ diaries, profile, onAddDiary, onDeleteDiary }: SecretMa
         </div>
 
         <div className="rounded-[1.5rem] border border-white/60 bg-white/45 p-4 shadow-paper backdrop-blur-xl sm:p-5">
-          <form className="grid gap-3" onSubmit={submitLetter}>
-            <textarea
-              value={message}
-              onChange={(event) => setMessage(event.target.value)}
-              placeholder={profile ? 'Viết vào nhật ký bí mật của bạn...' : 'Đăng nhập để viết nhật ký bí mật...'}
-              className="input-field min-h-36 resize-none"
-              maxLength={1200}
-            />
-            <button className="primary-button justify-center" disabled={isSending}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="font-display text-4xl leading-none">Nhật ký của bạn</h3>
+              <p className="mt-1 text-xs leading-5 text-ink/58">Các trang đã viết sẽ nằm ngay bên dưới.</p>
+            </div>
+            <button
+              type="button"
+              className="primary-button justify-center"
+              onClick={() => (profile ? setIsComposerOpen((open) => !open) : onJoin())}
+            >
               <Send size={18} />
-              {isSending ? 'Đang lưu...' : 'Lưu nhật ký'}
+              {isComposerOpen ? 'Thu gọn tạo nhật ký' : 'Tạo nhật ký'}
             </button>
-          </form>
+          </div>
+
+          {isComposerOpen && (
+            <form className="mt-4 grid gap-3" onSubmit={submitLetter}>
+              <textarea
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+                placeholder={profile ? 'Viết vào nhật ký bí mật của bạn...' : 'Đăng nhập để viết nhật ký bí mật...'}
+                className="input-field min-h-36 resize-none"
+                maxLength={1200}
+              />
+              <button className="primary-button justify-center" disabled={isSending}>
+                <Send size={18} />
+                {isSending ? 'Đang lưu...' : 'Lưu nhật ký'}
+              </button>
+            </form>
+          )}
           {error && <p className="mt-3 rounded-2xl bg-blush/30 px-4 py-3 text-sm font-semibold text-coffee">{error}</p>}
 
           {diaries.length > 0 ? (

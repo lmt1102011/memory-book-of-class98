@@ -31,6 +31,7 @@ export default function DiaryPage({
       <SecretMailbox
         diaries={diaries}
         profile={profile}
+        onJoin={onJoin}
         onAddDiary={onAddDiary}
         onDeleteDiary={onDeleteDiary}
       />

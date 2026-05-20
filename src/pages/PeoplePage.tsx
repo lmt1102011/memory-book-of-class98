@@ -81,6 +81,7 @@ export default function PeoplePage({
   const [classMessage, setClassMessage] = useState('');
   const [tagText, setTagText] = useState(defaultTags.join(', '));
   const [isSaving, setIsSaving] = useState(false);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [localError, setLocalError] = useState('');
   const [localSuccess, setLocalSuccess] = useState('');
 
@@ -90,14 +91,9 @@ export default function PeoplePage({
   );
 
   const selectedPerson = useMemo(() => {
-    if (!sortedClassmates.length) return null;
-    return (
-      sortedClassmates.find((person) => person.nameKey === selectedNameKey) ||
-      sortedClassmates.find((person) => person.nameKey === focusedNameKey || person.uid === focusedNameKey) ||
-      sortedClassmates.find((person) => person.nameKey === profile?.nameKey) ||
-      sortedClassmates[0]
-    );
-  }, [focusedNameKey, profile?.nameKey, selectedNameKey, sortedClassmates]);
+    if (!selectedNameKey) return null;
+    return sortedClassmates.find((person) => person.nameKey === selectedNameKey || person.uid === selectedNameKey) || null;
+  }, [selectedNameKey, sortedClassmates]);
 
   const selfProfile = useMemo(
     () => sortedClassmates.find((person) => person.nameKey === profile?.nameKey) || null,
@@ -238,6 +234,28 @@ export default function PeoplePage({
               </div>
             ) : (
               <>
+                <div className="mt-5 rounded-[1rem] bg-paper/68 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full bg-white/72 text-coffee shadow-sm">
+                      {avatarDataUrl ? <img src={avatarDataUrl} alt="" className="h-full w-full object-cover" /> : <UserRound size={20} />}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-black">{profile.name}</p>
+                      <p className="mt-1 truncate text-xs font-bold text-coffee/68">{nickname || 'Chưa có biệt danh'}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary-button mt-4 w-full justify-center"
+                    onClick={() => setIsEditorOpen((open) => !open)}
+                  >
+                    <UserRound size={16} />
+                    {isEditorOpen ? 'Thu gọn hồ sơ' : 'Sửa hồ sơ'}
+                  </button>
+                </div>
+
+                {isEditorOpen ? (
+                  <>
                 <ProfileFormSection
                   title="1. Ảnh đại diện"
                   description="Ảnh sẽ được nén nhẹ trước khi lưu để trang tải nhanh hơn."
@@ -322,6 +340,8 @@ export default function PeoplePage({
                   <Send size={17} />
                   {isSaving ? 'Đang lưu...' : 'Lưu hồ sơ'}
                 </button>
+                  </>
+                ) : null}
               </>
             )}
           </form>
@@ -391,6 +411,13 @@ export default function PeoplePage({
                         <span>{stats.hearts} tim</span>
                         <span>{stats.comments} bình luận</span>
                       </div>
+                      <span
+                        className={`mt-3 inline-flex min-h-8 items-center rounded-full px-3 text-xs font-black ${
+                          active ? 'bg-paper/14 text-paper' : 'bg-coffee/8 text-coffee'
+                        }`}
+                      >
+                        {active ? 'Đang xem hồ sơ' : 'Xem hồ sơ'}
+                      </span>
                     </button>
                   );
                 })}

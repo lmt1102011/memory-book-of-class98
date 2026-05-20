@@ -75,6 +75,7 @@ export default function VotesPage({
   const [icon, setIcon] = useState(defaultVoteIconId);
   const [query, setQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [isCreatorOpen, setIsCreatorOpen] = useState(false);
   const [busyVote, setBusyVote] = useState('');
   const [localError, setLocalError] = useState('');
 
@@ -128,6 +129,7 @@ export default function VotesPage({
       setDescription('');
       setTone('pink');
       setIcon(defaultVoteIconId);
+      setIsCreatorOpen(false);
     } catch (caught) {
       setLocalError(caught instanceof Error ? caught.message : 'Không thể tạo hạng mục lúc này.');
     } finally {
@@ -201,6 +203,23 @@ export default function VotesPage({
               </div>
             ) : (
               <>
+                <button
+                  type="button"
+                  className="primary-button mt-5 w-full justify-center"
+                  onClick={() => setIsCreatorOpen((open) => !open)}
+                >
+                  <BadgeCheck size={17} />
+                  {isCreatorOpen ? 'Thu gọn tạo hạng mục' : 'Tạo hạng mục mới'}
+                </button>
+
+                {!isCreatorOpen && (
+                  <div className="mt-4 rounded-[0.9rem] bg-paper/72 p-4 text-sm leading-6 text-ink/64">
+                    Bảng bình chọn đang hiển thị bên phải. Khi muốn thêm danh hiệu mới cho lớp, bấm nút tạo hạng mục ở trên.
+                  </div>
+                )}
+
+                {isCreatorOpen ? (
+                  <>
                 <label className="mt-5 block">
                   <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Tên hạng mục</span>
                   <input
@@ -265,6 +284,9 @@ export default function VotesPage({
                   <Send size={17} />
                   {isCreating ? 'Đang tạo...' : 'Tạo bình chọn'}
                 </button>
+                  </>
+                ) : null}
+                {localError && !isCreatorOpen && <p className="mt-3 text-sm font-bold text-[#9d3b4b]">{localError}</p>}
               </>
             )}
           </form>

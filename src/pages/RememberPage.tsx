@@ -61,6 +61,7 @@ export default function RememberPage({
   const [message, setMessage] = useState('');
   const [anonymous, setAnonymous] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [reactingId, setReactingId] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -127,7 +128,9 @@ export default function RememberPage({
       });
       setMessage('');
       setSelectedNameKey('');
+      setQuery('');
       setActiveTab('sent');
+      setIsComposerOpen(false);
       setSuccess(`Đã gửi Secret Message đến ${selectedClassmate.name}.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Không thể gửi Secret Message lúc này.');
@@ -220,6 +223,28 @@ export default function RememberPage({
             )}
           </div>
 
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              type="button"
+              className="primary-button justify-center"
+              onClick={() => (profile ? setIsComposerOpen((open) => !open) : onJoin())}
+            >
+              <Send size={17} />
+              {isComposerOpen ? 'Thu gọn viết thư' : 'Viết thư cho ai đó'}
+            </button>
+            {profile && (
+              <span className="rounded-full bg-paper/78 px-3 py-2 text-xs font-bold text-coffee">
+                Thư mình nhận và thư mình gửi nằm ở bên dưới
+              </span>
+            )}
+          </div>
+
+          {(error || success) && (
+            <p className={`mt-3 text-sm font-bold ${error ? 'text-[#9d3b4b]' : 'text-chalk'}`}>
+              {error || success}
+            </p>
+          )}
+
           {!profile ? (
             <div className="mt-5 rounded-[0.9rem] bg-paper/78 p-4 text-center">
               <Lock className="mx-auto text-coffee" size={26} />
@@ -228,7 +253,7 @@ export default function RememberPage({
                 Vào lớp 9/8
               </button>
             </div>
-          ) : (
+          ) : isComposerOpen ? (
             <div className="mt-5 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
               <div className="min-w-0">
                 <label className="block">
@@ -296,17 +321,15 @@ export default function RememberPage({
                   <span className="shrink-0 text-xs font-bold text-coffee/62">{message.length}/420</span>
                 </div>
 
-                {(error || success) && (
-                  <p className={`mt-3 text-sm font-bold ${error ? 'text-[#9d3b4b]' : 'text-chalk'}`}>
-                    {error || success}
-                  </p>
-                )}
-
                 <button className="primary-button mt-5 w-full" disabled={isSending || !selectedClassmate || !message.trim()}>
                   <Send size={17} />
                   {isSending ? 'Đang gửi...' : 'Gửi Secret Message'}
                 </button>
               </div>
+            </div>
+          ) : (
+            <div className="mt-4 rounded-[0.9rem] bg-paper/72 p-4 text-sm leading-6 text-ink/64">
+              Bấm “Viết thư cho ai đó” để chọn một bạn trong lớp và bắt đầu gửi Secret Message. Hộp thư nhận/gửi vẫn luôn ở bên dưới để bạn xem lại nhanh.
             </div>
           )}
         </form>
