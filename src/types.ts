@@ -6,6 +6,8 @@ export type LayoutType = 'vertical' | 'square' | 'horizontal';
 
 export type ExportQuality = '1080p' | '2k' | '4k';
 
+export type PhotobookMoodId = 'clear-youth' | 'farewell-day' | 'best-friends' | 'korean-booth' | 'vintage-final';
+
 export type BackgroundKind = 'pastel' | 'classroom' | 'vintage' | 'custom';
 
 export interface UserProfile {
@@ -72,6 +74,14 @@ export interface BackgroundOption {
   description: string;
 }
 
+export interface PhotobookMoodOption {
+  id: PhotobookMoodId;
+  label: string;
+  shortLabel: string;
+  description: string;
+  swatch: string;
+}
+
 export interface BackgroundEdit {
   scale: number;
   x: number;
@@ -85,6 +95,7 @@ export interface PhotobookConfig {
   layout: LayoutType;
   quality: ExportQuality;
   backgroundId: string;
+  moodId?: PhotobookMoodId;
   customBackground?: string;
   customBackgroundEdit?: BackgroundEdit;
 }
@@ -121,6 +132,8 @@ export interface RememberNote {
   message: string;
   anonymous: boolean;
   createdAt: string;
+  viewedAt?: string;
+  heartedBy: string[];
 }
 
 export interface RememberNoteDraft {

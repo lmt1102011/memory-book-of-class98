@@ -19,6 +19,7 @@ import Webcam from 'react-webcam';
 import {
   BACKGROUND_OPTIONS,
   LAYOUT_OPTIONS,
+  PHOTOBOOK_MOOD_OPTIONS,
   PHOTO_COUNT_OPTIONS,
   QUALITY_OPTIONS,
 } from '../data/backgrounds';
@@ -30,6 +31,7 @@ import type {
   ExportQuality,
   GeneratedPhotobook,
   LayoutType,
+  PhotobookMoodId,
   PhotobookConfig,
   PhotoCount,
   PublishMemoryDraft,
@@ -68,6 +70,7 @@ const defaultConfig: PhotobookConfig = {
   layout: 'vertical',
   quality: '1080p',
   backgroundId: 'pastel-dawn',
+  moodId: 'clear-youth',
 };
 
 const getVideoConstraints = (facingMode: 'user' | 'environment'): MediaTrackConstraints => ({
@@ -245,6 +248,10 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   const selectedBackground = useMemo<BackgroundOption>(
     () => BACKGROUND_OPTIONS.find((background) => background.id === config.backgroundId) || BACKGROUND_OPTIONS[0],
     [config.backgroundId],
+  );
+  const selectedMood = useMemo(
+    () => PHOTOBOOK_MOOD_OPTIONS.find((mood) => mood.id === (config.moodId || 'clear-youth')) || PHOTOBOOK_MOOD_OPTIONS[0],
+    [config.moodId],
   );
 
   const isPhotoBusy = isEnhancing || isApplyingPhotoEdits;
@@ -656,7 +663,23 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                   </div>
                 </SetupGroup>
 
-                <SetupGroup step="4" title="Chọn nền">
+                <SetupGroup step="4" title="Chọn mood photobook">
+                  <div className="photobook-mood-grid">
+                    {PHOTOBOOK_MOOD_OPTIONS.map((mood) => (
+                      <OptionButton<PhotobookMoodId>
+                        key={mood.id}
+                        active={(config.moodId || 'clear-youth') === mood.id}
+                        value={mood.id}
+                        label={mood.label}
+                        description={mood.description}
+                        preview={<MoodPreview moodId={mood.id} swatch={mood.swatch} label={mood.shortLabel} />}
+                        onSelect={(value) => updateConfig('moodId', value)}
+                      />
+                    ))}
+                  </div>
+                </SetupGroup>
+
+                <SetupGroup step="5" title="Chọn nền">
                   <div className="grid gap-3 sm:grid-cols-4">
                     {BACKGROUND_OPTIONS.map((background) => (
                       <button
@@ -697,7 +720,8 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                   <Layers className="mx-auto mb-4 text-coffee" size={36} />
                   <h2 className="font-display text-4xl leading-none sm:text-5xl">Sẵn sàng cho {config.photoCount} tấm</h2>
                   <p className="mt-3 text-sm leading-6 text-ink/64">
-                    {selectedBackground.description}. Xuất ảnh ở mức {QUALITY_OPTIONS.find((q) => q.id === config.quality)?.label}.
+                    {selectedMood.label} · {selectedBackground.description}. Xuất ảnh ở mức{' '}
+                    {QUALITY_OPTIONS.find((q) => q.id === config.quality)?.label}.
                   </p>
                 </div>
               </div>
@@ -1178,6 +1202,19 @@ function LayoutPreview({ layout, count }: { layout: LayoutType; count: PhotoCoun
           </span>
         ))}
         <span className="layout-preview-footer" />
+      </span>
+    </span>
+  );
+}
+
+function MoodPreview({ moodId, swatch, label }: { moodId: PhotobookMoodId; swatch: string; label: string }) {
+  return (
+    <span className={`mood-preview mood-preview-${moodId}`} style={{ background: swatch }} aria-hidden="true">
+      <span className="mood-preview-paper">
+        <span className="mood-preview-photo mood-preview-photo-main" />
+        <span className="mood-preview-photo mood-preview-photo-small" />
+        <span className="mood-preview-note">{label}</span>
+        <span className="mood-preview-sticker" />
       </span>
     </span>
   );

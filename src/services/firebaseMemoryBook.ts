@@ -287,6 +287,8 @@ const rememberNoteFromDoc = (id: string, data: DocumentData): RememberNote => ({
   message: String(data.message || ''),
   anonymous: Boolean(data.anonymous),
   createdAt: timestampToIso(data.createdAt),
+  viewedAt: data.viewedAt ? timestampToIso(data.viewedAt) : undefined,
+  heartedBy: Array.isArray(data.heartedBy) ? data.heartedBy.map(String).slice(0, 120) : [],
 });
 
 export const checkStudentName = async (name: string) => {
@@ -748,6 +750,7 @@ export const addRememberNote = async (profile: UserProfile, draft: RememberNoteD
     className: CLASS_NAME,
     message: safeMessage,
     anonymous: Boolean(draft.anonymous),
+    heartedBy: [],
     kind: 'remember-note',
     createdAt: serverTimestamp(),
   }));
@@ -761,8 +764,42 @@ export const addRememberNote = async (profile: UserProfile, draft: RememberNoteD
     toNameKey,
     message: safeMessage,
     anonymous: Boolean(draft.anonymous),
+    heartedBy: [],
     createdAt,
   };
+};
+
+export const markRememberNotesViewed = async (profile: UserProfile, notes: RememberNote[]) => {
+  const viewableNotes = notes.filter((note) => note.toNameKey === profile.nameKey && !note.viewedAt);
+  if (!viewableNotes.length) return;
+
+  await Promise.all(
+    viewableNotes.map((note) =>
+      withFirebaseRetry(() =>
+        updateDoc(doc(db, REMEMBER_NOTES_COLLECTION, note.id), {
+          viewedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }),
+      ),
+    ),
+  );
+};
+
+export const heartRememberNote = async (profile: UserProfile, note: RememberNote) => {
+  if (note.toNameKey !== profile.nameKey) {
+    throw new Error('Chá»‰ ngÆ°á»i nháº­n má»›i cÃ³ thá»ƒ tháº£ tim Secret Message nÃ y.');
+  }
+
+  if (note.heartedBy.includes(profile.uid)) {
+    throw new Error('Báº¡n Ä‘Ã£ tháº£ tim Secret Message nÃ y rá»“i.');
+  }
+
+  await withFirebaseRetry(() =>
+    updateDoc(doc(db, REMEMBER_NOTES_COLLECTION, note.id), {
+      heartedBy: arrayUnion(profile.uid),
+      updatedAt: serverTimestamp(),
+    }),
+  );
 };
 
 export const deleteRememberNote = async (profile: UserProfile, note: RememberNote) => {

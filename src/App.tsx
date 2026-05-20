@@ -550,6 +550,59 @@ export default function App() {
     [navigate, profile],
   );
 
+  const handleRememberNotesViewed = useCallback(
+    async (notes: RememberNote[]) => {
+      if (!profile || !notes.length) return;
+
+      const now = new Date().toISOString();
+      const ids = new Set(notes.map((note) => note.id));
+      setRememberNotes((items) => items.map((item) => (ids.has(item.id) ? { ...item, viewedAt: item.viewedAt || now } : item)));
+      setSentRememberNotes((items) => items.map((item) => (ids.has(item.id) ? { ...item, viewedAt: item.viewedAt || now } : item)));
+
+      try {
+        const service = await import('./services/firebaseMemoryBook');
+        await service.markRememberNotesViewed(profile, notes);
+        setFirebaseNotice('');
+      } catch (caught) {
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'KhÃ´ng thá»ƒ cáº­p nháº­t tráº¡ng thÃ¡i Ä‘Ã£ xem.');
+      }
+    },
+    [profile],
+  );
+
+  const handleRememberNoteHeart = useCallback(
+    async (note: RememberNote) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+
+      if (note.heartedBy.includes(profile.uid)) return;
+
+      const addHeart = (item: RememberNote) =>
+        item.id === note.id && !item.heartedBy.includes(profile.uid)
+          ? { ...item, heartedBy: [...item.heartedBy, profile.uid] }
+          : item;
+
+      const removeHeart = (item: RememberNote) =>
+        item.id === note.id ? { ...item, heartedBy: item.heartedBy.filter((uid) => uid !== profile.uid) } : item;
+
+      setRememberNotes((items) => items.map(addHeart));
+      setSentRememberNotes((items) => items.map(addHeart));
+
+      try {
+        const service = await import('./services/firebaseMemoryBook');
+        await service.heartRememberNote(profile, note);
+        setFirebaseNotice('');
+      } catch (caught) {
+        setRememberNotes((items) => items.map(removeHeart));
+        setSentRememberNotes((items) => items.map(removeHeart));
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'KhÃ´ng thá»ƒ tháº£ tim Secret Message lÃºc nÃ y.');
+      }
+    },
+    [navigate, profile],
+  );
+
   const renderRoute = () => {
     if (route === 'landing') {
       return <LandingPage onJoin={() => navigate(profile ? 'home' : 'join')} onExplore={() => navigate('home')} />;
@@ -601,6 +654,8 @@ export default function App() {
             onJoin={() => navigate('join')}
             onAddNote={handleRememberNoteAdd}
             onDeleteNote={handleRememberNoteDelete}
+            onMarkNotesViewed={handleRememberNotesViewed}
+            onHeartNote={handleRememberNoteHeart}
           />
         </Suspense>
       );

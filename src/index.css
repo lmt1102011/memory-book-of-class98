@@ -342,6 +342,12 @@
     gap: 0.75rem;
   }
 
+  .photobook-mood-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
   .option-card:hover {
     transform: translate3d(0, -1px, 0);
     box-shadow: 0 16px 32px rgba(122, 86, 57, 0.12);
@@ -449,6 +455,93 @@
 
   .layout-preview-horizontal .layout-preview-footer {
     grid-column: 1 / -1;
+  }
+
+  .mood-preview {
+    position: relative;
+    display: block;
+    min-height: 7.4rem;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    border-radius: 0.55rem;
+    padding: 0.65rem;
+    box-shadow: inset 0 0 0 1px rgba(122, 86, 57, 0.12);
+    contain: paint;
+  }
+
+  .mood-preview-paper {
+    position: relative;
+    display: block;
+    height: 6.1rem;
+    border-radius: 0.5rem;
+    background: rgba(255, 250, 241, 0.9);
+    box-shadow: 0 12px 24px rgba(53, 41, 31, 0.13);
+  }
+
+  .mood-preview-photo {
+    position: absolute;
+    border-radius: 0.35rem;
+    background:
+      linear-gradient(135deg, rgba(169, 205, 232, 0.92), rgba(247, 183, 199, 0.78)),
+      #fffaf1;
+    box-shadow: inset 0 0 0 0.28rem rgba(255, 250, 241, 0.96);
+  }
+
+  .mood-preview-photo-main {
+    left: 0.65rem;
+    top: 0.58rem;
+    height: 4.2rem;
+    width: 42%;
+  }
+
+  .mood-preview-photo-small {
+    right: 0.65rem;
+    top: 0.58rem;
+    height: 2.3rem;
+    width: 34%;
+  }
+
+  .mood-preview-note {
+    position: absolute;
+    bottom: 0.62rem;
+    right: 0.65rem;
+    max-width: 45%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-radius: 999px;
+    background: rgba(53, 41, 31, 0.86);
+    padding: 0.32rem 0.5rem;
+    color: #fffaf1;
+    font-size: 0.66rem;
+    font-weight: 900;
+  }
+
+  .mood-preview-sticker {
+    position: absolute;
+    left: 42%;
+    top: 0.22rem;
+    height: 1rem;
+    width: 3.2rem;
+    border-radius: 0.2rem;
+    background: rgba(244, 223, 191, 0.86);
+    transform: rotate(-8deg);
+  }
+
+  .mood-preview-farewell-day .mood-preview-paper,
+  .mood-preview-vintage-final .mood-preview-paper {
+    background:
+      linear-gradient(0deg, rgba(122, 86, 57, 0.08) 1px, transparent 1px),
+      rgba(255, 250, 241, 0.9);
+    background-size: 100% 0.78rem;
+  }
+
+  .mood-preview-best-friends .mood-preview-note {
+    background: #385b58;
+  }
+
+  .mood-preview-korean-booth .mood-preview-paper {
+    background: rgba(249, 252, 255, 0.94);
   }
 
   .camera-preview-card {
@@ -794,11 +887,19 @@
     .layout-options-grid {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
+
+    .photobook-mood-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   @media (min-width: 1024px) {
     .masonry-feed {
       columns: 3;
+    }
+
+    .photobook-mood-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
     }
   }
 

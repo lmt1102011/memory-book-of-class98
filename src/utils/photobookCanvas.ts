@@ -5,6 +5,7 @@ import type {
   ExportQuality,
   GeneratedPhotobook,
   LayoutType,
+  PhotobookMoodId,
   PhotobookConfig,
   UserProfile,
 } from '../types';
@@ -42,6 +43,96 @@ const defaultBackgroundEdit: BackgroundEdit = {
   brightness: 100,
   blur: 0,
 };
+
+interface MoodTheme {
+  id: PhotobookMoodId;
+  title: string;
+  signature: string;
+  paper: string;
+  ink: string;
+  mutedInk: string;
+  accent: string;
+  accentSoft: string;
+  tape: string;
+  overlay: string;
+  photoBorder: string;
+  captionPrefix: string;
+}
+
+const moodThemes: Record<PhotobookMoodId, MoodTheme> = {
+  'clear-youth': {
+    id: 'clear-youth',
+    title: 'OUR CLEAR YOUTH',
+    signature: 'soft school memory',
+    paper: '#fffdf8',
+    ink: '#35291f',
+    mutedInk: 'rgba(122, 86, 57, .78)',
+    accent: '#f7b7c7',
+    accentSoft: 'rgba(247, 183, 199, .5)',
+    tape: 'rgba(255, 246, 219, .78)',
+    overlay: 'rgba(255, 250, 241, .22)',
+    photoBorder: '#fffdf8',
+    captionPrefix: 'Dear youth,',
+  },
+  'farewell-day': {
+    id: 'farewell-day',
+    title: 'FAREWELL DAY',
+    signature: 'until we meet again',
+    paper: '#fff7e9',
+    ink: '#4a3020',
+    mutedInk: 'rgba(122, 86, 57, .84)',
+    accent: '#d88a9a',
+    accentSoft: 'rgba(216, 138, 154, .42)',
+    tape: 'rgba(244, 223, 191, .86)',
+    overlay: 'rgba(255, 231, 190, .24)',
+    photoBorder: '#fff8ed',
+    captionPrefix: 'The day we remember,',
+  },
+  'best-friends': {
+    id: 'best-friends',
+    title: 'BEST FRIENDS CLUB',
+    signature: 'class 9/8 forever',
+    paper: '#fffdf7',
+    ink: '#2f342b',
+    mutedInk: 'rgba(56, 91, 88, .82)',
+    accent: '#385b58',
+    accentSoft: 'rgba(247, 183, 199, .5)',
+    tape: 'rgba(169, 205, 232, .62)',
+    overlay: 'rgba(247, 183, 199, .18)',
+    photoBorder: '#fffdf7',
+    captionPrefix: 'With my people,',
+  },
+  'korean-booth': {
+    id: 'korean-booth',
+    title: 'K-STUDENT PHOTOBOOTH',
+    signature: 'one perfect strip',
+    paper: '#f9fcff',
+    ink: '#25313d',
+    mutedInk: 'rgba(59, 75, 92, .78)',
+    accent: '#a9cde8',
+    accentSoft: 'rgba(169, 205, 232, .48)',
+    tape: 'rgba(255, 250, 241, .78)',
+    overlay: 'rgba(247, 251, 255, .28)',
+    photoBorder: '#fbfdff',
+    captionPrefix: 'Photobooth note,',
+  },
+  'vintage-final': {
+    id: 'vintage-final',
+    title: 'VINTAGE FINAL YEAR',
+    signature: 'scrapbook journal',
+    paper: '#fff8e7',
+    ink: '#4d3523',
+    mutedInk: 'rgba(122, 86, 57, .86)',
+    accent: '#7a5639',
+    accentSoft: 'rgba(211, 178, 138, .5)',
+    tape: 'rgba(238, 216, 175, .9)',
+    overlay: 'rgba(244, 223, 191, .26)',
+    photoBorder: '#fff6e4',
+    captionPrefix: 'Written in memory,',
+  },
+};
+
+const getMoodTheme = (moodId?: PhotobookMoodId) => moodThemes[moodId || 'clear-youth'] || moodThemes['clear-youth'];
 
 const loadImage = (src: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -166,13 +257,14 @@ const drawBackground = async (
   width: number,
   height: number,
   background: BackgroundOption,
+  theme: MoodTheme,
   customBackground?: string,
   customBackgroundEdit?: BackgroundEdit,
 ) => {
   if (background.kind === 'custom' && customBackground) {
     const image = await loadImage(customBackground);
     drawEditedCoverImage(ctx, image, width, height, customBackgroundEdit);
-    ctx.fillStyle = 'rgba(255, 250, 241, 0.18)';
+    ctx.fillStyle = theme.overlay;
     ctx.fillRect(0, 0, width, height);
     return;
   }
@@ -226,6 +318,8 @@ const drawBackground = async (
     ctx.fill();
   }
 
+  ctx.fillStyle = theme.overlay;
+  ctx.fillRect(0, 0, width, height);
   drawPaperNoise(ctx, width, height);
 };
 
@@ -278,13 +372,14 @@ const drawPhotoFrame = (
   image: HTMLImageElement,
   frame: { x: number; y: number; width: number; height: number },
   index: number,
+  theme: MoodTheme,
 ) => {
   const border = frame.width * 0.032;
   ctx.save();
   ctx.shadowColor = 'rgba(54, 34, 22, .2)';
   ctx.shadowBlur = frame.width * 0.045;
   ctx.shadowOffsetY = frame.width * 0.02;
-  ctx.fillStyle = '#fffdf7';
+  ctx.fillStyle = theme.photoBorder;
   roundRect(ctx, frame.x - border, frame.y - border, frame.width + border * 2, frame.height + border * 2, border * 1.3);
   ctx.fill();
   ctx.restore();
@@ -295,15 +390,15 @@ const drawPhotoFrame = (
   drawCoverImage(ctx, image, frame.x, frame.y, frame.width, frame.height);
   ctx.restore();
 
-  ctx.strokeStyle = 'rgba(122, 86, 57, .16)';
+  ctx.strokeStyle = theme.accentSoft;
   ctx.lineWidth = Math.max(2, frame.width * 0.006);
   roundRect(ctx, frame.x, frame.y, frame.width, frame.height, border);
   ctx.stroke();
 
   if (index % 2 === 0) {
-    drawStickerTape(ctx, frame.x + frame.width * 0.18, frame.y - border * 0.75, frame.width * 0.28, -0.18);
+    drawStickerTape(ctx, frame.x + frame.width * 0.18, frame.y - border * 0.75, frame.width * 0.28, -0.18, theme.tape);
   } else {
-    drawStickerTape(ctx, frame.x + frame.width * 0.82, frame.y - border * 0.6, frame.width * 0.26, 0.16, 'rgba(247, 183, 199, .55)');
+    drawStickerTape(ctx, frame.x + frame.width * 0.82, frame.y - border * 0.6, frame.width * 0.26, 0.16, theme.accentSoft);
   }
 };
 
@@ -369,6 +464,110 @@ const drawDecorations = (
   ctx.restore();
 };
 
+const drawMoodDecorations = (
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  layout: LayoutType,
+  profile: UserProfile,
+  theme: MoodTheme,
+  caption = 'One day, these memories will become the most beautiful part of our youth.',
+) => {
+  const base = width;
+  ctx.save();
+  ctx.fillStyle = theme.ink;
+  ctx.textAlign = layout === 'horizontal' ? 'left' : 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `${Math.round(base * 0.058)}px "Saira Condensed", "Be Vietnam Pro", Impact, sans-serif`;
+  const titleX = layout === 'horizontal' ? width * 0.07 : width / 2;
+  ctx.fillText(theme.title, titleX, layout === 'horizontal' ? height * 0.82 : height * 0.06);
+
+  ctx.font = `${Math.round(base * 0.04)}px "Mali", "Be Vietnam Pro", cursive`;
+  ctx.fillStyle = theme.mutedInk;
+  const subtitle = `${profile.name} · Class ${profile.className} · ${new Date().toLocaleDateString('vi-VN')}`;
+  ctx.fillText(subtitle, titleX, layout === 'horizontal' ? height * 0.9 : height * 0.096);
+
+  ctx.font = `${Math.round(base * 0.032)}px "Mali", "Be Vietnam Pro", cursive`;
+  ctx.fillStyle = theme.mutedInk;
+  const maxTextWidth = width * (layout === 'horizontal' ? 0.38 : 0.74);
+  const words = `${theme.captionPrefix} ${caption}`.split(' ');
+  let line = '';
+  const lines: string[] = [];
+  words.forEach((word) => {
+    const next = `${line} ${word}`.trim();
+    if (ctx.measureText(next).width > maxTextWidth && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+  });
+  if (line) lines.push(line);
+
+  const captionY = layout === 'horizontal' ? height * 0.8 : height * 0.94;
+  lines.slice(0, 2).forEach((text, index) => {
+    ctx.fillText(text, layout === 'horizontal' ? width * 0.52 : width / 2, captionY + index * base * 0.036);
+  });
+
+  ctx.strokeStyle = theme.accent;
+  ctx.lineWidth = Math.max(3, base * 0.006);
+  ctx.beginPath();
+  ctx.moveTo(width * 0.82, height * 0.05);
+  ctx.bezierCurveTo(width * 0.9, height * 0.02, width * 0.96, height * 0.09, width * 0.9, height * 0.13);
+  ctx.bezierCurveTo(width * 0.84, height * 0.09, width * 0.78, height * 0.02, width * 0.82, height * 0.05);
+  ctx.stroke();
+
+  ctx.fillStyle = theme.accentSoft;
+  ctx.beginPath();
+  ctx.arc(width * 0.09, height * 0.07, base * 0.018, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(width * 0.92, height * 0.93, base * 0.025, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.font = `${Math.round(base * 0.038)}px "Mali", "Be Vietnam Pro", cursive`;
+  ctx.fillStyle = theme.accent;
+  ctx.textAlign = 'center';
+  ctx.fillText(theme.signature, width * 0.5, layout === 'horizontal' ? height * 0.16 : height * 0.975);
+
+  if (theme.id === 'best-friends') {
+    ctx.fillStyle = theme.accent;
+    ['BFF', '9/8', '♡'].forEach((text, index) => {
+      ctx.save();
+      ctx.translate(width * (0.15 + index * 0.34), height * (index % 2 ? 0.14 : 0.88));
+      ctx.rotate(index % 2 ? 0.12 : -0.1);
+      roundRect(ctx, -base * 0.05, -base * 0.026, base * 0.1, base * 0.052, base * 0.018);
+      ctx.fill();
+      ctx.fillStyle = theme.paper;
+      ctx.font = `${Math.round(base * 0.032)}px "Saira Condensed", "Be Vietnam Pro", sans-serif`;
+      ctx.fillText(text, 0, base * 0.002);
+      ctx.restore();
+      ctx.fillStyle = theme.accent;
+    });
+  }
+
+  if (theme.id === 'korean-booth') {
+    ctx.strokeStyle = theme.accent;
+    ctx.lineWidth = Math.max(2, base * 0.004);
+    for (let i = 0; i < 4; i += 1) {
+      ctx.strokeRect(width * (0.06 + i * 0.025), height * 0.925, base * 0.012, base * 0.012);
+    }
+  }
+
+  if (theme.id === 'vintage-final' || theme.id === 'farewell-day') {
+    ctx.strokeStyle = 'rgba(122, 86, 57, .18)';
+    ctx.lineWidth = Math.max(1, base * 0.002);
+    for (let y = height * 0.16; y < height * 0.88; y += base * 0.07) {
+      ctx.beginPath();
+      ctx.moveTo(width * 0.08, y);
+      ctx.lineTo(width * 0.92, y);
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+};
+
 export const renderPhotobook = async ({
   photos,
   config,
@@ -389,13 +588,14 @@ export const renderPhotobook = async ({
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  await drawBackground(ctx, width, height, background, config.customBackground, config.customBackgroundEdit);
+  const theme = getMoodTheme(config.moodId);
+  await drawBackground(ctx, width, height, background, theme, config.customBackground, config.customBackgroundEdit);
 
   const loadedPhotos = await Promise.all(photos.map((photo) => loadImage(photo.dataUrl)));
   const frames = getFrames(config.layout, loadedPhotos.length, width, height);
 
-  loadedPhotos.forEach((image, index) => drawPhotoFrame(ctx, image, frames[index], index));
-  drawDecorations(ctx, width, height, config.layout, profile, caption);
+  loadedPhotos.forEach((image, index) => drawPhotoFrame(ctx, image, frames[index], index, theme));
+  drawMoodDecorations(ctx, width, height, config.layout, profile, theme, caption);
 
   const blob = await canvasToBlob(canvas, config.quality === '4k' ? 0.97 : 0.94);
   canvas.width = 1;

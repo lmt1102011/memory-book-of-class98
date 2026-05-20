@@ -29,6 +29,12 @@ service cloud.firestore {
         : [];
     }
 
+    function oldHeartedBy() {
+      return resource.data.keys().hasAny(['heartedBy']) && resource.data.heartedBy is list
+        ? resource.data.heartedBy
+        : [];
+    }
+
     function validOneLikeUpdate() {
       return request.auth != null
         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['reactions', 'likedBy', 'updatedAt'])
@@ -39,6 +45,27 @@ service cloud.firestore {
         && request.auth.uid in request.resource.data.likedBy
         && request.resource.data.likedBy.size() == oldLikedBy().size() + 1
         && request.resource.data.likedBy.hasAll(oldLikedBy());
+    }
+
+    function isRememberReceiver() {
+      return request.auth != null
+        && resource.data.toNameKey is string
+        && request.auth.token.email == resource.data.toNameKey + '@memorybook-of-class98.firebaseapp.com';
+    }
+
+    function validRememberViewedUpdate() {
+      return isRememberReceiver()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewedAt', 'updatedAt']);
+    }
+
+    function validRememberHeartUpdate() {
+      return isRememberReceiver()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['heartedBy', 'updatedAt'])
+        && request.resource.data.heartedBy is list
+        && !(request.auth.uid in oldHeartedBy())
+        && request.auth.uid in request.resource.data.heartedBy
+        && request.resource.data.heartedBy.size() == oldHeartedBy().size() + 1
+        && request.resource.data.heartedBy.hasAll(oldHeartedBy());
     }
 
     match /students98/{nameKey} {
@@ -102,7 +129,7 @@ service cloud.firestore {
         && request.resource.data.message.size() <= 420
         && request.resource.data.anonymous is bool
         && request.resource.data.kind == 'remember-note';
-      allow update: if false;
+      allow update: if validRememberViewedUpdate() || validRememberHeartUpdate();
       allow delete: if true;
     }
 
