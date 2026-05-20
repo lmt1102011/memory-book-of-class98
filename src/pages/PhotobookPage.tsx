@@ -46,6 +46,7 @@ interface PhotobookPageProps {
 
 type BoothStage = 'setup' | 'camera' | 'final';
 type CaptureSource = 'camera' | 'upload';
+type PhotoPreviewMode = 'original' | 'enhanced';
 
 const defaultBackgroundEdit: BackgroundEdit = {
   scale: 1,
@@ -200,6 +201,9 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   const [config, setConfig] = useState<PhotobookConfig>(defaultConfig);
   const [capturedPhotos, setCapturedPhotos] = useState<CapturedPhoto[]>([]);
   const [pendingPhoto, setPendingPhoto] = useState<string | null>(null);
+  const [pendingOriginalPhoto, setPendingOriginalPhoto] = useState<string | null>(null);
+  const [pendingEnhancedPhoto, setPendingEnhancedPhoto] = useState<string | null>(null);
+  const [photoPreviewMode, setPhotoPreviewMode] = useState<PhotoPreviewMode>('enhanced');
   const [countdown, setCountdown] = useState<number | null>(null);
   const [flash, setFlash] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -225,6 +229,21 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
     stage === 'camera' && !pendingPhoto && countdown === null && !isEnhancing && capturedPhotos.length < config.photoCount;
   const videoConstraints = useMemo(() => getVideoConstraints(facingMode), [facingMode]);
 
+  function clearPendingPhoto() {
+    setPendingPhoto(null);
+    setPendingOriginalPhoto(null);
+    setPendingEnhancedPhoto(null);
+    setPhotoPreviewMode('enhanced');
+  }
+
+  const showPendingPhoto = (mode: PhotoPreviewMode) => {
+    const source = mode === 'original' ? pendingOriginalPhoto : pendingEnhancedPhoto;
+    if (!source) return;
+
+    setPhotoPreviewMode(mode);
+    setPendingPhoto(source);
+  };
+
   const updateConfig = <K extends keyof PhotobookConfig>(key: K, value: PhotobookConfig[K]) => {
     setConfig((current) => ({ ...current, [key]: value }));
   };
@@ -232,7 +251,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   const updatePhotoCount = (value: PhotoCount) => {
     setConfig((current) => ({ ...current, photoCount: value }));
     setCapturedPhotos((current) => current.slice(0, value));
-    setPendingPhoto(null);
+    clearPendingPhoto();
     setGenerated(null);
   };
 
@@ -250,7 +269,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
 
   const resetSession = () => {
     setCapturedPhotos([]);
-    setPendingPhoto(null);
+    clearPendingPhoto();
     setGenerated(null);
     setStage('setup');
     if (objectUrl) {
@@ -287,7 +306,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   const flipCamera = () => {
     if (isEnhancing) return;
     setCameraError(null);
-    setPendingPhoto(null);
+    clearPendingPhoto();
     setCountdown(null);
     setFacingMode((current) => (current === 'user' ? 'environment' : 'user'));
   };
@@ -307,9 +326,15 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
 
     try {
       const enhanced = await beautifyPhotoDataUrl(screenshot);
+      setPendingOriginalPhoto(screenshot);
+      setPendingEnhancedPhoto(enhanced);
+      setPhotoPreviewMode('enhanced');
       setPendingPhoto(enhanced);
       setCameraError(null);
     } catch {
+      setPendingOriginalPhoto(screenshot);
+      setPendingEnhancedPhoto(null);
+      setPhotoPreviewMode('original');
       setPendingPhoto(screenshot);
       setCameraError('Không thể làm đẹp ảnh tự động, app đã giữ ảnh gốc để bạn tiếp tục.');
     } finally {
@@ -344,7 +369,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
     if (!pendingPhoto || isEnhancing) return;
     const nextPhotos = [...capturedPhotos, { id: makeId('photo'), dataUrl: pendingPhoto }];
     setCapturedPhotos(nextPhotos);
-    setPendingPhoto(null);
+    clearPendingPhoto();
 
     if (nextPhotos.length >= config.photoCount) {
       setStage('final');
@@ -380,11 +405,17 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
       setIsEnhancing(true);
       uploaded = await compressUploadedPhoto(file);
       const enhanced = await beautifyPhotoDataUrl(uploaded);
+      setPendingOriginalPhoto(uploaded);
+      setPendingEnhancedPhoto(enhanced);
+      setPhotoPreviewMode('enhanced');
       setPendingPhoto(enhanced);
       window.setTimeout(() => setFlash(true), 20);
       window.setTimeout(() => setFlash(false), 190);
     } catch {
       if (uploaded) {
+        setPendingOriginalPhoto(uploaded);
+        setPendingEnhancedPhoto(null);
+        setPhotoPreviewMode('original');
         setPendingPhoto(uploaded);
         setCameraError('Không thể làm đẹp ảnh tự động, app đã giữ ảnh gốc để bạn tiếp tục.');
       } else {
@@ -624,7 +655,45 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
 
                 <div className="camera-frame">
                   {pendingPhoto ? (
-                    <img src={pendingPhoto} alt="Captured preview" className="h-full w-full object-cover" />
+                    <>
+                      <img src={pendingPhoto} alt="Captured preview" className="h-full w-full object-cover" />
+                      <div className="absolute left-3 right-3 top-16 z-[4] rounded-[1rem] bg-ink/62 p-2 text-paper shadow-paper sm:left-4 sm:right-auto sm:w-[23rem]">
+                        <div className="flex items-center justify-between gap-3 px-1 pb-2">
+                          <span className="text-[11px] font-black uppercase tracking-[0.14em] text-paper/70">
+                            So sánh ảnh
+                          </span>
+                          <span className="text-[11px] font-bold text-paper/70">
+                            {photoPreviewMode === 'enhanced' ? 'Sau làm đẹp' : 'Ảnh gốc'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            className={`rounded-full px-3 py-2 text-xs font-extrabold transition ${
+                              photoPreviewMode === 'original'
+                                ? 'bg-paper text-ink'
+                                : 'bg-paper/12 text-paper hover:bg-paper/18'
+                            }`}
+                            onClick={() => showPendingPhoto('original')}
+                            disabled={!pendingOriginalPhoto}
+                          >
+                            Ảnh gốc
+                          </button>
+                          <button
+                            type="button"
+                            className={`rounded-full px-3 py-2 text-xs font-extrabold transition ${
+                              photoPreviewMode === 'enhanced'
+                                ? 'bg-paper text-ink'
+                                : 'bg-paper/12 text-paper hover:bg-paper/18'
+                            }`}
+                            onClick={() => showPendingPhoto('enhanced')}
+                            disabled={!pendingEnhancedPhoto}
+                          >
+                            Sau làm đẹp
+                          </button>
+                        </div>
+                      </div>
+                    </>
                   ) : captureSource === 'upload' ? (
                     <div className="grid h-full place-items-center bg-[linear-gradient(135deg,#1a1512,#35291f)] p-6 text-center text-paper">
                       <div className="max-w-sm">
@@ -693,7 +762,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                 <div className="camera-controls-near">
                   {pendingPhoto ? (
                     <>
-                      <button className="camera-secondary-button" onClick={() => setPendingPhoto(null)}>
+                      <button className="camera-secondary-button" onClick={clearPendingPhoto}>
                         <RefreshCw size={18} />
                         Đổi ảnh
                       </button>
@@ -784,7 +853,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                       <Check size={17} />
                       Next Photo
                     </button>
-                    <button className="secondary-button justify-center" onClick={() => setPendingPhoto(null)}>
+                    <button className="secondary-button justify-center" onClick={clearPendingPhoto}>
                       <RefreshCw size={17} />
                       Đổi ảnh
                     </button>

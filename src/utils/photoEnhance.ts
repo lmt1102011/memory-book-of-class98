@@ -1,9 +1,9 @@
 const MAX_EDGE = 3200;
 const MAX_PIXELS = 5_800_000;
-const SOFT_BLEND = 0.22;
-const SHARPEN_EDGE_AMOUNT = 0.18;
-const SHARPEN_TEXTURE_AMOUNT = 0.055;
-const DETAIL_THRESHOLD = 11;
+const SOFT_BLEND = 0.3;
+const SHARPEN_EDGE_AMOUNT = 0.22;
+const SHARPEN_TEXTURE_AMOUNT = 0.075;
+const DETAIL_THRESHOLD = 10;
 
 const loadImage = (src: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -91,13 +91,13 @@ export async function beautifyPhotoDataUrl(dataUrl: string): Promise<string> {
 
     soft.ctx.fillStyle = '#fffaf1';
     soft.ctx.fillRect(0, 0, width, height);
-    soft.ctx.filter = 'blur(1.1px) brightness(102.5%) contrast(101.5%) saturate(101.5%)';
+    soft.ctx.filter = 'blur(1.35px) brightness(103.4%) contrast(102%) saturate(102%)';
     soft.ctx.drawImage(base.canvas, 0, 0);
     soft.ctx.filter = 'none';
 
     output.ctx.fillStyle = '#fffaf1';
     output.ctx.fillRect(0, 0, width, height);
-    output.ctx.filter = 'brightness(102.5%) contrast(101.5%) saturate(101%)';
+    output.ctx.filter = 'brightness(103%) contrast(102%) saturate(101.8%)';
     output.ctx.drawImage(base.canvas, 0, 0);
     output.ctx.filter = 'none';
     output.ctx.globalAlpha = SOFT_BLEND;
