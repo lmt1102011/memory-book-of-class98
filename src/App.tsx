@@ -1,5 +1,5 @@
 import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion';
-import { Camera, Heart, Home, Lock, Menu, MessageCircle, Sparkles, X } from 'lucide-react';
+import { BadgeCheck, Camera, Heart, Home, Lock, Menu, MessageCircle, Sparkles, UserRound, X } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BootSplash from './components/BootSplash';
 import LoadingScreen from './components/LoadingScreen';
@@ -18,6 +18,10 @@ import type {
   RememberReactionId,
   SecretDiaryEntry,
   UserProfile,
+  VoteCategory,
+  VoteCategoryDraft,
+  VoteRecord,
+  YouthProfileDraft,
 } from './types';
 
 const JoinPage = lazy(() => import('./pages/JoinPage'));
@@ -26,13 +30,19 @@ const LettersPage = lazy(() => import('./pages/LettersPage'));
 const RememberPage = lazy(() => import('./pages/RememberPage'));
 const DiaryPage = lazy(() => import('./pages/DiaryPage'));
 const PhotobookPage = lazy(() => import('./pages/PhotobookPage'));
+const PeoplePage = lazy(() => import('./pages/PeoplePage'));
+const VotesPage = lazy(() => import('./pages/VotesPage'));
 
 const routeFromHash = (): AppRoute => {
   const route = window.location.hash.replace('#/', '') as AppRoute;
-  return ['landing', 'join', 'home', 'letters', 'remember', 'diary', 'photobook'].includes(route) ? route : 'landing';
+  return ['landing', 'join', 'home', 'letters', 'remember', 'diary', 'photobook', 'people', 'votes'].includes(route)
+    ? route
+    : 'landing';
 };
 
 const navItems: Array<{ route: AppRoute; label: string; icon: typeof Home }> = [
+  { route: 'people', label: 'Hồ sơ lớp', icon: UserRound },
+  { route: 'votes', label: 'Bình chọn', icon: BadgeCheck },
   { route: 'landing', label: 'Intro', icon: Sparkles },
   { route: 'remember', label: 'Secret Message', icon: Heart },
   { route: 'home', label: 'Ký ức', icon: Home },
@@ -40,6 +50,9 @@ const navItems: Array<{ route: AppRoute; label: string; icon: typeof Home }> = [
   { route: 'diary', label: 'Nhật ký', icon: Lock },
   { route: 'photobook', label: 'Đăng ảnh', icon: Camera },
 ];
+
+const navOrder: AppRoute[] = ['landing', 'remember', 'home', 'people', 'votes', 'letters', 'diary', 'photobook'];
+const orderedNavItems = [...navItems].sort((left, right) => navOrder.indexOf(left.route) - navOrder.indexOf(right.route));
 
 const rememberReactionLabels: Record<RememberReactionId, string> = {
   'miss-you': 'Nhớ cậu',
@@ -61,6 +74,11 @@ export default function App() {
   const [remoteComments, setRemoteComments] = useState<MemoryComment[]>([]);
   const [remoteGuestbook, setRemoteGuestbook] = useState<GuestbookEntry[]>([]);
   const [classmates, setClassmates] = useState<ClassmateProfile[]>([]);
+  const [classmatesLoading, setClassmatesLoading] = useState(false);
+  const [voteCategories, setVoteCategories] = useState<VoteCategory[]>([]);
+  const [voteRecords, setVoteRecords] = useState<VoteRecord[]>([]);
+  const [votesLoading, setVotesLoading] = useState(false);
+  const [focusedPersonKey, setFocusedPersonKey] = useState('');
   const [rememberNotes, setRememberNotes] = useState<RememberNote[]>([]);
   const [rememberNotesLoading, setRememberNotesLoading] = useState(false);
   const [sentRememberNotes, setSentRememberNotes] = useState<RememberNote[]>([]);
@@ -110,9 +128,10 @@ export default function App() {
     let unsubscribeRememberNotes: (() => void) | undefined;
     let unsubscribeSentRememberNotes: (() => void) | undefined;
     let unsubscribeDiaries: (() => void) | undefined;
+    let unsubscribeVoteBoard: (() => void) | undefined;
     let isActive = true;
 
-    if (route === 'home') {
+    if (route === 'home' || route === 'people') {
       setMemoriesLoading(!memoriesLoadedOnceRef.current);
 
       void import('./services/firebaseRealtimeMemoryBook')
@@ -155,9 +174,8 @@ export default function App() {
         });
     }
 
-    if (route === 'remember') {
-      setRememberNotesLoading(Boolean(profile));
-      setSentRememberNotesLoading(Boolean(profile));
+    if (route === 'remember' || route === 'people' || route === 'votes') {
+      setClassmatesLoading(true);
 
       void import('./services/firebaseMemoryBook')
         .then((service) => {
@@ -167,13 +185,30 @@ export default function App() {
             (items) => {
               if (!isActive) return;
               setClassmates(items);
+              setClassmatesLoading(false);
               setFirebaseNotice('');
             },
             (error) => {
               if (!isActive) return;
+              setClassmatesLoading(false);
               setFirebaseNotice(error.message);
             },
           );
+        })
+        .catch((caught) => {
+          if (!isActive) return;
+          setClassmatesLoading(false);
+          setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể mở danh sách lớp lúc này.');
+        });
+    }
+
+    if (route === 'remember') {
+      setRememberNotesLoading(Boolean(profile));
+      setSentRememberNotesLoading(Boolean(profile));
+
+      void import('./services/firebaseMemoryBook')
+        .then((service) => {
+          if (!isActive) return;
 
           if (profile) {
             unsubscribeRememberNotes = service.subscribeRememberNotes(
@@ -251,6 +286,35 @@ export default function App() {
       });
     }
 
+    if (route === 'votes') {
+      setVotesLoading(true);
+
+      void import('./services/firebaseMemoryBook')
+        .then((service) => {
+          if (!isActive) return;
+
+          unsubscribeVoteBoard = service.subscribeVoteBoard(
+            ({ categories, votes }) => {
+              if (!isActive) return;
+              setVoteCategories(categories);
+              setVoteRecords(votes);
+              setVotesLoading(false);
+              setFirebaseNotice('');
+            },
+            (error) => {
+              if (!isActive) return;
+              setVotesLoading(false);
+              setFirebaseNotice(error.message);
+            },
+          );
+        })
+        .catch((caught) => {
+          if (!isActive) return;
+          setVotesLoading(false);
+          setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể mở bảng bình chọn lúc này.');
+        });
+    }
+
     return () => {
       isActive = false;
       unsubscribeMemories?.();
@@ -260,6 +324,7 @@ export default function App() {
       unsubscribeRememberNotes?.();
       unsubscribeSentRememberNotes?.();
       unsubscribeDiaries?.();
+      unsubscribeVoteBoard?.();
     };
   }, [profile, route]);
 
@@ -283,6 +348,14 @@ export default function App() {
     [navigate],
   );
 
+  const openPersonProfile = useCallback(
+    (nameKey: string) => {
+      setFocusedPersonKey(nameKey);
+      navigate('people');
+    },
+    [navigate],
+  );
+
   const allMemories = useMemo(() => remoteMemories, [remoteMemories]);
   const allGuestbook = useMemo(() => remoteGuestbook, [remoteGuestbook]);
 
@@ -294,6 +367,117 @@ export default function App() {
     });
     return grouped;
   }, [remoteComments]);
+
+  const handleYouthProfileUpdate = useCallback(
+    async (draft: YouthProfileDraft) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+
+      const service = await import('./services/firebaseMemoryBook');
+      await service.updateStudentYouthProfile(profile, draft);
+      setClassmates((items) =>
+        items.map((item) =>
+          item.nameKey === profile.nameKey
+            ? {
+                ...item,
+                avatarDataUrl: draft.avatarDataUrl,
+                nickname: draft.nickname,
+                quote: draft.quote,
+                classMessage: draft.classMessage,
+                personalityTags: draft.personalityTags,
+                profileUpdatedAt: new Date().toISOString(),
+              }
+            : item,
+        ),
+      );
+      setFirebaseNotice('');
+    },
+    [navigate, profile],
+  );
+
+  const handleVoteCategoryAdd = useCallback(
+    async (draft: VoteCategoryDraft) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+
+      const service = await import('./services/firebaseMemoryBook');
+      const category = await service.addVoteCategory(profile, draft);
+      setVoteCategories((items) => [category, ...items.filter((item) => item.id !== category.id)]);
+      setFirebaseNotice('');
+    },
+    [navigate, profile],
+  );
+
+  const handleVoteCategoryHide = useCallback(
+    async (category: VoteCategory) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+
+      setVoteCategories((items) => items.filter((item) => item.id !== category.id));
+
+      try {
+        const service = await import('./services/firebaseMemoryBook');
+        await service.hideVoteCategory(profile, category);
+        setFirebaseNotice('');
+      } catch (caught) {
+        setVoteCategories((items) => [category, ...items.filter((item) => item.id !== category.id)]);
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể ẩn hạng mục bình chọn lúc này.');
+      }
+    },
+    [navigate, profile],
+  );
+
+  const handleVoteCast = useCallback(
+    async (category: VoteCategory, target: ClassmateProfile) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+
+      const previous = voteRecords.find((vote) => vote.categoryId === category.id && vote.voterUid === profile.uid);
+      const optimisticVote: VoteRecord = {
+        id: profile.uid,
+        categoryId: category.id,
+        voterUid: profile.uid,
+        voterName: profile.name,
+        voterNameKey: profile.nameKey,
+        targetUid: target.uid,
+        targetName: target.name,
+        targetNameKey: target.nameKey,
+        createdAt: previous?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      setVoteRecords((items) => [
+        optimisticVote,
+        ...items.filter((item) => !(item.categoryId === category.id && item.voterUid === profile.uid)),
+      ]);
+
+      try {
+        const service = await import('./services/firebaseMemoryBook');
+        const savedVote = await service.castVote(profile, category, target);
+        setVoteRecords((items) =>
+          items.map((item) =>
+            item.categoryId === category.id && item.voterUid === profile.uid ? savedVote : item,
+          ),
+        );
+        setFirebaseNotice('');
+      } catch (caught) {
+        setVoteRecords((items) => {
+          const withoutOptimistic = items.filter((item) => !(item.categoryId === category.id && item.voterUid === profile.uid));
+          return previous ? [previous, ...withoutOptimistic] : withoutOptimistic;
+        });
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể lưu bình chọn lúc này.');
+      }
+    },
+    [navigate, profile, voteRecords],
+  );
 
   const publishMemory = useCallback(
     async (draft: PublishMemoryDraft) => {
@@ -708,6 +892,44 @@ export default function App() {
       );
     }
 
+    if (route === 'people') {
+      return (
+        <Suspense fallback={<LoadingScreen label="Đang mở hồ sơ lớp" />}>
+          <PeoplePage
+            classmates={classmates}
+            memories={allMemories}
+            commentsByMemory={commentsByMemory}
+            firebaseNotice={firebaseNotice}
+            isLoading={classmatesLoading || memoriesLoading}
+            profile={profile}
+            focusedNameKey={focusedPersonKey}
+            onJoin={() => navigate('join')}
+            onPhotobook={() => navigate('photobook')}
+            onUpdateProfile={handleYouthProfileUpdate}
+          />
+        </Suspense>
+      );
+    }
+
+    if (route === 'votes') {
+      return (
+        <Suspense fallback={<LoadingScreen label="Đang mở bình chọn lớp" />}>
+          <VotesPage
+            classmates={classmates}
+            categories={voteCategories}
+            votes={voteRecords}
+            firebaseNotice={firebaseNotice}
+            isLoading={votesLoading || classmatesLoading}
+            profile={profile}
+            onJoin={() => navigate('join')}
+            onAddCategory={handleVoteCategoryAdd}
+            onHideCategory={handleVoteCategoryHide}
+            onVote={handleVoteCast}
+          />
+        </Suspense>
+      );
+    }
+
     if (route === 'diary') {
       return (
         <Suspense fallback={<LoadingScreen label="Đang mở nhật ký riêng" />}>
@@ -734,6 +956,7 @@ export default function App() {
           pendingReactionIds={pendingReactionIds}
           onJoin={() => navigate('join')}
           onPhotobook={() => navigate('photobook')}
+          onOpenProfile={openPersonProfile}
           onReact={handleReact}
           onAddComment={handleMemoryCommentAdd}
           onDeleteComment={handleMemoryCommentDelete}
@@ -772,7 +995,7 @@ export default function App() {
               </button>
 
               <div className="hidden items-center gap-2 lg:flex">
-                {navItems.map(({ route: itemRoute, label, icon: Icon }) => (
+                {orderedNavItems.map(({ route: itemRoute, label, icon: Icon }) => (
                   <button
                     key={itemRoute}
                     className={`nav-pill ${route === itemRoute ? 'nav-pill-active' : ''}`}
@@ -809,7 +1032,7 @@ export default function App() {
                   className="border-t border-white/50 bg-cream/95 px-4 py-3 shadow-paper lg:hidden"
                 >
                   <div className="grid gap-2">
-                    {navItems.map(({ route: itemRoute, label, icon: Icon }) => (
+                    {orderedNavItems.map(({ route: itemRoute, label, icon: Icon }) => (
                       <button
                         key={itemRoute}
                         className={`nav-pill justify-start ${route === itemRoute ? 'nav-pill-active' : ''}`}

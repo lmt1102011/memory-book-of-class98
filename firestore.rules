@@ -84,6 +84,37 @@ service cloud.firestore {
         && request.resource.data.reactedAt is timestamp;
     }
 
+    function validVoteCategoryCreate() {
+      return request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.className == '9/8'
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 80
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 180
+        && request.resource.data.tone in ['pink', 'blue', 'cream', 'chalk']
+        && request.resource.data.icon is string
+        && request.resource.data.hidden == false;
+    }
+
+    function validVoteCategoryHide() {
+      return request.auth != null
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hidden', 'hiddenAt', 'updatedAt'])
+        && request.resource.data.hidden == true;
+    }
+
+    function validVoteWrite(voteId) {
+      return request.auth != null
+        && voteId == request.auth.uid
+        && request.resource.data.voterUid == request.auth.uid
+        && request.resource.data.className == '9/8'
+        && request.resource.data.targetUid is string
+        && request.resource.data.targetName is string
+        && request.resource.data.targetNameKey is string;
+    }
+
     match /students98/{nameKey} {
       allow read: if true;
       allow create: if request.auth != null
@@ -147,6 +178,19 @@ service cloud.firestore {
         && request.resource.data.kind == 'remember-note';
       allow update: if validRememberViewedUpdate() || validRememberHeartUpdate() || validRememberReactionUpdate();
       allow delete: if true;
+    }
+
+    match /voteCategories98/{categoryId} {
+      allow read: if resource.data.hidden == false;
+      allow create: if validVoteCategoryCreate();
+      allow update: if validVoteCategoryHide() || isManagerWrite();
+      allow delete: if false;
+
+      match /votes/{voteId} {
+        allow read: if true;
+        allow create, update: if validVoteWrite(voteId);
+        allow delete: if false;
+      }
     }
 
     match /secretMailboxPrivate98/{diaryId} {

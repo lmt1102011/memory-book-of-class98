@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Camera, Download, Filter, Heart, Search, X } from 'lucide-react';
+import { Camera, Download, Filter, Heart, Search, UserRound, X } from 'lucide-react';
 import FirebaseNotice from '../components/FirebaseNotice';
 import MemoryCard from '../components/MemoryCard';
 import { useDebounce } from '../hooks/useDebounce';
@@ -28,6 +28,7 @@ interface HomePageProps {
   pendingReactionIds: string[];
   onJoin: () => void;
   onPhotobook: () => void;
+  onOpenProfile: (nameKey: string) => void;
   onReact: (memory: MemoryItem) => void | Promise<void>;
   onAddComment: (memory: MemoryItem, message: string) => void | Promise<void>;
   onDeleteComment: (comment: MemoryComment) => void | Promise<void>;
@@ -43,6 +44,7 @@ export default function HomePage({
   pendingReactionIds,
   onJoin,
   onPhotobook,
+  onOpenProfile,
   onReact,
   onAddComment,
   onDeleteComment,
@@ -51,6 +53,7 @@ export default function HomePage({
   const [nameQuery, setNameQuery] = useState('');
   const [keywordQuery, setKeywordQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [activePersonKey, setActivePersonKey] = useState<string | null>(null);
   const [selectedMemory, setSelectedMemory] = useState<MemoryItem | null>(null);
   const [selectedImageLoaded, setSelectedImageLoaded] = useState(false);
   const [selectedImageFailed, setSelectedImageFailed] = useState(false);
@@ -85,6 +88,21 @@ export default function HomePage({
     return Array.from(unique).slice(0, 12);
   }, [memories]);
 
+  const people = useMemo(() => {
+    const unique = new Map<string, { name: string; nameKey: string; count: number }>();
+    memories.forEach((memory) => {
+      const nameKey = memory.nameKey || memory.uid || memory.name.toLowerCase();
+      if (!nameKey) return;
+      const current = unique.get(nameKey);
+      unique.set(nameKey, {
+        name: current?.name || memory.name,
+        nameKey,
+        count: (current?.count || 0) + 1,
+      });
+    });
+    return Array.from(unique.values()).sort((left, right) => right.count - left.count).slice(0, 16);
+  }, [memories]);
+
   const filteredMemories = useMemo(() => {
     const name = debouncedName.trim().toLowerCase();
     const keyword = debouncedKeyword.trim().toLowerCase();
@@ -96,16 +114,18 @@ export default function HomePage({
         memory.caption.toLowerCase().includes(keyword) ||
         memory.hashtags.some((tag) => tag.toLowerCase().includes(keyword));
       const byTag = !activeTag || memory.hashtags.includes(activeTag);
-      return byName && byKeyword && byTag;
+      const byPerson = !activePersonKey || memory.nameKey === activePersonKey || memory.uid === activePersonKey;
+      return byName && byKeyword && byTag && byPerson;
     });
-  }, [activeTag, memories, debouncedKeyword, debouncedName]);
+  }, [activePersonKey, activeTag, memories, debouncedKeyword, debouncedName]);
 
-  const hasActiveFilter = Boolean(nameQuery.trim() || keywordQuery.trim() || activeTag);
+  const hasActiveFilter = Boolean(nameQuery.trim() || keywordQuery.trim() || activeTag || activePersonKey);
 
   const clearFilters = () => {
     setNameQuery('');
     setKeywordQuery('');
     setActiveTag(null);
+    setActivePersonKey(null);
   };
 
   return (
@@ -171,6 +191,20 @@ export default function HomePage({
           </button>
         </div>
         <div className="mx-auto mt-3 flex max-w-7xl gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <button className={`tag-button ${activePersonKey === null ? 'tag-button-active' : ''}`} onClick={() => setActivePersonKey(null)}>
+            Album lớp
+          </button>
+          {people.map((person) => (
+            <button
+              key={person.nameKey}
+              className={`tag-button ${activePersonKey === person.nameKey ? 'tag-button-active' : ''}`}
+              onClick={() => setActivePersonKey(person.nameKey)}
+            >
+              {person.name} · {person.count}
+            </button>
+          ))}
+        </div>
+        <div className="mx-auto mt-2 flex max-w-7xl gap-2 overflow-x-auto pb-1 scrollbar-hide">
           <button
             className={`tag-button ${activeTag === null ? 'tag-button-active' : ''}`}
             onClick={() => setActiveTag(null)}
@@ -211,6 +245,7 @@ export default function HomePage({
                 isReacting={pendingReactionIds.includes(memory.id)}
                 onJoin={onJoin}
                 onOpenImage={setSelectedMemory}
+                onOpenProfile={onOpenProfile}
                 onReact={onReact}
                 onAddComment={onAddComment}
                 onDeleteComment={onDeleteComment}
@@ -312,6 +347,15 @@ export default function HomePage({
                 <Download size={17} />
                 Tải ảnh
               </a>
+              {(selectedMemory.nameKey || selectedMemory.uid) && (
+                <button
+                  className="secondary-button mt-3 w-full"
+                  onClick={() => onOpenProfile(selectedMemory.nameKey || selectedMemory.uid || '')}
+                >
+                  <UserRound size={17} />
+                  Xem hồ sơ và album
+                </button>
+              )}
               <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-blush/35 px-3 py-2 text-xs font-bold text-coffee">
                 <Heart size={14} fill="currentColor" />
                 {selectedMemory.reactions} tim

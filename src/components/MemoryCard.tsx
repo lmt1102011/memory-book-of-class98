@@ -10,6 +10,7 @@ interface MemoryCardProps {
   isReacting: boolean;
   onJoin: () => void;
   onOpenImage: (memory: MemoryItem) => void;
+  onOpenProfile: (nameKey: string) => void;
   onReact: (memory: MemoryItem) => void | Promise<void>;
   onAddComment: (memory: MemoryItem, message: string) => void | Promise<void>;
   onDeleteComment: (comment: MemoryComment) => void | Promise<void>;
@@ -31,6 +32,7 @@ function MemoryCard({
   isReacting,
   onJoin,
   onOpenImage,
+  onOpenProfile,
   onReact,
   onAddComment,
   onDeleteComment,
@@ -107,7 +109,14 @@ function MemoryCard({
       <div className="px-2 pb-2 pt-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="break-words font-semibold text-ink">{memory.name}</h3>
+            <button
+              type="button"
+              className="break-words text-left font-semibold text-ink underline-offset-4 transition hover:text-coffee hover:underline"
+              onClick={() => (memory.nameKey || memory.uid) && onOpenProfile(memory.nameKey || memory.uid || '')}
+              disabled={!memory.nameKey && !memory.uid}
+            >
+              {memory.name}
+            </button>
             <p className="text-xs font-semibold uppercase text-coffee/65">Lớp {memory.className}</p>
           </div>
           <span className="shrink-0 rounded-full bg-skySoft/25 px-2 py-1 text-[11px] font-semibold text-chalk">

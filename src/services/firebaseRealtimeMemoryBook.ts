@@ -42,6 +42,7 @@ const memoryFromDoc = (id: string, data: DocumentData): MemoryItem => ({
   id,
   uid: String(data.uid || ''),
   source: 'firebase',
+  nameKey: String(data.nameKey || ''),
   name: String(data.name || 'Bạn cùng lớp'),
   className: String(data.className || CLASS_NAME),
   caption: String(data.caption || ''),

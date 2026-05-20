@@ -37,6 +37,10 @@ import type {
   RememberReactionId,
   SecretDiaryEntry,
   UserProfile,
+  VoteCategory,
+  VoteCategoryDraft,
+  VoteRecord,
+  YouthProfileDraft,
 } from '../types';
 import { makeId } from '../utils/ids';
 
@@ -48,6 +52,8 @@ const MEMORY_COMMENTS_COLLECTION = 'memoryComments98';
 const GUESTBOOK_COLLECTION = 'guestbook98';
 const SECRET_MAILBOX_PRIVATE_COLLECTION = 'secretMailboxPrivate98';
 const REMEMBER_NOTES_COLLECTION = 'rememberNotes98';
+const VOTE_CATEGORIES_COLLECTION = 'voteCategories98';
+const VOTES_SUBCOLLECTION = 'votes';
 const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
 const FIREBASE_RETRY_DELAYS = [0, 450, 1000, 1800];
 const FIREBASE_TIMEOUT_MS = 12_000;
@@ -233,6 +239,7 @@ const memoryFromDoc = (id: string, data: DocumentData): MemoryItem => ({
   uid: String(data.uid || ''),
   source: 'firebase',
   name: String(data.name || 'Classmate'),
+  nameKey: String(data.nameKey || ''),
   className: String(data.className || CLASS_NAME),
   caption: String(data.caption || ''),
   hashtags: Array.isArray(data.hashtags) ? data.hashtags.map(String).slice(0, 6) : [],
@@ -283,6 +290,12 @@ const classmateFromDoc = (id: string, data: DocumentData): ClassmateProfile => (
   name: String(data.name || id),
   nameKey: String(data.nameKey || id),
   className: String(data.className || CLASS_NAME),
+  avatarDataUrl: data.avatarDataUrl ? String(data.avatarDataUrl) : undefined,
+  nickname: data.nickname ? String(data.nickname) : undefined,
+  quote: data.quote ? String(data.quote) : undefined,
+  classMessage: data.classMessage ? String(data.classMessage) : undefined,
+  personalityTags: Array.isArray(data.personalityTags) ? data.personalityTags.map(String).slice(0, 3) : [],
+  profileUpdatedAt: data.profileUpdatedAt ? timestampToIso(data.profileUpdatedAt) : undefined,
 });
 
 const parseRememberReactionId = (value: unknown): RememberReactionId | undefined => {
@@ -311,6 +324,33 @@ const rememberNoteFromDoc = (id: string, data: DocumentData): RememberNote => {
     reactedBy: data.reactedBy ? String(data.reactedBy) : undefined,
   };
 };
+
+const voteCategoryFromDoc = (id: string, data: DocumentData): VoteCategory => ({
+  id,
+  uid: String(data.uid || ''),
+  name: String(data.name || 'Classmate'),
+  nameKey: String(data.nameKey || ''),
+  title: String(data.title || ''),
+  description: String(data.description || ''),
+  tone: data.tone === 'blue' || data.tone === 'cream' || data.tone === 'chalk' ? data.tone : 'pink',
+  icon: String(data.icon || 'sparkles').slice(0, 24),
+  createdAt: timestampToIso(data.createdAt),
+  hidden: Boolean(data.hidden),
+  hiddenAt: data.hiddenAt ? timestampToIso(data.hiddenAt) : undefined,
+});
+
+const voteRecordFromDoc = (categoryId: string, id: string, data: DocumentData): VoteRecord => ({
+  id,
+  categoryId,
+  voterUid: String(data.voterUid || id),
+  voterName: String(data.voterName || 'Classmate'),
+  voterNameKey: String(data.voterNameKey || ''),
+  targetUid: String(data.targetUid || ''),
+  targetName: String(data.targetName || ''),
+  targetNameKey: String(data.targetNameKey || ''),
+  createdAt: timestampToIso(data.createdAt),
+  updatedAt: data.updatedAt ? timestampToIso(data.updatedAt) : undefined,
+});
 
 export const checkStudentName = async (name: string) => {
   const nameKey = makeNameKey(name);
@@ -854,6 +894,142 @@ export const deleteRememberNote = async (profile: UserProfile, note: RememberNot
   }
 
   await withFirebaseRetry(() => deleteDoc(doc(db, REMEMBER_NOTES_COLLECTION, note.id)));
+};
+
+const normalizeTags = (tags: string[]) =>
+  tags
+    .map((tag) => cleanDisplayName(tag).slice(0, 22))
+    .filter(Boolean)
+    .slice(0, 3);
+
+export const updateStudentYouthProfile = async (profile: UserProfile, draft: YouthProfileDraft) => {
+  await withFirebaseRetry(() =>
+    updateDoc(doc(db, STUDENTS_COLLECTION, profile.nameKey), {
+      avatarDataUrl: draft.avatarDataUrl || '',
+      nickname: cleanDisplayName(draft.nickname).slice(0, 36),
+      quote: cleanDisplayName(draft.quote).slice(0, 120),
+      classMessage: draft.classMessage.trim().slice(0, 360),
+      personalityTags: normalizeTags(draft.personalityTags),
+      profileUpdatedAt: serverTimestamp(),
+    }),
+  );
+};
+
+export const subscribeVoteBoard = (
+  onNext: (board: { categories: VoteCategory[]; votes: VoteRecord[] }) => void,
+  onError: (error: Error) => void,
+) => {
+  const categoriesQuery = query(collection(db, VOTE_CATEGORIES_COLLECTION), where('hidden', '==', false), limit(40));
+  const load = async () => {
+    try {
+      const categorySnapshot = await withFirebaseRetry(() => getDocs(categoriesQuery));
+      const categories = categorySnapshot.docs
+        .map((item) => voteCategoryFromDoc(item.id, item.data()))
+        .filter((item) => item.title && !item.hidden)
+        .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+
+      const votesByCategory = await Promise.all(
+        categories.map(async (category) => {
+          const votesSnapshot = await withFirebaseRetry(() =>
+            getDocs(collection(db, VOTE_CATEGORIES_COLLECTION, category.id, VOTES_SUBCOLLECTION)),
+          );
+          return votesSnapshot.docs.map((item) => voteRecordFromDoc(category.id, item.id, item.data()));
+        }),
+      );
+
+      onNext({ categories, votes: votesByCategory.flat() });
+    } catch (error) {
+      onError(friendlyFirebaseError(error));
+    }
+  };
+  void load();
+  const interval = createVisiblePolling(load);
+  return () => window.clearInterval(interval);
+};
+
+export const addVoteCategory = async (profile: UserProfile, draft: VoteCategoryDraft) => {
+  const title = cleanDisplayName(draft.title).slice(0, 80);
+  const description = cleanDisplayName(draft.description).slice(0, 180);
+  const id = makeId('vote');
+  const createdAt = new Date().toISOString();
+
+  if (!title) throw new Error('Hãy nhập tên hạng mục bình chọn.');
+
+  await withFirebaseRetry(() =>
+    setDoc(doc(db, VOTE_CATEGORIES_COLLECTION, id), {
+      uid: profile.uid,
+      name: profile.name,
+      nameKey: profile.nameKey,
+      className: CLASS_NAME,
+      title,
+      description,
+      tone: draft.tone,
+      icon: draft.icon.slice(0, 24),
+      hidden: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }),
+  );
+
+  return {
+    id,
+    uid: profile.uid,
+    name: profile.name,
+    nameKey: profile.nameKey,
+    title,
+    description,
+    tone: draft.tone,
+    icon: draft.icon.slice(0, 24),
+    hidden: false,
+    createdAt,
+  };
+};
+
+export const hideVoteCategory = async (profile: UserProfile, category: VoteCategory) => {
+  if (category.uid !== profile.uid) {
+    throw new Error('Chỉ người tạo hạng mục mới có thể ẩn hạng mục này.');
+  }
+
+  await withFirebaseRetry(() =>
+    updateDoc(doc(db, VOTE_CATEGORIES_COLLECTION, category.id), {
+      hidden: true,
+      hiddenAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }),
+  );
+};
+
+export const castVote = async (profile: UserProfile, category: VoteCategory, target: ClassmateProfile) => {
+  if (!target.uid || !target.nameKey) throw new Error('Bạn cần chọn đúng một bạn trong lớp để vote.');
+
+  const now = new Date().toISOString();
+  await withFirebaseRetry(() =>
+    setDoc(doc(db, VOTE_CATEGORIES_COLLECTION, category.id, VOTES_SUBCOLLECTION, profile.uid), {
+      categoryId: category.id,
+      voterUid: profile.uid,
+      voterName: profile.name,
+      voterNameKey: profile.nameKey,
+      targetUid: target.uid,
+      targetName: target.name,
+      targetNameKey: target.nameKey,
+      className: CLASS_NAME,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }),
+  );
+
+  return {
+    id: profile.uid,
+    categoryId: category.id,
+    voterUid: profile.uid,
+    voterName: profile.name,
+    voterNameKey: profile.nameKey,
+    targetUid: target.uid,
+    targetName: target.name,
+    targetNameKey: target.nameKey,
+    createdAt: now,
+    updatedAt: now,
+  };
 };
 
 export const hasStudentMemory = async (profile: UserProfile) => {

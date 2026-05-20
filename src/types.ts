@@ -1,4 +1,4 @@
-export type AppRoute = 'landing' | 'join' | 'home' | 'letters' | 'remember' | 'diary' | 'photobook';
+export type AppRoute = 'landing' | 'join' | 'home' | 'letters' | 'remember' | 'diary' | 'photobook' | 'people' | 'votes';
 
 export type PhotoCount = 1 | 2 | 4 | 6;
 
@@ -29,6 +29,12 @@ export interface ClassmateProfile {
   name: string;
   nameKey: string;
   className: string;
+  avatarDataUrl?: string;
+  nickname?: string;
+  quote?: string;
+  classMessage?: string;
+  personalityTags: string[];
+  profileUpdatedAt?: string;
 }
 
 export interface MemoryItem {
@@ -36,6 +42,7 @@ export interface MemoryItem {
   uid?: string;
   source?: 'seed' | 'firebase';
   name: string;
+  nameKey?: string;
   className: string;
   caption: string;
   hashtags: string[];
@@ -153,4 +160,48 @@ export interface RememberNoteDraft {
   toNameKey: string;
   message: string;
   anonymous: boolean;
+}
+
+export type VoteCategoryTone = 'pink' | 'blue' | 'cream' | 'chalk';
+
+export interface VoteCategory {
+  id: string;
+  uid: string;
+  name: string;
+  nameKey: string;
+  title: string;
+  description: string;
+  tone: VoteCategoryTone;
+  icon: string;
+  createdAt: string;
+  hidden?: boolean;
+  hiddenAt?: string;
+}
+
+export interface VoteRecord {
+  id: string;
+  categoryId: string;
+  voterUid: string;
+  voterName: string;
+  voterNameKey: string;
+  targetUid: string;
+  targetName: string;
+  targetNameKey: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface YouthProfileDraft {
+  avatarDataUrl?: string;
+  nickname: string;
+  quote: string;
+  classMessage: string;
+  personalityTags: string[];
+}
+
+export interface VoteCategoryDraft {
+  title: string;
+  description: string;
+  tone: VoteCategoryTone;
+  icon: string;
 }
