@@ -112,6 +112,7 @@ The manager page can:
 - Add a new account
 - Soft-delete/lock an account from the app
 - View Nhật ký bí mật entries with the real writer name
+- View and delete all posted memories from `memories98` and `privateMemories98`, including short video posts
 
 Because this is a no-server static site, the manager code is client-side. Change it in both `public/manager.html` and `firestore.rules` before sharing widely.
 

@@ -179,6 +179,16 @@
         color: var(--green);
       }
 
+      .pill.pink {
+        background: rgba(247, 183, 199, 0.34);
+        color: #9d3b4b;
+      }
+
+      .pill.dark {
+        background: rgba(53, 41, 31, 0.12);
+        color: var(--ink);
+      }
+
       .memory-item {
         display: grid;
         grid-template-columns: 104px minmax(0, 1fr);
@@ -191,6 +201,23 @@
         border-radius: 8px;
         object-fit: cover;
         background: rgba(53, 41, 31, 0.12);
+      }
+
+      .memory-thumb-wrap {
+        position: relative;
+        min-width: 0;
+      }
+
+      .memory-thumb-badge {
+        position: absolute;
+        left: 6px;
+        top: 6px;
+        border-radius: 999px;
+        background: rgba(53, 41, 31, 0.82);
+        color: var(--paper);
+        padding: 4px 7px;
+        font-size: 11px;
+        font-weight: 900;
       }
 
       .memory-body {
@@ -270,8 +297,13 @@
           </section>
 
           <section class="card" style="grid-column: 1 / -1">
-            <h2>Ảnh đã đăng lên feed lớp</h2>
-            <p class="muted" style="margin-bottom: 12px">Manager có thể xóa ảnh photobook đã đăng. Ảnh bị xóa sẽ biến mất khỏi trang Home.</p>
+            <h2>Ảnh / video đã đăng</h2>
+            <p class="muted" style="margin-bottom: 12px">
+              Manager có thể xóa ảnh photobook và video ngắn đã đăng. Kỷ niệm bị xóa sẽ biến mất khỏi trang Home.
+            </p>
+            <p class="muted" style="margin-bottom: 12px">
+              Manager sẽ tải cả kỷ niệm công khai, riêng tư và chọn người xem để bạn quản lý tập trung.
+            </p>
             <p id="memoryStatus" class="status"></p>
             <div id="memories" class="list"></div>
           </section>
@@ -313,6 +345,9 @@
       const MANAGER_KEY = 'lmt1102011';
       const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
       const CLASS_NAME = '9/8';
+      const PUBLIC_MEMORIES_COLLECTION = 'memories98';
+      const PRIVATE_MEMORIES_COLLECTION = 'privateMemories98';
+      const MEMORY_VIDEO_CHUNKS_COLLECTION = 'memoryVideoChunks98';
 
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
@@ -348,6 +383,14 @@
         const date = value.toDate ? value.toDate() : new Date(value);
         return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
       };
+
+      const formatVisibility = (value) => {
+        if (value === 'private') return 'Chỉ mình tôi';
+        if (value === 'tagged') return 'Chọn người xem';
+        return 'Công khai';
+      };
+
+      const getMemoryKey = (memory) => `${memory.collectionName || PUBLIC_MEMORIES_COLLECTION}:${memory.id}`;
 
       const escapeHtml = (value) =>
         String(value || '')
@@ -448,6 +491,46 @@
             .join('') || '<p class="muted">Chưa có ảnh nào được đăng lên feed lớp.</p>';
       };
 
+      const renderAllMemories = () => {
+        $('memories').innerHTML =
+          memories
+            .map((memory) => {
+              const key = getMemoryKey(memory);
+              const isVideo = memory.mediaType === 'video';
+              const visibility = memory.visibility || 'public';
+              const viewerNames = Array.isArray(memory.visibleToNames) ? memory.visibleToNames.filter(Boolean) : [];
+
+              return `
+                <article class="item memory-item">
+                  <div class="memory-thumb-wrap">
+                    <img class="memory-thumb" src="${escapeHtml(memory.imageUrl || '')}" alt="Ky niem cua ${escapeHtml(memory.name || 'hoc sinh')}" loading="lazy" decoding="async" />
+                    <span class="memory-thumb-badge">${isVideo ? 'Video' : 'Anh'}</span>
+                  </div>
+                  <div class="memory-body">
+                    <div class="row">
+                      <strong>${escapeHtml(memory.name || 'Khong ro ten')}</strong>
+                      <span class="pill">${formatDate(memory.createdAt)}</span>
+                      <span class="pill ${visibility === 'public' ? '' : 'pink'}">${formatVisibility(visibility)}</span>
+                      <span class="pill dark">${Number(memory.reactions || 0)} tim</span>
+                    </div>
+                    <p class="muted">Collection: ${escapeHtml(memory.collectionName || PUBLIC_MEMORIES_COLLECTION)} | Lop ${escapeHtml(memory.className || CLASS_NAME)} | UID: ${escapeHtml(memory.uid || '')}</p>
+                    ${
+                      visibility === 'tagged'
+                        ? `<p class="muted">Nguoi duoc xem: ${escapeHtml(viewerNames.join(', ') || 'Chua co ten hien thi')}</p>`
+                        : ''
+                    }
+                    <p class="memory-caption">${escapeHtml(memory.caption || '')}</p>
+                    <p class="muted">${Array.isArray(memory.hashtags) ? memory.hashtags.map((tag) => `#${escapeHtml(tag)}`).join(' ') : ''}</p>
+                    <div class="row" style="margin-top: 10px">
+                      <button class="danger" data-memory-action="delete" data-key="${escapeHtml(key)}">Xoa ${isVideo ? 'video' : 'anh'}</button>
+                    </div>
+                  </div>
+                </article>
+              `;
+            })
+            .join('') || '<p class="muted">Chua co ky niem nao duoc dang len feed lop.</p>';
+      };
+
       $('accounts').addEventListener('click', async (event) => {
         const button = event.target.closest('button[data-action]');
         if (!button) return;
@@ -460,6 +543,54 @@
           managerUpdatedAt: serverTimestamp(),
         });
         await refreshManagerData();
+      });
+
+      const deleteMemoryVideoChunks = async (memoryId) => {
+        const chunkSnapshot = await getDocs(collection(db, MEMORY_VIDEO_CHUNKS_COLLECTION, memoryId, 'chunks'));
+        await Promise.all(
+          chunkSnapshot.docs.map(async (item) => {
+            const chunkRef = doc(db, MEMORY_VIDEO_CHUNKS_COLLECTION, memoryId, 'chunks', item.id);
+            await updateDoc(chunkRef, {
+              managerKey: MANAGER_KEY,
+              managerDeletedAt: serverTimestamp(),
+            });
+            await deleteDoc(chunkRef);
+          }),
+        );
+      };
+
+      $('memories').addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-memory-action="delete"][data-key]');
+        if (!button) return;
+        event.stopImmediatePropagation();
+
+        const key = button.dataset.key;
+        const memory = memories.find((item) => getMemoryKey(item) === key);
+        if (!memory) return;
+
+        const collectionName = memory.collectionName || PUBLIC_MEMORIES_COLLECTION;
+        const mediaLabel = memory.mediaType === 'video' ? 'video' : 'anh';
+        if (!window.confirm(`Xoa ${mediaLabel} da dang cua ${memory.name || 'hoc sinh nay'} khoi feed lop?`)) return;
+
+        button.disabled = true;
+        button.textContent = 'Dang xoa...';
+        try {
+          await updateDoc(doc(db, collectionName, memory.id), {
+            managerKey: MANAGER_KEY,
+            managerDeletedAt: serverTimestamp(),
+          });
+          if (memory.mediaType === 'video') {
+            await deleteMemoryVideoChunks(memory.id);
+          }
+          await deleteDoc(doc(db, collectionName, memory.id));
+          memories = memories.filter((item) => getMemoryKey(item) !== key);
+          renderAllMemories();
+          memoryStatus.textContent = 'Da xoa ky niem khoi feed lop.';
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = `Xoa ${mediaLabel}`;
+          memoryStatus.textContent = error.message || 'Khong the xoa ky niem luc nay.';
+        }
       });
 
       $('memories').addEventListener('click', async (event) => {
@@ -528,18 +659,28 @@
         isLoadingManagerData = true;
 
         try {
-          const [accountSnapshot, diarySnapshot, memorySnapshot] = await Promise.all([
+          const [accountSnapshot, diarySnapshot, publicMemorySnapshot, privateMemorySnapshot] = await Promise.all([
             getDocs(query(collection(db, 'students98'), orderBy('name'))),
             getDocs(query(collection(db, 'secretMailboxPrivate98'), orderBy('createdAt', 'desc'))),
-            getDocs(query(collection(db, 'memories98'), orderBy('createdAt', 'desc'))),
+            getDocs(query(collection(db, PUBLIC_MEMORIES_COLLECTION), orderBy('createdAt', 'desc'))),
+            getDocs(query(collection(db, PRIVATE_MEMORIES_COLLECTION), orderBy('createdAt', 'desc'))),
           ]);
 
           accounts = accountSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
           diaries = diarySnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
-          memories = memorySnapshot.docs.map((item) => ({ id: item.id, ...item.data() })).filter((item) => item.imageUrl);
+          memories = [
+            ...publicMemorySnapshot.docs.map((item) => ({ id: item.id, collectionName: PUBLIC_MEMORIES_COLLECTION, ...item.data() })),
+            ...privateMemorySnapshot.docs.map((item) => ({ id: item.id, collectionName: PRIVATE_MEMORIES_COLLECTION, ...item.data() })),
+          ]
+            .filter((item) => item.imageUrl)
+            .sort((left, right) => {
+              const leftDate = left.createdAt?.toDate ? left.createdAt.toDate() : new Date(left.createdAt || 0);
+              const rightDate = right.createdAt?.toDate ? right.createdAt.toDate() : new Date(right.createdAt || 0);
+              return rightDate.getTime() - leftDate.getTime();
+            });
           renderAccounts();
           renderDiaries();
-          renderMemories();
+          renderAllMemories();
         } catch (error) {
           status.textContent = error.message || 'Không thể tải dữ liệu manager.';
         } finally {

@@ -6,6 +6,10 @@ export type LayoutType = 'vertical' | 'square' | 'horizontal';
 
 export type ExportQuality = '1080p' | '2k' | '4k';
 
+export type MemoryMediaType = 'image' | 'video';
+
+export type MemoryVisibility = 'public' | 'private' | 'tagged';
+
 export type PhotobookMoodId =
   | 'classic-default'
   | 'clear-youth'
@@ -41,12 +45,22 @@ export interface MemoryItem {
   id: string;
   uid?: string;
   source?: 'seed' | 'firebase';
+  storageCollection?: 'memories98' | 'privateMemories98';
   name: string;
   nameKey?: string;
   className: string;
   caption: string;
   hashtags: string[];
+  mediaType: MemoryMediaType;
   imageUrl: string;
+  videoChunked?: boolean;
+  videoMimeType?: string;
+  videoSize?: number;
+  videoDuration?: number;
+  visibility?: MemoryVisibility;
+  visibleToUids?: string[];
+  visibleToNameKeys?: string[];
+  visibleToNames?: string[];
   createdAt: string;
   reactions: number;
   likedBy: string[];
@@ -121,9 +135,18 @@ export interface GeneratedPhotobook {
 }
 
 export interface PublishMemoryDraft {
+  mediaType?: MemoryMediaType;
   imageDataUrl: string;
+  videoDataUrl?: string;
+  videoMimeType?: string;
+  videoSize?: number;
+  videoDuration?: number;
   caption: string;
   hashtags: string[];
+  visibility?: MemoryVisibility;
+  visibleToUids?: string[];
+  visibleToNameKeys?: string[];
+  visibleToNames?: string[];
 }
 
 export interface SecretDiaryEntry {

@@ -48,6 +48,8 @@ export const CLASS_NAME = '9/8';
 
 const STUDENTS_COLLECTION = 'students98';
 const MEMORIES_COLLECTION = 'memories98';
+const PRIVATE_MEMORIES_COLLECTION = 'privateMemories98';
+const MEMORY_VIDEO_CHUNKS_COLLECTION = 'memoryVideoChunks98';
 const MEMORY_COMMENTS_COLLECTION = 'memoryComments98';
 const GUESTBOOK_COLLECTION = 'guestbook98';
 const SECRET_MAILBOX_PRIVATE_COLLECTION = 'secretMailboxPrivate98';
@@ -234,16 +236,33 @@ const profileFromData = (id: string, data: DocumentData, user?: User | null): Us
   joinedAt: timestampToIso(data.createdAt),
 });
 
-const memoryFromDoc = (id: string, data: DocumentData): MemoryItem => ({
+const memoryCollectionForItem = (memory: MemoryItem) =>
+  memory.storageCollection === PRIVATE_MEMORIES_COLLECTION ? PRIVATE_MEMORIES_COLLECTION : MEMORIES_COLLECTION;
+
+const memoryFromDoc = (
+  id: string,
+  data: DocumentData,
+  storageCollection: 'memories98' | 'privateMemories98' = MEMORIES_COLLECTION,
+): MemoryItem => ({
   id,
   uid: String(data.uid || ''),
   source: 'firebase',
+  storageCollection,
   name: String(data.name || 'Classmate'),
   nameKey: String(data.nameKey || ''),
   className: String(data.className || CLASS_NAME),
   caption: String(data.caption || ''),
   hashtags: Array.isArray(data.hashtags) ? data.hashtags.map(String).slice(0, 6) : [],
+  mediaType: data.mediaType === 'video' ? 'video' : 'image',
   imageUrl: String(data.imageUrl || ''),
+  videoChunked: Boolean(data.videoChunked),
+  videoMimeType: data.videoMimeType ? String(data.videoMimeType) : undefined,
+  videoSize: Number(data.videoSize || 0),
+  videoDuration: Number(data.videoDuration || 0),
+  visibility: data.visibility === 'private' || data.visibility === 'tagged' ? data.visibility : 'public',
+  visibleToUids: Array.isArray(data.visibleToUids) ? data.visibleToUids.map(String).slice(0, 80) : [],
+  visibleToNameKeys: Array.isArray(data.visibleToNameKeys) ? data.visibleToNameKeys.map(String).slice(0, 80) : [],
+  visibleToNames: Array.isArray(data.visibleToNames) ? data.visibleToNames.map(String).slice(0, 80) : [],
   createdAt: timestampToIso(data.createdAt),
   reactions: Number(data.reactions || 0),
   likedBy: Array.isArray(data.likedBy) ? data.likedBy.map(String).slice(0, 500) : [],
@@ -471,6 +490,7 @@ export const observeStudentSession = (onProfile: (profile: UserProfile | null) =
   });
 
 export const subscribeMemories = (
+  profile: UserProfile | null,
   onNext: (memories: MemoryItem[]) => void,
   onError: (error: Error) => void,
 ) => {
@@ -478,7 +498,31 @@ export const subscribeMemories = (
   const load = async () => {
     try {
       const snapshot = await withFirebaseRetry(() => getDocs(memoriesQuery));
-      onNext(snapshot.docs.map((item) => memoryFromDoc(item.id, item.data())).filter((item) => item.imageUrl));
+      let memories = snapshot.docs
+        .map((item) => memoryFromDoc(item.id, item.data(), MEMORIES_COLLECTION))
+        .filter((item) => item.imageUrl);
+
+      if (profile) {
+        const ownPrivateQuery = query(collection(db, PRIVATE_MEMORIES_COLLECTION), where('uid', '==', profile.uid), limit(48));
+        const taggedPrivateQuery = query(
+          collection(db, PRIVATE_MEMORIES_COLLECTION),
+          where('visibleToUids', 'array-contains', profile.uid),
+          limit(48),
+        );
+        const [ownSnapshot, taggedSnapshot] = await Promise.all([
+          withFirebaseRetry(() => getDocs(ownPrivateQuery)),
+          withFirebaseRetry(() => getDocs(taggedPrivateQuery)),
+        ]);
+        const privateItems = [...ownSnapshot.docs, ...taggedSnapshot.docs]
+          .map((item) => memoryFromDoc(item.id, item.data(), PRIVATE_MEMORIES_COLLECTION))
+          .filter((item) => item.imageUrl);
+        const byId = new Map<string, MemoryItem>();
+        [...privateItems, ...memories].forEach((item) => byId.set(`${item.storageCollection}:${item.id}`, item));
+        memories = Array.from(byId.values());
+      }
+
+      memories.sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+      onNext(memories.slice(0, 96));
     } catch (error) {
       onError(friendlyFirebaseError(error));
     }
@@ -630,15 +674,34 @@ export const subscribeSentRememberNotes = (
 
 export const publishMemoryToFirebase = async (profile: UserProfile, draft: PublishMemoryDraft) => {
   const id = makeId('memory');
+  const visibility = draft.visibility === 'private' || draft.visibility === 'tagged' ? draft.visibility : 'public';
+  const collectionName = visibility === 'public' ? MEMORIES_COLLECTION : PRIVATE_MEMORIES_COLLECTION;
+  const visibleToUids = visibility === 'tagged' ? (draft.visibleToUids || []).filter(Boolean).slice(0, 30) : [];
+  const visibleToNameKeys = visibility === 'tagged' ? (draft.visibleToNameKeys || []).filter(Boolean).slice(0, 30) : [];
+  const visibleToNames = visibility === 'tagged' ? (draft.visibleToNames || []).filter(Boolean).slice(0, 30) : [];
+  const mediaType = draft.mediaType === 'video' ? 'video' : 'image';
 
-  await withFirebaseRetry(() => setDoc(doc(db, MEMORIES_COLLECTION, id), {
+  if (visibility === 'tagged' && !visibleToUids.length) {
+    throw new Error('Hãy chọn ít nhất một bạn được xem kỷ niệm này.');
+  }
+
+  await withFirebaseRetry(() => setDoc(doc(db, collectionName, id), {
     uid: profile.uid,
     name: profile.name,
     nameKey: profile.nameKey,
     className: CLASS_NAME,
     caption: draft.caption,
     hashtags: draft.hashtags,
+    mediaType,
     imageUrl: draft.imageDataUrl,
+    videoChunked: mediaType === 'video',
+    videoMimeType: mediaType === 'video' ? draft.videoMimeType || 'video/mp4' : '',
+    videoSize: mediaType === 'video' ? Number(draft.videoSize || 0) : 0,
+    videoDuration: mediaType === 'video' ? Number(draft.videoDuration || 0) : 0,
+    visibility,
+    visibleToUids,
+    visibleToNameKeys,
+    visibleToNames,
     reactions: 0,
     likedBy: [],
     rotation: Math.round((Math.random() * 5 - 2.5) * 10) / 10,
@@ -646,6 +709,48 @@ export const publishMemoryToFirebase = async (profile: UserProfile, draft: Publi
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }));
+
+  if (mediaType === 'video' && draft.videoDataUrl) {
+    const [prefixPart, base64Part = ''] = draft.videoDataUrl.split(',');
+    const prefix = `${prefixPart},`;
+    const chunkSize = 650_000;
+    const chunks = base64Part.match(new RegExp(`.{1,${chunkSize}}`, 'g')) || [];
+
+    await Promise.all(
+      chunks.map((chunk, index) =>
+        withFirebaseRetry(() =>
+          setDoc(doc(db, MEMORY_VIDEO_CHUNKS_COLLECTION, id, 'chunks', String(index).padStart(4, '0')), {
+            memoryId: id,
+            memoryCollection: collectionName,
+            uid: profile.uid,
+            visibility,
+            visibleToUids,
+            index,
+            total: chunks.length,
+            prefix: index === 0 ? prefix : '',
+            data: chunk,
+            createdAt: serverTimestamp(),
+          }),
+        ),
+      ),
+    );
+  }
+};
+
+export const loadMemoryVideoDataUrl = async (memory: MemoryItem) => {
+  if (memory.mediaType !== 'video' || !memory.videoChunked) {
+    throw new Error('Kỷ niệm này không có video để tải.');
+  }
+
+  const chunksQuery = query(collection(db, MEMORY_VIDEO_CHUNKS_COLLECTION, memory.id, 'chunks'), orderBy('index'));
+  const snapshot = await withFirebaseRetry(() => getDocs(chunksQuery));
+  const chunks = snapshot.docs
+    .map((item) => item.data())
+    .sort((left, right) => Number(left.index || 0) - Number(right.index || 0));
+  const prefix = String(chunks[0]?.prefix || `data:${memory.videoMimeType || 'video/mp4'};base64,`);
+  const body = chunks.map((item) => String(item.data || '')).join('');
+  if (!body) throw new Error('Không thể tải video này lúc này.');
+  return `${prefix}${body}`;
 };
 
 export const reactToFirebaseMemory = async (profile: UserProfile, memory: MemoryItem) => {
@@ -654,7 +759,7 @@ export const reactToFirebaseMemory = async (profile: UserProfile, memory: Memory
     throw new Error('Bạn đã thả tim ảnh này rồi.');
   }
 
-  await withFirebaseRetry(() => updateDoc(doc(db, MEMORIES_COLLECTION, memory.id), {
+  await withFirebaseRetry(() => updateDoc(doc(db, memoryCollectionForItem(memory), memory.id), {
     reactions: increment(1),
     likedBy: arrayUnion(profile.uid),
     updatedAt: serverTimestamp(),
@@ -664,6 +769,10 @@ export const reactToFirebaseMemory = async (profile: UserProfile, memory: Memory
 export const addMemoryComment = async (profile: UserProfile, memory: MemoryItem, message: string) => {
   if (memory.source !== 'firebase') {
     throw new Error('Chỉ ảnh đã đăng lên Firebase mới có thể bình luận.');
+  }
+
+  if (memory.visibility && memory.visibility !== 'public') {
+    throw new Error('Bình luận chỉ bật cho kỷ niệm công khai.');
   }
 
   const safeMessage = message.trim().slice(0, 240);
@@ -705,7 +814,18 @@ export const deleteFirebaseMemory = async (profile: UserProfile, memory: MemoryI
     throw new Error('Bạn chỉ có thể xóa ảnh do chính mình đăng.');
   }
 
-  await withFirebaseRetry(() => deleteDoc(doc(db, MEMORIES_COLLECTION, memory.id)));
+  await withFirebaseRetry(() => deleteDoc(doc(db, memoryCollectionForItem(memory), memory.id)));
+
+  if (memory.mediaType === 'video') {
+    const chunksSnapshot = await withFirebaseRetry(() =>
+      getDocs(collection(db, MEMORY_VIDEO_CHUNKS_COLLECTION, memory.id, 'chunks')),
+    );
+    await Promise.all(
+      chunksSnapshot.docs.map((chunk) =>
+        withFirebaseRetry(() => deleteDoc(doc(db, MEMORY_VIDEO_CHUNKS_COLLECTION, memory.id, 'chunks', chunk.id))),
+      ),
+    );
+  }
 };
 
 export const addGuestbookEntry = async (profile: UserProfile, message: string) => {

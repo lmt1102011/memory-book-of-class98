@@ -1,4 +1,4 @@
-import { Heart, MessageCircle, Send, Trash2 } from 'lucide-react';
+import { Heart, Lock, MessageCircle, Send, Trash2, Video } from 'lucide-react';
 import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { MemoryComment, MemoryItem, UserProfile } from '../types';
 import { formatUploadTime } from '../utils/date';
@@ -44,6 +44,7 @@ function MemoryCard({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   const hasLiked = Boolean(profile?.uid && memory.likedBy.includes(profile.uid));
+  const commentsEnabled = memory.visibility !== 'private' && memory.visibility !== 'tagged';
   const visibleComments = useMemo(() => (commentsOpen ? comments : comments.slice(0, 2)), [comments, commentsOpen]);
 
   useEffect(() => {
@@ -68,7 +69,7 @@ function MemoryCard({
   );
 
   const handleDelete = useCallback(() => {
-    if (!window.confirm('Xóa ảnh photobook này khỏi feed lớp?')) return;
+    if (!window.confirm(`Xóa ${memory.mediaType === 'video' ? 'video' : 'ảnh'} kỷ niệm này khỏi feed lớp?`)) return;
     void onDelete?.(memory);
   }, [memory, onDelete]);
 
@@ -84,7 +85,7 @@ function MemoryCard({
           type="button"
           className="relative block aspect-[4/5] w-full overflow-hidden rounded-[0.35rem] bg-paper text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coffee"
           onClick={() => onOpenImage(memory)}
-          aria-label={`Xem ảnh kỷ niệm của ${memory.name} rõ hơn`}
+          aria-label={`Xem ${memory.mediaType === 'video' ? 'video' : 'ảnh'} kỷ niệm của ${memory.name} rõ hơn`}
         >
           {!imageLoaded && !imageFailed && (
             <span className="memory-image-placeholder absolute inset-0 z-0" aria-hidden="true" />
@@ -96,13 +97,25 @@ function MemoryCard({
           )}
           <img
             src={memory.imageUrl}
-            alt={`Ký ức học trò của ${memory.name}`}
+            alt={`Kỷ niệm học trò của ${memory.name}`}
             loading="lazy"
             decoding="async"
             onLoad={() => setImageLoaded(true)}
             onError={() => setImageFailed(true)}
             className="relative z-[1] h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.025]"
           />
+          {memory.mediaType === 'video' && (
+            <span className="absolute left-2 top-2 z-[3] inline-flex items-center gap-1 rounded-full bg-ink/76 px-2.5 py-1 text-[11px] font-black text-paper shadow-sm">
+              <Video size={12} />
+              Video
+            </span>
+          )}
+          {memory.visibility && memory.visibility !== 'public' && (
+            <span className="absolute bottom-2 left-2 z-[3] inline-flex items-center gap-1 rounded-full bg-paper/90 px-2.5 py-1 text-[11px] font-black text-coffee shadow-sm">
+              <Lock size={12} />
+              {memory.visibility === 'private' ? 'Riêng tư' : 'Chọn người xem'}
+            </span>
+          )}
         </button>
       </div>
 
@@ -155,24 +168,26 @@ function MemoryCard({
               <button
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-coffee/10 text-coffee transition hover:bg-coffee/18"
                 onClick={handleDelete}
-                aria-label="Xóa ảnh đã đăng"
-                title="Xóa ảnh đã đăng"
+                aria-label={`Xóa ${memory.mediaType === 'video' ? 'video' : 'ảnh'} đã đăng`}
+                title={`Xóa ${memory.mediaType === 'video' ? 'video' : 'ảnh'} đã đăng`}
               >
                 <Trash2 size={14} />
               </button>
             )}
             <button
               className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-ink/5 px-3 text-xs font-bold text-ink/60 transition hover:bg-ink/10"
-              onClick={() => setCommentsOpen((open) => !open)}
+              onClick={() => commentsEnabled && setCommentsOpen((open) => !open)}
               aria-expanded={commentsOpen}
+              disabled={!commentsEnabled}
+              title={commentsEnabled ? 'Bình luận' : 'Bình luận tắt cho kỷ niệm riêng tư'}
             >
               <MessageCircle size={14} />
-              {comments.length} bình luận
+              {commentsEnabled ? `${comments.length} bình luận` : 'Riêng tư'}
             </button>
           </div>
         </div>
 
-        {(commentsOpen || comments.length > 0) && (
+        {commentsEnabled && (commentsOpen || comments.length > 0) && (
           <div className="mt-3 rounded-[0.75rem] bg-white/46 p-3 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.08)]">
             <div className="grid gap-2">
               {visibleComments.map((comment) => {

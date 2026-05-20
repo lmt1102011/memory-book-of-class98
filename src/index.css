@@ -362,6 +362,141 @@
     color: inherit;
   }
 
+  .memory-privacy-box {
+    border-radius: 1rem;
+    border: 1px solid rgba(122, 86, 57, 0.1);
+    background: rgba(255, 250, 241, 0.68);
+    padding: 0.85rem;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  }
+
+  .memory-privacy-box-compact {
+    padding: 0.72rem;
+    background: rgba(255, 255, 255, 0.52);
+  }
+
+  .memory-privacy-options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.55rem;
+  }
+
+  .memory-privacy-box-compact .memory-privacy-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .memory-privacy-option {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    gap: 0.5rem;
+    border-radius: 0.82rem;
+    background: rgba(255, 255, 255, 0.64);
+    padding: 0.62rem;
+    text-align: left;
+    color: rgba(53, 41, 31, 0.72);
+    box-shadow: inset 0 0 0 1px rgba(122, 86, 57, 0.08);
+    transition:
+      background-color 160ms ease,
+      color 160ms ease,
+      transform 160ms ease;
+  }
+
+  .memory-privacy-option:hover {
+    transform: translate3d(0, -1px, 0);
+  }
+
+  .memory-privacy-option-active {
+    background: #385b58;
+    color: #fffaf1;
+  }
+
+  .memory-privacy-icon {
+    display: grid;
+    flex: 0 0 auto;
+    width: 1.55rem;
+    height: 1.55rem;
+    place-items: center;
+    border-radius: 999px;
+    background: rgba(122, 86, 57, 0.1);
+  }
+
+  .memory-privacy-option-active .memory-privacy-icon {
+    background: rgba(255, 250, 241, 0.16);
+  }
+
+  .memory-privacy-option strong,
+  .memory-privacy-option small {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .memory-privacy-option strong {
+    font-size: 0.76rem;
+    font-weight: 950;
+    line-height: 1.15;
+  }
+
+  .memory-privacy-option small {
+    margin-top: 0.18rem;
+    font-size: 0.66rem;
+    font-weight: 750;
+    line-height: 1.35;
+    opacity: 0.72;
+  }
+
+  .memory-viewer-list {
+    display: flex;
+    gap: 0.45rem;
+    overflow-x: auto;
+    padding-bottom: 0.18rem;
+    scrollbar-width: none;
+  }
+
+  .memory-viewer-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .memory-viewer-chip {
+    display: inline-flex;
+    flex: 0 0 auto;
+    max-width: 11rem;
+    align-items: center;
+    gap: 0.42rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.68);
+    padding: 0.4rem 0.62rem;
+    color: rgba(53, 41, 31, 0.68);
+    font-size: 0.72rem;
+    font-weight: 900;
+    box-shadow: inset 0 0 0 1px rgba(122, 86, 57, 0.08);
+  }
+
+  .memory-viewer-chip-active {
+    background: rgba(247, 183, 199, 0.5);
+    color: #35291f;
+    box-shadow:
+      inset 0 0 0 1px rgba(122, 86, 57, 0.12),
+      0 8px 18px rgba(122, 86, 57, 0.08);
+  }
+
+  .memory-viewer-chip img {
+    width: 1.35rem;
+    height: 1.35rem;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    object-fit: cover;
+  }
+
+  .memory-viewer-chip span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .layout-preview {
     display: block;
     width: 100%;
@@ -1130,6 +1265,16 @@
         0 3px 8px rgba(53, 41, 31, 0.08);
     }
 
+    .memory-privacy-options,
+    .memory-privacy-box-compact .memory-privacy-options {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .memory-privacy-option {
+      align-items: center;
+      padding: 0.58rem;
+    }
+
     .layout-preview-footer {
       min-height: 0.3rem;
     }
@@ -1195,7 +1340,8 @@
     .icon-button:hover,
     .nav-pill:hover,
     .tag-button:hover,
-    .option-card:hover {
+    .option-card:hover,
+    .memory-privacy-option:hover {
       transform: none;
     }
 

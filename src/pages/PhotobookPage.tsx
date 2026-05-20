@@ -7,11 +7,15 @@ import {
   Download,
   ImagePlus,
   Layers,
+  Lock,
   RefreshCw,
   RotateCcw,
   Send,
   Sparkles,
   Upload,
+  UserRound,
+  Users,
+  Video,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, CSSProperties } from 'react';
@@ -28,9 +32,11 @@ import type {
   BackgroundEdit,
   BackgroundOption,
   CapturedPhoto,
+  ClassmateProfile,
   ExportQuality,
   GeneratedPhotobook,
   LayoutType,
+  MemoryVisibility,
   PhotobookMoodId,
   PhotobookConfig,
   PhotoCount,
@@ -49,6 +55,7 @@ import { makeFeedThumbnailDataUrl, renderPhotobook } from '../utils/photobookCan
 
 interface PhotobookPageProps {
   profile: UserProfile | null;
+  classmates: ClassmateProfile[];
   onJoinNeeded: () => void;
   onPublish: (draft: PublishMemoryDraft) => void | Promise<void>;
 }
@@ -56,6 +63,15 @@ interface PhotobookPageProps {
 type BoothStage = 'setup' | 'camera' | 'final';
 type CaptureSource = 'camera' | 'upload';
 type PhotoPreviewMode = 'original' | 'enhanced';
+
+interface VideoDraft {
+  dataUrl: string;
+  thumbnailDataUrl: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  duration: number;
+}
 
 const defaultBackgroundEdit: BackgroundEdit = {
   scale: 1,
@@ -103,6 +119,16 @@ const PHOTO_EDIT_CONTROLS: Array<{
   { key: 'vignette', label: 'Viền film', min: 0, max: 34, step: 1, suffix: '%' },
 ];
 
+const MAX_SHORT_VIDEO_BYTES = 8 * 1024 * 1024;
+const MAX_SHORT_VIDEO_SECONDS = 20;
+
+const formatVideoSize = (bytes: number) => {
+  if (!bytes) return '0MB';
+  return `${(bytes / (1024 * 1024)).toFixed(bytes > 1024 * 1024 ? 1 : 2)}MB`;
+};
+
+const formatVideoDuration = (seconds: number) => `${Math.max(1, Math.round(seconds || 0))}s`;
+
 const loadImageFromSource = (src: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
@@ -110,6 +136,56 @@ const loadImageFromSource = (src: string) =>
     image.onerror = reject;
     image.src = src;
   });
+
+const readFileAsDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+const loadVideoMetadata = (src: string) =>
+  new Promise<HTMLVideoElement>((resolve, reject) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
+    video.onloadedmetadata = () => resolve(video);
+    video.onerror = reject;
+    video.src = src;
+  });
+
+const makeVideoThumbnail = async (src: string) => {
+  const video = await loadVideoMetadata(src);
+  const seekTo = Math.min(Math.max(video.duration * 0.12, 0.1), 1.2);
+
+  await new Promise<void>((resolve) => {
+    const finish = () => resolve();
+    video.onseeked = finish;
+    video.currentTime = Number.isFinite(seekTo) ? seekTo : 0.1;
+    window.setTimeout(finish, 900);
+  });
+
+  const maxWidth = 920;
+  const aspect = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 16 / 9;
+  const width = Math.min(maxWidth, video.videoWidth || maxWidth);
+  const height = Math.round(width / aspect);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d', { alpha: false });
+  if (!ctx) throw new Error('Canvas is not supported in this browser.');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.fillStyle = '#35291f';
+  ctx.fillRect(0, 0, width, height);
+  ctx.drawImage(video, 0, 0, width, height);
+  return {
+    thumbnailDataUrl: canvas.toDataURL('image/jpeg', 0.84),
+    duration: Number.isFinite(video.duration) ? video.duration : 0,
+  };
+};
 
 const compressUploadedBackground = async (file: File) => {
   const objectUrl = URL.createObjectURL(file);
@@ -216,10 +292,11 @@ function OptionButton<T extends string | number>({
   );
 }
 
-export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: PhotobookPageProps) {
+export default function PhotobookPage({ profile, classmates, onJoinNeeded, onPublish }: PhotobookPageProps) {
   const webcamRef = useRef<Webcam>(null);
   const cameraStageRef = useRef<HTMLDivElement | null>(null);
   const photoUploadInputRef = useRef<HTMLInputElement | null>(null);
+  const videoUploadInputRef = useRef<HTMLInputElement | null>(null);
   const countdownFrame = useRef<number | null>(null);
   const [stage, setStage] = useState<BoothStage>('setup');
   const [captureSource, setCaptureSource] = useState<CaptureSource>('camera');
@@ -243,6 +320,14 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [generated, setGenerated] = useState<GeneratedPhotobook | null>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [memoryVisibility, setMemoryVisibility] = useState<MemoryVisibility>('public');
+  const [selectedViewerKeys, setSelectedViewerKeys] = useState<string[]>([]);
+  const [videoDraft, setVideoDraft] = useState<VideoDraft | null>(null);
+  const [videoCaption, setVideoCaption] = useState('');
+  const [videoHashtags, setVideoHashtags] = useState('graduation youth video');
+  const [videoError, setVideoError] = useState('');
+  const [isVideoPreparing, setIsVideoPreparing] = useState(false);
+  const [isVideoPublishing, setIsVideoPublishing] = useState(false);
   const mobilePerformanceMode = useMobilePerformanceMode();
 
   const selectedBackground = useMemo<BackgroundOption>(
@@ -255,6 +340,24 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   );
 
   const isPhotoBusy = isEnhancing || isApplyingPhotoEdits;
+  const selectableClassmates = useMemo(
+    () => classmates.filter((person) => person.uid && person.nameKey && person.uid !== profile?.uid),
+    [classmates, profile?.uid],
+  );
+  const selectedViewers = useMemo(
+    () => selectableClassmates.filter((person) => selectedViewerKeys.includes(person.nameKey)),
+    [selectableClassmates, selectedViewerKeys],
+  );
+  const privacyPayload = useMemo(
+    () => ({
+      visibility: memoryVisibility,
+      visibleToUids: memoryVisibility === 'tagged' ? selectedViewers.map((person) => person.uid).filter(Boolean) : [],
+      visibleToNameKeys: memoryVisibility === 'tagged' ? selectedViewers.map((person) => person.nameKey).filter(Boolean) : [],
+      visibleToNames: memoryVisibility === 'tagged' ? selectedViewers.map((person) => person.name).filter(Boolean) : [],
+    }),
+    [memoryVisibility, selectedViewers],
+  );
+  const canPublishWithPrivacy = memoryVisibility !== 'tagged' || selectedViewers.length > 0;
   const currentIndex = capturedPhotos.length + (pendingPhoto ? 1 : 0);
   const canCapture = stage === 'camera' && captureSource === 'camera' && !pendingPhoto && countdown === null && !isPhotoBusy;
   const canUploadPhoto =
@@ -338,6 +441,13 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
     }
   };
 
+  const toggleSelectedViewer = (nameKey: string) => {
+    setSelectedViewerKeys((current) => {
+      if (current.includes(nameKey)) return current.filter((key) => key !== nameKey);
+      return [...current, nameKey].slice(0, 12);
+    });
+  };
+
   const openCameraStage = async () => {
     setCaptureSource('camera');
     setStage('camera');
@@ -353,6 +463,49 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
     setCaptureSource('upload');
     setStage('camera');
     window.setTimeout(() => photoUploadInputRef.current?.click(), 120);
+  };
+
+  const handleUploadVideo = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    if (!file.type.startsWith('video/')) {
+      setVideoError('Hãy chọn một file video hợp lệ.');
+      return;
+    }
+
+    if (file.size > MAX_SHORT_VIDEO_BYTES) {
+      setVideoError('Video ngắn tối đa 8MB để web vẫn mượt trên điện thoại.');
+      return;
+    }
+
+    const objectUrlForVideo = URL.createObjectURL(file);
+    try {
+      setVideoError('');
+      setIsVideoPreparing(true);
+      const { thumbnailDataUrl, duration } = await makeVideoThumbnail(objectUrlForVideo);
+
+      if (duration > MAX_SHORT_VIDEO_SECONDS) {
+        setVideoError('Video tối đa 20 giây để tải nhanh và không làm nặng database.');
+        return;
+      }
+
+      const dataUrl = await readFileAsDataUrl(file);
+      setVideoDraft({
+        dataUrl,
+        thumbnailDataUrl,
+        name: file.name,
+        mimeType: file.type || 'video/mp4',
+        size: file.size,
+        duration,
+      });
+    } catch {
+      setVideoError('Không thể đọc video này. Hãy thử MP4/WebM ngắn hơn.');
+    } finally {
+      URL.revokeObjectURL(objectUrlForVideo);
+      setIsVideoPreparing(false);
+    }
   };
 
   const leaveCameraStage = () => {
@@ -516,6 +669,34 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
     }
   };
 
+  const handlePublishVideo = async () => {
+    if (!profile || !videoDraft) return;
+    if (!canPublishWithPrivacy) {
+      setVideoError('Hãy chọn ít nhất một bạn được xem video này.');
+      return;
+    }
+
+    try {
+      setIsVideoPublishing(true);
+      setVideoError('');
+      await onPublish({
+        mediaType: 'video',
+        imageDataUrl: videoDraft.thumbnailDataUrl,
+        videoDataUrl: videoDraft.dataUrl,
+        videoMimeType: videoDraft.mimeType,
+        videoSize: videoDraft.size,
+        videoDuration: videoDraft.duration,
+        caption: videoCaption.trim() || 'Một video ngắn từ những ngày tụi mình còn chung lớp.',
+        hashtags: parseHashtags(videoHashtags),
+        ...privacyPayload,
+      });
+    } catch (caught) {
+      setVideoError(caught instanceof Error ? caught.message : 'Không thể đăng video lúc này.');
+    } finally {
+      setIsVideoPublishing(false);
+    }
+  };
+
   const handleGenerate = async () => {
     if (!profile || capturedPhotos.length < config.photoCount) return;
     setIsGenerating(true);
@@ -538,6 +719,11 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
 
   const handlePublish = async () => {
     if (!profile || !generated || !objectUrl) return;
+    if (!canPublishWithPrivacy) {
+      setPublishError('Hãy chọn ít nhất một bạn được xem kỷ niệm này.');
+      return;
+    }
+
     try {
       setIsPublishing(true);
       setPublishError('');
@@ -546,6 +732,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
         imageDataUrl: thumbnail,
         caption: caption.trim() || 'Một strip photobook mới từ những ngày tụi mình sẽ giữ mãi.',
         hashtags: parseHashtags(hashtags),
+        ...privacyPayload,
       });
     } catch (caught) {
       setPublishError(caught instanceof Error ? caught.message : 'Không thể đăng photobook lúc này.');
@@ -600,6 +787,13 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
           type="file"
           accept="image/*"
           onChange={handleUploadPhoto}
+        />
+        <input
+          ref={videoUploadInputRef}
+          className="sr-only"
+          type="file"
+          accept="video/mp4,video/webm,video/quicktime,video/*"
+          onChange={handleUploadVideo}
         />
 
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -739,6 +933,104 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                 <Upload size={19} />
                 Upload ảnh có sẵn
               </button>
+
+              <div className="mt-4 rounded-[1rem] border border-coffee/10 bg-paper/70 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.74)]">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink text-paper">
+                    <Video size={18} />
+                  </span>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-black text-ink">Đăng video ngắn</h3>
+                    <p className="mt-1 text-xs leading-5 text-ink/58">
+                      Video tối đa 20 giây, 8MB. Web sẽ tạo ảnh bìa để feed vẫn tải nhanh.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  className="secondary-button mt-3 min-h-11 w-full justify-center text-sm"
+                  onClick={() => videoUploadInputRef.current?.click()}
+                  disabled={isVideoPreparing || isVideoPublishing}
+                >
+                  <Video size={17} />
+                  {isVideoPreparing ? 'Đang đọc video...' : videoDraft ? 'Đổi video' : 'Chọn video'}
+                </button>
+
+                {videoDraft && (
+                  <div className="mt-3 grid gap-3">
+                    <div className="relative overflow-hidden rounded-[0.8rem] bg-ink">
+                      <img
+                        src={videoDraft.thumbnailDataUrl}
+                        alt="Ảnh bìa video"
+                        className="aspect-video w-full object-cover opacity-95"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                      <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-ink/78 px-2.5 py-1 text-[11px] font-black text-paper">
+                        <Video size={12} />
+                        {formatVideoDuration(videoDraft.duration)} · {formatVideoSize(videoDraft.size)}
+                      </span>
+                    </div>
+
+                    <label className="block">
+                      <span className="mb-1.5 block text-xs font-bold uppercase text-coffee/70">Caption video</span>
+                      <textarea
+                        className="input-field min-h-20 resize-none text-sm"
+                        value={videoCaption}
+                        onChange={(event) => setVideoCaption(event.target.value.slice(0, 180))}
+                        placeholder="Một khoảnh khắc ngắn mà mình muốn giữ lại..."
+                        maxLength={180}
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="mb-1.5 block text-xs font-bold uppercase text-coffee/70">Hashtag</span>
+                      <input
+                        className="input-field text-sm"
+                        value={videoHashtags}
+                        onChange={(event) => setVideoHashtags(event.target.value)}
+                        placeholder="graduation youth video"
+                      />
+                    </label>
+
+                    <PrivacySelector
+                      compact
+                      visibility={memoryVisibility}
+                      onVisibilityChange={setMemoryVisibility}
+                      classmates={selectableClassmates}
+                      selectedKeys={selectedViewerKeys}
+                      selectedCount={selectedViewers.length}
+                      onToggleViewer={toggleSelectedViewer}
+                    />
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        className="secondary-button min-h-11 justify-center px-3 text-xs"
+                        onClick={() => {
+                          setVideoDraft(null);
+                          setVideoError('');
+                        }}
+                        disabled={isVideoPublishing}
+                      >
+                        <RefreshCw size={15} />
+                        Xóa video
+                      </button>
+                      <button
+                        className="primary-button min-h-11 justify-center px-3 text-xs"
+                        onClick={handlePublishVideo}
+                        disabled={isVideoPublishing || isVideoPreparing || !canPublishWithPrivacy}
+                      >
+                        <Send size={15} />
+                        {isVideoPublishing ? 'Đang đăng...' : 'Đăng video'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {videoError && (
+                  <p className="mt-3 rounded-xl bg-blush/30 px-3 py-2 text-xs font-bold text-coffee">{videoError}</p>
+                )}
+              </div>
             </aside>
           </div>
         )}
@@ -1031,6 +1323,17 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                 />
               </label>
 
+              <div className="mt-5">
+                <PrivacySelector
+                  visibility={memoryVisibility}
+                  onVisibilityChange={setMemoryVisibility}
+                  classmates={selectableClassmates}
+                  selectedKeys={selectedViewerKeys}
+                  selectedCount={selectedViewers.length}
+                  onToggleViewer={toggleSelectedViewer}
+                />
+              </div>
+
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <button className="primary-button justify-center" onClick={handleGenerate} disabled={isGenerating}>
                   <ImagePlus size={18} />
@@ -1102,6 +1405,16 @@ interface SetupGroupProps {
   children: React.ReactNode;
 }
 
+interface PrivacySelectorProps {
+  compact?: boolean;
+  visibility: MemoryVisibility;
+  onVisibilityChange: (visibility: MemoryVisibility) => void;
+  classmates: ClassmateProfile[];
+  selectedKeys: string[];
+  selectedCount: number;
+  onToggleViewer: (nameKey: string) => void;
+}
+
 interface PhotoEditPanelProps {
   mode: PhotoPreviewMode;
   canUseEnhanced: boolean;
@@ -1109,6 +1422,100 @@ interface PhotoEditPanelProps {
   onModeChange: (mode: PhotoPreviewMode) => void;
   onSettingChange: <K extends keyof PhotoEditSettings>(key: K, value: PhotoEditSettings[K]) => void;
   onReset: () => void;
+}
+
+function PrivacySelector({
+  compact = false,
+  visibility,
+  onVisibilityChange,
+  classmates,
+  selectedKeys,
+  selectedCount,
+  onToggleViewer,
+}: PrivacySelectorProps) {
+  const options = [
+    {
+      id: 'public' as const,
+      label: 'Công khai',
+      description: 'Hiện trên feed lớp 9/8',
+      icon: <Users size={15} />,
+    },
+    {
+      id: 'private' as const,
+      label: 'Chỉ mình tôi',
+      description: 'Chỉ bạn thấy khi đăng nhập',
+      icon: <Lock size={15} />,
+    },
+    {
+      id: 'tagged' as const,
+      label: 'Chọn bạn xem',
+      description: selectedCount ? `${selectedCount} bạn được xem` : 'Riêng tư với vài bạn',
+      icon: <UserRound size={15} />,
+    },
+  ];
+
+  return (
+    <div className={`memory-privacy-box ${compact ? 'memory-privacy-box-compact' : ''}`}>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase text-coffee/70">Quyền xem kỷ niệm</p>
+          <p className="mt-1 text-xs leading-5 text-ink/56">Bạn có thể đăng công khai hoặc giữ riêng cho mình.</p>
+        </div>
+        <Lock className="shrink-0 text-coffee/62" size={compact ? 16 : 18} />
+      </div>
+
+      <div className="memory-privacy-options">
+        {options.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            className={`memory-privacy-option ${visibility === option.id ? 'memory-privacy-option-active' : ''}`}
+            onClick={() => onVisibilityChange(option.id)}
+            aria-pressed={visibility === option.id}
+          >
+            <span className="memory-privacy-icon">{option.icon}</span>
+            <span className="min-w-0">
+              <strong>{option.label}</strong>
+              <small>{option.description}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {visibility === 'tagged' && (
+        <div className="mt-3">
+          {classmates.length ? (
+            <div className="memory-viewer-list">
+              {classmates.map((person) => {
+                const active = selectedKeys.includes(person.nameKey);
+                return (
+                  <button
+                    key={person.nameKey}
+                    type="button"
+                    className={`memory-viewer-chip ${active ? 'memory-viewer-chip-active' : ''}`}
+                    onClick={() => onToggleViewer(person.nameKey)}
+                    aria-pressed={active}
+                  >
+                    {person.avatarDataUrl ? (
+                      <img src={person.avatarDataUrl} alt="" loading="lazy" decoding="async" />
+                    ) : (
+                      <UserRound size={13} />
+                    )}
+                    <span>{person.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="rounded-xl bg-blush/25 px-3 py-2 text-xs font-bold text-coffee">
+              Chưa tải được danh sách lớp, hãy thử lại sau vài giây.
+            </p>
+          )}
+          <p className="mt-2 text-[11px] font-semibold text-ink/52">Tối đa 12 bạn để quyền xem dễ kiểm soát.</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function PhotoEditPanel({

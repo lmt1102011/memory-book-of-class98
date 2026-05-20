@@ -37,5 +37,7 @@ declare module 'lucide-react' {
   export const Trash2: LucideIcon;
   export const Upload: LucideIcon;
   export const UserRound: LucideIcon;
+  export const Users: LucideIcon;
+  export const Video: LucideIcon;
   export const X: LucideIcon;
 }

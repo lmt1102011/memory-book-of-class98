@@ -35,8 +35,47 @@ service cloud.firestore {
         : [];
     }
 
+    function isPublicMemoryResource() {
+      return !resource.data.keys().hasAny(['visibility'])
+        || resource.data.visibility == 'public';
+    }
+
+    function canAccessPrivateMemoryResource() {
+      return request.auth != null
+        && (
+          resource.data.uid == request.auth.uid
+          || (
+            resource.data.visibleToUids is list
+            && request.auth.uid in resource.data.visibleToUids
+          )
+        );
+    }
+
+    function validMemoryBaseCreate() {
+      return request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.className == '9/8'
+        && request.resource.data.imageUrl is string
+        && request.resource.data.caption is string
+        && request.resource.data.hashtags is list;
+    }
+
+    function ownsVideoChunkParent(memoryId) {
+      return (
+          request.resource.data.memoryCollection == 'memories98'
+          && exists(/databases/$(database)/documents/memories98/$(memoryId))
+          && get(/databases/$(database)/documents/memories98/$(memoryId)).data.uid == request.auth.uid
+        )
+        || (
+          request.resource.data.memoryCollection == 'privateMemories98'
+          && exists(/databases/$(database)/documents/privateMemories98/$(memoryId))
+          && get(/databases/$(database)/documents/privateMemories98/$(memoryId)).data.uid == request.auth.uid
+        );
+    }
+
     function validOneLikeUpdate() {
       return request.auth != null
+        && (isPublicMemoryResource() || canAccessPrivateMemoryResource())
         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['reactions', 'likedBy', 'updatedAt'])
         && request.resource.data.reactions is int
         && request.resource.data.reactions == resource.data.reactions + 1
@@ -130,11 +169,57 @@ service cloud.firestore {
 
     match /memories98/{memoryId} {
       allow read: if true;
+      allow create: if validMemoryBaseCreate()
+        && (
+          !request.resource.data.keys().hasAny(['visibility'])
+          || request.resource.data.visibility == 'public'
+        );
+      allow update: if validOneLikeUpdate() || isManagerWrite();
+      allow delete: if ownsResource() || isManagerMarkedResource();
+    }
+
+    match /privateMemories98/{memoryId} {
+      // Static manager.html has no server-side session, so manager needs collection read access here.
+      // The main app still only queries private memories for the current user.
+      allow read: if true;
+      allow create: if validMemoryBaseCreate()
+        && request.resource.data.visibility in ['private', 'tagged']
+        && (
+          request.resource.data.visibility == 'private'
+          || (
+            request.resource.data.visibleToUids is list
+            && request.resource.data.visibleToUids.size() > 0
+            && request.resource.data.visibleToUids.size() <= 30
+          )
+        );
+      allow update: if validOneLikeUpdate() || isManagerWrite();
+      allow delete: if ownsResource() || isManagerMarkedResource();
+    }
+
+    match /memoryVideoChunks98/{memoryId}/chunks/{chunkId} {
+      allow read: if true;
       allow create: if request.auth != null
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.className == '9/8'
-        && request.resource.data.imageUrl is string;
-      allow update: if validOneLikeUpdate() || isManagerWrite();
+        && request.resource.data.memoryId == memoryId
+        && request.resource.data.memoryCollection in ['memories98', 'privateMemories98']
+        && ownsVideoChunkParent(memoryId)
+        && request.resource.data.data is string
+        && request.resource.data.data.size() <= 750000
+        && request.resource.data.index is int
+        && request.resource.data.total is int
+        && request.resource.data.total > 0
+        && request.resource.data.total <= 24
+        && request.resource.data.visibility in ['public', 'private', 'tagged']
+        && (
+          request.resource.data.visibility != 'tagged'
+          || (
+            request.resource.data.visibleToUids is list
+            && request.resource.data.visibleToUids.size() > 0
+            && request.resource.data.visibleToUids.size() <= 30
+          )
+        );
+      allow update: if isManagerWrite()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['managerKey', 'managerDeletedAt']);
       allow delete: if ownsResource() || isManagerMarkedResource();
     }
 

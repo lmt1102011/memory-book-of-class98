@@ -139,6 +139,7 @@ export default function App() {
           if (!isActive) return;
 
           unsubscribeMemories = service.subscribeMemoriesRealtime(
+            profile,
             (items) => {
               if (!isActive) return;
               memoriesLoadedOnceRef.current = true;
@@ -174,7 +175,7 @@ export default function App() {
         });
     }
 
-    if (route === 'remember' || route === 'people' || route === 'votes') {
+    if (route === 'remember' || route === 'people' || route === 'votes' || route === 'photobook') {
       setClassmatesLoading(true);
 
       void import('./services/firebaseMemoryBook')
@@ -850,7 +851,12 @@ export default function App() {
     if (route === 'photobook') {
       return (
         <Suspense fallback={<LoadingScreen label="Đang mở photobooth" />}>
-          <PhotobookPage profile={profile} onJoinNeeded={() => navigate('join')} onPublish={publishMemory} />
+          <PhotobookPage
+            profile={profile}
+            classmates={classmates}
+            onJoinNeeded={() => navigate('join')}
+            onPublish={publishMemory}
+          />
         </Suspense>
       );
     }
