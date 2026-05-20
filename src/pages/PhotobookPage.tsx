@@ -720,7 +720,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
         )}
 
         {stage === 'camera' && (
-          <div ref={cameraStageRef} className="camera-stage">
+          <div ref={cameraStageRef} className={`camera-stage ${pendingPhoto ? 'camera-stage-review' : ''}`}>
             <div className="camera-shell">
               <div className="relative mx-auto w-full max-w-6xl">
                 <div className="camera-topbar">
@@ -762,14 +762,6 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                       {photoEditSettings.vignette > 0 && (
                         <div className="photo-edit-vignette" style={photoVignetteStyle} />
                       )}
-                      <PhotoEditPanel
-                        mode={photoPreviewMode}
-                        canUseEnhanced={Boolean(pendingEnhancedPhoto)}
-                        settings={photoEditSettings}
-                        onModeChange={showPendingPhoto}
-                        onSettingChange={updatePhotoEditSetting}
-                        onReset={resetPhotoEdits}
-                      />
                     </>
                   ) : captureSource === 'upload' ? (
                     <div className="grid h-full place-items-center bg-[linear-gradient(135deg,#1a1512,#35291f)] p-6 text-center text-paper">
@@ -840,7 +832,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                   )}
                 </div>
 
-                <div className="camera-controls-near">
+                <div className={`camera-controls-near ${pendingPhoto ? 'camera-controls-review' : ''}`}>
                   {pendingPhoto ? (
                     <>
                       <button className="camera-secondary-button camera-control-side" onClick={clearPendingPhoto} disabled={isPhotoBusy}>
@@ -908,6 +900,16 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                   </p>
                 )}
               </div>
+              {pendingPhoto && (
+                <PhotoEditPanel
+                  mode={photoPreviewMode}
+                  canUseEnhanced={Boolean(pendingEnhancedPhoto)}
+                  settings={photoEditSettings}
+                  onModeChange={showPendingPhoto}
+                  onSettingChange={updatePhotoEditSetting}
+                  onReset={resetPhotoEdits}
+                />
+              )}
             </div>
 
             <aside className="camera-side-panel">
