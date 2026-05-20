@@ -27,8 +27,8 @@ export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
     let completeTimer = 0;
     completedRef.current = false;
     const start = performance.now();
-    const minDuration = prefersReducedMotion ? 720 : 2400;
-    const maxDuration = prefersReducedMotion ? 1200 : 4200;
+    const minDuration = prefersReducedMotion ? 1200 : 3600;
+    const maxDuration = prefersReducedMotion ? 1800 : 5200;
 
     const waitForWindowLoad = new Promise<void>((resolve) => {
       if (document.readyState === 'complete') {
@@ -65,7 +65,7 @@ export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
       finishTimer = window.setTimeout(() => {
         completedRef.current = true;
         setProgress(100);
-        completeTimer = window.setTimeout(onComplete, prefersReducedMotion ? 240 : 680);
+        completeTimer = window.setTimeout(onComplete, prefersReducedMotion ? 320 : 980);
       }, remaining);
     };
 
@@ -75,8 +75,10 @@ export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
       if (completedRef.current) return;
 
       const elapsed = time - start;
-      const eased = 1 - Math.exp(-elapsed / 920);
-      const nextProgress = Math.min(94, 8 + eased * 86);
+      const durationProgress = Math.min(elapsed / minDuration, 1);
+      const smoothProgress = durationProgress * durationProgress * (3 - 2 * durationProgress);
+      const loadingBoost = 1 - Math.exp(-elapsed / 1600);
+      const nextProgress = Math.min(96, 6 + smoothProgress * 72 + loadingBoost * 18);
 
       setProgress((current) => Math.max(current, nextProgress));
       animationFrame = window.requestAnimationFrame(tick);
@@ -97,8 +99,8 @@ export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
       className="fixed inset-0 z-[90] grid min-h-[100svh] place-items-center overflow-hidden bg-cream px-5 py-8 text-ink"
       initial={{ opacity: 1 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0, scale: prefersReducedMotion ? 1 : 1.012 }}
-      transition={{ duration: prefersReducedMotion ? 0.05 : 0.52, ease: 'easeOut' }}
+      exit={{ opacity: 0, scale: prefersReducedMotion ? 1 : 1.018 }}
+      transition={{ duration: prefersReducedMotion ? 0.08 : 0.95, ease: 'easeInOut' }}
       aria-label="Đang tải Memory Book"
       role="status"
     >
@@ -114,9 +116,9 @@ export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
 
       <m.div
         className="relative w-full max-w-xl text-center"
-        initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: prefersReducedMotion ? 0 : 0.42, ease: 'easeOut' }}
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 14, scale: 0.985 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: prefersReducedMotion ? 0 : 0.68, ease: 'easeOut' }}
       >
         <div className="mx-auto grid h-[clamp(10.5rem,42vw,18rem)] w-[clamp(10.5rem,42vw,18rem)] place-items-center rounded-[2rem] border border-white/70 bg-white/68 p-5 shadow-glass backdrop-blur-xl">
           <m.img
@@ -125,14 +127,14 @@ export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
             className="h-full w-full object-contain"
             loading="eager"
             decoding="async"
-            initial={prefersReducedMotion ? false : { scale: 0.94, opacity: 0 }}
+            initial={prefersReducedMotion ? false : { scale: 0.92, opacity: 0 }}
             animate={prefersReducedMotion ? { opacity: 1 } : { scale: 1, opacity: 1, y: [0, -5, 0] }}
             transition={
               prefersReducedMotion
                 ? { duration: 0 }
                 : {
-                    opacity: { duration: 0.35 },
-                    scale: { duration: 0.55, ease: 'easeOut' },
+                    opacity: { duration: 0.58 },
+                    scale: { duration: 0.72, ease: 'easeOut' },
                     y: { duration: 3.4, repeat: Infinity, ease: 'easeInOut' },
                   }
             }
