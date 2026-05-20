@@ -13,7 +13,8 @@ import {
   Sparkles,
   Upload,
 } from 'lucide-react';
-import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ChangeEvent, CSSProperties } from 'react';
 import Webcam from 'react-webcam';
 import {
   BACKGROUND_OPTIONS,
@@ -35,6 +36,12 @@ import type {
   UserProfile,
 } from '../types';
 import { makeId } from '../utils/ids';
+import {
+  applyPhotoEditsToDataUrl,
+  defaultPhotoEditSettings,
+  getPhotoEditCssFilter,
+  type PhotoEditSettings,
+} from '../utils/photoEdit';
 import { beautifyPhotoDataUrl } from '../utils/photoEnhance';
 import { makeFeedThumbnailDataUrl, renderPhotobook } from '../utils/photobookCanvas';
 
@@ -77,6 +84,21 @@ const parseHashtags = (value: string) =>
     .map((tag) => tag.replace(/^#/, '').trim().toLowerCase())
     .filter(Boolean)
     .slice(0, 5);
+
+const PHOTO_EDIT_CONTROLS: Array<{
+  key: keyof PhotoEditSettings;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  suffix?: string;
+}> = [
+  { key: 'brightness', label: 'Sáng', min: 86, max: 118, step: 1, suffix: '%' },
+  { key: 'contrast', label: 'Tương phản', min: 90, max: 116, step: 1, suffix: '%' },
+  { key: 'saturation', label: 'Màu ảnh', min: 86, max: 126, step: 1, suffix: '%' },
+  { key: 'warmth', label: 'Ấm màu', min: -24, max: 28, step: 1 },
+  { key: 'vignette', label: 'Viền film', min: 0, max: 34, step: 1, suffix: '%' },
+];
 
 const loadImageFromSource = (src: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -204,6 +226,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   const [pendingOriginalPhoto, setPendingOriginalPhoto] = useState<string | null>(null);
   const [pendingEnhancedPhoto, setPendingEnhancedPhoto] = useState<string | null>(null);
   const [photoPreviewMode, setPhotoPreviewMode] = useState<PhotoPreviewMode>('enhanced');
+  const [photoEditSettings, setPhotoEditSettings] = useState<PhotoEditSettings>(defaultPhotoEditSettings);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [flash, setFlash] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -211,6 +234,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   const [hashtags, setHashtags] = useState('graduation youth photobooth');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [isApplyingPhotoEdits, setIsApplyingPhotoEdits] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
@@ -223,17 +247,38 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
     [config.backgroundId],
   );
 
+  const isPhotoBusy = isEnhancing || isApplyingPhotoEdits;
   const currentIndex = capturedPhotos.length + (pendingPhoto ? 1 : 0);
-  const canCapture = stage === 'camera' && captureSource === 'camera' && !pendingPhoto && countdown === null && !isEnhancing;
+  const canCapture = stage === 'camera' && captureSource === 'camera' && !pendingPhoto && countdown === null && !isPhotoBusy;
   const canUploadPhoto =
-    stage === 'camera' && !pendingPhoto && countdown === null && !isEnhancing && capturedPhotos.length < config.photoCount;
+    stage === 'camera' && !pendingPhoto && countdown === null && !isPhotoBusy && capturedPhotos.length < config.photoCount;
   const videoConstraints = useMemo(() => getVideoConstraints(facingMode), [facingMode]);
+  const photoEditPreviewStyle = useMemo<CSSProperties>(
+    () => ({
+      filter: getPhotoEditCssFilter(photoEditSettings),
+      transform: 'translateZ(0)',
+    }),
+    [photoEditSettings],
+  );
+  const photoTemperatureStyle = useMemo<CSSProperties>(
+    () => ({
+      background: photoEditSettings.warmth >= 0 ? '#ffd29c' : '#9cc6ff',
+      mixBlendMode: 'soft-light',
+      opacity: Math.min(Math.abs(photoEditSettings.warmth) / 28, 1) * 0.34,
+    }),
+    [photoEditSettings.warmth],
+  );
+  const photoVignetteStyle = useMemo<CSSProperties>(
+    () => ({ opacity: Math.min(photoEditSettings.vignette / 34, 1) * 0.72 }),
+    [photoEditSettings.vignette],
+  );
 
   function clearPendingPhoto() {
     setPendingPhoto(null);
     setPendingOriginalPhoto(null);
     setPendingEnhancedPhoto(null);
     setPhotoPreviewMode('enhanced');
+    setPhotoEditSettings(defaultPhotoEditSettings);
   }
 
   const showPendingPhoto = (mode: PhotoPreviewMode) => {
@@ -246,6 +291,14 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
 
   const updateConfig = <K extends keyof PhotobookConfig>(key: K, value: PhotobookConfig[K]) => {
     setConfig((current) => ({ ...current, [key]: value }));
+  };
+
+  const updatePhotoEditSetting = <K extends keyof PhotoEditSettings>(key: K, value: PhotoEditSettings[K]) => {
+    setPhotoEditSettings((current) => ({ ...current, [key]: value }));
+  };
+
+  const resetPhotoEdits = () => {
+    setPhotoEditSettings(defaultPhotoEditSettings);
   };
 
   const updatePhotoCount = (value: PhotoCount) => {
@@ -296,7 +349,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   };
 
   const leaveCameraStage = () => {
-    if (isEnhancing) return;
+    if (isPhotoBusy) return;
     if (document.fullscreenElement) {
       void document.exitFullscreen().catch(() => undefined);
     }
@@ -304,7 +357,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   };
 
   const flipCamera = () => {
-    if (isEnhancing) return;
+    if (isPhotoBusy) return;
     setCameraError(null);
     clearPendingPhoto();
     setCountdown(null);
@@ -312,7 +365,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
   };
 
   const returnToCameraSource = () => {
-    if (isEnhancing || pendingPhoto) return;
+    if (isPhotoBusy || pendingPhoto) return;
 
     setCameraError(null);
     setCountdown(null);
@@ -342,12 +395,14 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
       setPendingOriginalPhoto(screenshot);
       setPendingEnhancedPhoto(enhanced);
       setPhotoPreviewMode('enhanced');
+      setPhotoEditSettings(defaultPhotoEditSettings);
       setPendingPhoto(enhanced);
       setCameraError(null);
     } catch {
       setPendingOriginalPhoto(screenshot);
       setPendingEnhancedPhoto(null);
       setPhotoPreviewMode('original');
+      setPhotoEditSettings(defaultPhotoEditSettings);
       setPendingPhoto(screenshot);
       setCameraError('Không thể làm đẹp ảnh tự động, app đã giữ ảnh gốc để bạn tiếp tục.');
     } finally {
@@ -378,9 +433,21 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
     countdownFrame.current = window.requestAnimationFrame(tick);
   };
 
-  const acceptPhoto = () => {
-    if (!pendingPhoto || isEnhancing) return;
-    const nextPhotos = [...capturedPhotos, { id: makeId('photo'), dataUrl: pendingPhoto }];
+  const acceptPhoto = async () => {
+    if (!pendingPhoto || isPhotoBusy) return;
+
+    setIsApplyingPhotoEdits(true);
+    let finalPhoto = pendingPhoto;
+
+    try {
+      finalPhoto = await applyPhotoEditsToDataUrl(pendingPhoto, photoEditSettings);
+    } catch {
+      setCameraError('Không thể lưu phần chỉnh sửa, app sẽ giữ bản ảnh đang xem để bạn tiếp tục.');
+    } finally {
+      setIsApplyingPhotoEdits(false);
+    }
+
+    const nextPhotos = [...capturedPhotos, { id: makeId('photo'), dataUrl: finalPhoto }];
     setCapturedPhotos(nextPhotos);
     clearPendingPhoto();
 
@@ -405,7 +472,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
 
   const handleUploadPhoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || isEnhancing || capturedPhotos.length >= config.photoCount) {
+    if (!file || isPhotoBusy || capturedPhotos.length >= config.photoCount) {
       event.target.value = '';
       return;
     }
@@ -421,6 +488,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
       setPendingOriginalPhoto(uploaded);
       setPendingEnhancedPhoto(enhanced);
       setPhotoPreviewMode('enhanced');
+      setPhotoEditSettings(defaultPhotoEditSettings);
       setPendingPhoto(enhanced);
       window.setTimeout(() => setFlash(true), 20);
       window.setTimeout(() => setFlash(false), 190);
@@ -429,6 +497,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
         setPendingOriginalPhoto(uploaded);
         setPendingEnhancedPhoto(null);
         setPhotoPreviewMode('original');
+        setPhotoEditSettings(defaultPhotoEditSettings);
         setPendingPhoto(uploaded);
         setCameraError('Không thể làm đẹp ảnh tự động, app đã giữ ảnh gốc để bạn tiếp tục.');
       } else {
@@ -655,7 +724,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
             <div className="camera-shell">
               <div className="relative mx-auto w-full max-w-6xl">
                 <div className="camera-topbar">
-                  <button className="camera-action-button" onClick={leaveCameraStage} disabled={isEnhancing} aria-label="Back to setup">
+                  <button className="camera-action-button" onClick={leaveCameraStage} disabled={isPhotoBusy} aria-label="Back to setup">
                     <ArrowLeft size={19} />
                   </button>
                   <div className="camera-status-pill">
@@ -668,7 +737,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                     <button
                       className="camera-action-button"
                       onClick={returnToCameraSource}
-                      disabled={isEnhancing}
+                      disabled={isPhotoBusy}
                       aria-label="Mở camera"
                     >
                       <CameraIcon size={18} />
@@ -681,43 +750,26 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                 <div className="camera-frame">
                   {pendingPhoto ? (
                     <>
-                      <img src={pendingPhoto} alt="Captured preview" className="h-full w-full object-cover" />
-                      <div className="absolute left-3 right-3 top-16 z-[4] rounded-[1rem] bg-ink/62 p-2 text-paper shadow-paper sm:left-4 sm:right-auto sm:w-[23rem]">
-                        <div className="flex items-center justify-between gap-3 px-1 pb-2">
-                          <span className="text-[11px] font-black uppercase tracking-[0.14em] text-paper/70">
-                            So sánh ảnh
-                          </span>
-                          <span className="text-[11px] font-bold text-paper/70">
-                            {photoPreviewMode === 'enhanced' ? 'Sau làm đẹp' : 'Ảnh gốc'}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            className={`rounded-full px-3 py-2 text-xs font-extrabold transition ${
-                              photoPreviewMode === 'original'
-                                ? 'bg-paper text-ink'
-                                : 'bg-paper/12 text-paper hover:bg-paper/18'
-                            }`}
-                            onClick={() => showPendingPhoto('original')}
-                            disabled={!pendingOriginalPhoto}
-                          >
-                            Ảnh gốc
-                          </button>
-                          <button
-                            type="button"
-                            className={`rounded-full px-3 py-2 text-xs font-extrabold transition ${
-                              photoPreviewMode === 'enhanced'
-                                ? 'bg-paper text-ink'
-                                : 'bg-paper/12 text-paper hover:bg-paper/18'
-                            }`}
-                            onClick={() => showPendingPhoto('enhanced')}
-                            disabled={!pendingEnhancedPhoto}
-                          >
-                            Sau làm đẹp
-                          </button>
-                        </div>
-                      </div>
+                      <img
+                        src={pendingPhoto}
+                        alt="Captured preview"
+                        className="h-full w-full object-cover"
+                        style={photoEditPreviewStyle}
+                      />
+                      {photoEditSettings.warmth !== 0 && (
+                        <div className="photo-edit-temperature" style={photoTemperatureStyle} />
+                      )}
+                      {photoEditSettings.vignette > 0 && (
+                        <div className="photo-edit-vignette" style={photoVignetteStyle} />
+                      )}
+                      <PhotoEditPanel
+                        mode={photoPreviewMode}
+                        canUseEnhanced={Boolean(pendingEnhancedPhoto)}
+                        settings={photoEditSettings}
+                        onModeChange={showPendingPhoto}
+                        onSettingChange={updatePhotoEditSetting}
+                        onReset={resetPhotoEdits}
+                      />
                     </>
                   ) : captureSource === 'upload' ? (
                     <div className="grid h-full place-items-center bg-[linear-gradient(135deg,#1a1512,#35291f)] p-6 text-center text-paper">
@@ -766,7 +818,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                       <span className="font-display text-8xl leading-none sm:text-[12rem] lg:text-[16rem]">{countdown}</span>
                     </m.div>
                   )}
-                  {isEnhancing && (
+                  {isPhotoBusy && (
                     <m.div
                       initial={mobilePerformanceMode ? false : { opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -775,9 +827,13 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                     >
                       <div className="rounded-[1rem] bg-ink/58 px-5 py-4 shadow-paper">
                         <Sparkles className="mx-auto mb-2 text-blush" size={30} />
-                        <p className="font-display text-4xl leading-none">Đang làm đẹp ảnh...</p>
+                        <p className="font-display text-4xl leading-none">
+                          {isApplyingPhotoEdits ? 'Đang lưu chỉnh sửa...' : 'Đang làm đẹp ảnh...'}
+                        </p>
                         <p className="mt-2 text-xs font-semibold text-paper/68">
-                          Làm mịn nhẹ, giữ ảnh tự nhiên và sắc nét.
+                          {isApplyingPhotoEdits
+                            ? 'Đang xuất ảnh sắc nét để đưa vào photobook.'
+                            : 'Làm mịn nhẹ, giữ ảnh tự nhiên và sắc nét.'}
                         </p>
                       </div>
                     </m.div>
@@ -787,17 +843,22 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                 <div className="camera-controls-near">
                   {pendingPhoto ? (
                     <>
-                      <button className="camera-secondary-button camera-control-side" onClick={clearPendingPhoto}>
+                      <button className="camera-secondary-button camera-control-side" onClick={clearPendingPhoto} disabled={isPhotoBusy}>
                         <RefreshCw size={18} />
                         <span className="camera-button-label">Đổi ảnh</span>
                       </button>
-                      <button className="camera-shutter-button camera-accept-button" onClick={acceptPhoto} aria-label="Nhận ảnh này">
+                      <button
+                        className="camera-shutter-button camera-accept-button"
+                        onClick={acceptPhoto}
+                        disabled={isPhotoBusy}
+                        aria-label="Nhận ảnh này"
+                      >
                         <Check size={28} />
                       </button>
                       <button
                         className="camera-secondary-button camera-control-side"
                         onClick={togglePreviewMode}
-                        disabled={!pendingOriginalPhoto || !pendingEnhancedPhoto}
+                        disabled={isPhotoBusy || !pendingOriginalPhoto || !pendingEnhancedPhoto}
                       >
                         <Sparkles size={18} />
                         <span className="camera-button-label">{photoPreviewMode === 'enhanced' ? 'Ảnh gốc' : 'Làm đẹp'}</span>
@@ -811,7 +872,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                           <button className="camera-shutter-button" onClick={startCountdown} disabled={!canCapture} aria-label="Chụp ảnh">
                             <CameraIcon size={30} />
                           </button>
-                          <button className="camera-secondary-button camera-control-side" onClick={flipCamera} disabled={isEnhancing}>
+                          <button className="camera-secondary-button camera-control-side" onClick={flipCamera} disabled={isPhotoBusy}>
                             <RotateCcw size={18} />
                             <span className="camera-button-label">Xoay cam</span>
                           </button>
@@ -821,7 +882,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                           <button
                             className="camera-secondary-button camera-control-side"
                             onClick={returnToCameraSource}
-                            disabled={isEnhancing}
+                            disabled={isPhotoBusy}
                           >
                             <CameraIcon size={18} />
                             <span className="camera-button-label">Camera</span>
@@ -878,11 +939,11 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
               <div className="mt-5 grid gap-3">
                 {pendingPhoto ? (
                   <>
-                    <button className="primary-button justify-center" onClick={acceptPhoto}>
+                    <button className="primary-button justify-center" onClick={acceptPhoto} disabled={isPhotoBusy}>
                       <Check size={17} />
-                      Next Photo
+                      Nhận ảnh
                     </button>
-                    <button className="secondary-button justify-center" onClick={clearPendingPhoto}>
+                    <button className="secondary-button justify-center" onClick={clearPendingPhoto} disabled={isPhotoBusy}>
                       <RefreshCw size={17} />
                       Đổi ảnh
                     </button>
@@ -903,7 +964,7 @@ export default function PhotobookPage({ profile, onJoinNeeded, onPublish }: Phot
                   </button>
                 )}
                 {captureSource === 'upload' && (
-                  <button className="secondary-button justify-center" onClick={returnToCameraSource} disabled={isEnhancing}>
+                  <button className="secondary-button justify-center" onClick={returnToCameraSource} disabled={isPhotoBusy}>
                     <Camera size={16} />
                     Dùng camera
                   </button>
@@ -1013,6 +1074,82 @@ interface SetupGroupProps {
   step: string;
   title: string;
   children: React.ReactNode;
+}
+
+interface PhotoEditPanelProps {
+  mode: PhotoPreviewMode;
+  canUseEnhanced: boolean;
+  settings: PhotoEditSettings;
+  onModeChange: (mode: PhotoPreviewMode) => void;
+  onSettingChange: <K extends keyof PhotoEditSettings>(key: K, value: PhotoEditSettings[K]) => void;
+  onReset: () => void;
+}
+
+function PhotoEditPanel({
+  mode,
+  canUseEnhanced,
+  settings,
+  onModeChange,
+  onSettingChange,
+  onReset,
+}: PhotoEditPanelProps) {
+  return (
+    <div className="photo-edit-panel">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-paper/62">Chỉnh ảnh</p>
+          <p className="text-xs font-semibold text-paper/78">
+            {mode === 'enhanced' ? 'Đang dùng ảnh đã làm đẹp' : 'Đang dùng ảnh gốc'}
+          </p>
+        </div>
+        <button type="button" className="photo-edit-reset" onClick={onReset}>
+          Reset
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          className={`photo-edit-choice ${mode === 'original' ? 'photo-edit-choice-active' : ''}`}
+          onClick={() => onModeChange('original')}
+        >
+          <span>Không làm đẹp</span>
+          <small>Ảnh gốc</small>
+        </button>
+        <button
+          type="button"
+          className={`photo-edit-choice ${mode === 'enhanced' ? 'photo-edit-choice-active' : ''}`}
+          onClick={() => onModeChange('enhanced')}
+          disabled={!canUseEnhanced}
+        >
+          <span>Làm đẹp</span>
+          <small>Photobooth</small>
+        </button>
+      </div>
+
+      <div className="mt-3 grid gap-2">
+        {PHOTO_EDIT_CONTROLS.map((control) => (
+          <label key={control.key} className="photo-edit-slider">
+            <span>
+              {control.label}
+              <strong>
+                {settings[control.key]}
+                {control.suffix || ''}
+              </strong>
+            </span>
+            <input
+              type="range"
+              min={control.min}
+              max={control.max}
+              step={control.step}
+              value={settings[control.key]}
+              onChange={(event) => onSettingChange(control.key, Number(event.target.value))}
+            />
+          </label>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function SetupGroup({ step, title, children }: SetupGroupProps) {
