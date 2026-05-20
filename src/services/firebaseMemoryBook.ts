@@ -538,6 +538,33 @@ export const subscribeRememberNotes = (
   return () => window.clearInterval(interval);
 };
 
+export const subscribeSentRememberNotes = (
+  profile: UserProfile,
+  onNext: (notes: RememberNote[]) => void,
+  onError: (error: Error) => void,
+) => {
+  const notesQuery = query(
+    collection(db, REMEMBER_NOTES_COLLECTION),
+    where('fromUid', '==', profile.uid),
+    limit(80),
+  );
+  const load = async () => {
+    try {
+      const snapshot = await withFirebaseRetry(() => getDocs(notesQuery));
+      onNext(
+        snapshot.docs
+          .map((item) => rememberNoteFromDoc(item.id, item.data()))
+          .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()),
+      );
+    } catch (error) {
+      onError(friendlyFirebaseError(error));
+    }
+  };
+  void load();
+  const interval = createVisiblePolling(load);
+  return () => window.clearInterval(interval);
+};
+
 export const publishMemoryToFirebase = async (profile: UserProfile, draft: PublishMemoryDraft) => {
   const id = makeId('memory');
 

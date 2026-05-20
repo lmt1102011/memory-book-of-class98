@@ -7,7 +7,9 @@ import { formatMemoryDate } from '../utils/date';
 interface RememberPageProps {
   classmates: ClassmateProfile[];
   notes: RememberNote[];
+  sentNotes: RememberNote[];
   isLoading: boolean;
+  isLoadingSent: boolean;
   firebaseNotice: string;
   profile: UserProfile | null;
   onJoin: () => void;
@@ -20,7 +22,9 @@ const noteTone = ['bg-blush/35', 'bg-skySoft/35', 'bg-[#f4dfbf]/58', 'bg-white/6
 export default function RememberPage({
   classmates,
   notes,
+  sentNotes,
   isLoading,
+  isLoadingSent,
   firebaseNotice,
   profile,
   onJoin,
@@ -52,6 +56,7 @@ export default function RememberPage({
   );
 
   const anonymousCount = useMemo(() => notes.filter((note) => note.anonymous).length, [notes]);
+  const sentAnonymousCount = useMemo(() => sentNotes.filter((note) => note.anonymous).length, [sentNotes]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -92,7 +97,19 @@ export default function RememberPage({
     }
   };
 
-  const handleDelete = async (note: RememberNote) => {
+  const handleDelete = async (note: RememberNote, mode: 'received' | 'sent' = 'received') => {
+    if (mode === 'sent') {
+      if (!window.confirm(`Xóa Secret Message đã gửi cho ${note.toName}? Người nhận cũng sẽ không còn thấy tin này.`)) {
+        return;
+      }
+
+      try {
+        await onDeleteNote(note);
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : 'Không thể xóa lời nhắn lúc này.');
+      }
+      return;
+    }
     if (!window.confirm('Xóa lời nhắn này khỏi hộp của bạn?')) return;
 
     try {
@@ -300,6 +317,74 @@ export default function RememberPage({
                 <h3 className="mt-3 font-display text-5xl leading-none">Chưa có lời nhắn nào</h3>
                 <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-ink/60">
                   Khi ai đó gửi secret message cho bạn, nó sẽ nằm ở đây như một mảnh lưu bút riêng.
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="min-w-0 rounded-[1.35rem] border border-white/65 bg-white/44 p-4 shadow-paper backdrop-blur-xl sm:p-5 lg:col-span-2">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="section-kicker">Tin đã gửi</p>
+              <h2 className="font-display text-5xl leading-none">Những Secret Message bạn đã gửi</h2>
+            </div>
+            {profile && (
+              <span className="rounded-full bg-paper/78 px-3 py-2 text-xs font-bold text-coffee">
+                {sentNotes.length} tin, {sentAnonymousCount} ẩn danh
+              </span>
+            )}
+          </div>
+
+          {isLoadingSent ? (
+            <div className="mt-5 grid min-h-44 place-items-center rounded-[1rem] bg-paper/58 p-6 text-center">
+              <div>
+                <div className="memory-loading-spinner mx-auto mb-4 h-10 w-10 rounded-full border-4 border-coffee/15 border-t-coffee" />
+                <p className="font-hand text-3xl text-coffee">Đang mở tin đã gửi...</p>
+              </div>
+            </div>
+          ) : !profile ? (
+            <div className="mt-5 rounded-[1rem] bg-paper/72 p-6 text-center">
+              <p className="font-hand text-3xl font-bold text-coffee">Vào lớp để xem và xóa những tin bạn đã gửi.</p>
+            </div>
+          ) : sentNotes.length ? (
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {sentNotes.map((note, index) => (
+                <article
+                  key={note.id}
+                  className={`relative overflow-hidden rounded-[0.9rem] p-4 shadow-[0_14px_30px_rgba(84,57,35,0.12)] ${
+                    noteTone[(index + 1) % noteTone.length]
+                  }`}
+                >
+                  <div className="scrapbook-tape right-7 top-0 rotate-6" />
+                  <div className="mt-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold uppercase text-coffee/62">Gửi đến {note.toName}</p>
+                      <p className="mt-1 text-xs font-semibold text-ink/52">{formatMemoryDate(note.createdAt)}</p>
+                    </div>
+                    <button
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-coffee/10 text-coffee transition hover:bg-coffee/18"
+                      onClick={() => void handleDelete(note, 'sent')}
+                      aria-label="Xóa tin đã gửi"
+                      title="Xóa tin đã gửi"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                  <div className="mt-3 inline-flex rounded-full bg-white/50 px-2.5 py-1 text-[11px] font-bold text-coffee/70">
+                    {note.anonymous ? 'Bạn đã gửi ẩn danh' : 'Bạn đã hiện tên'}
+                  </div>
+                  <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-ink/78">{note.message}</p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-5 grid min-h-44 place-items-center rounded-[1rem] bg-paper/66 p-6 text-center">
+              <div>
+                <Send className="mx-auto text-coffee/70" size={30} />
+                <h3 className="mt-3 font-display text-5xl leading-none">Chưa gửi tin nào</h3>
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-ink/60">
+                  Khi bạn gửi Secret Message cho ai đó, bạn có thể quay lại đây để xem và xóa tin đã gửi.
                 </p>
               </div>
             </div>

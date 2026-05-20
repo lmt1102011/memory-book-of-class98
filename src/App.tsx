@@ -51,6 +51,8 @@ export default function App() {
   const [classmates, setClassmates] = useState<ClassmateProfile[]>([]);
   const [rememberNotes, setRememberNotes] = useState<RememberNote[]>([]);
   const [rememberNotesLoading, setRememberNotesLoading] = useState(false);
+  const [sentRememberNotes, setSentRememberNotes] = useState<RememberNote[]>([]);
+  const [sentRememberNotesLoading, setSentRememberNotesLoading] = useState(false);
   const [secretDiaries, setSecretDiaries] = useState<SecretDiaryEntry[]>([]);
   const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -91,6 +93,7 @@ export default function App() {
     let unsubscribeGuestbook: (() => void) | undefined;
     let unsubscribeClassmates: (() => void) | undefined;
     let unsubscribeRememberNotes: (() => void) | undefined;
+    let unsubscribeSentRememberNotes: (() => void) | undefined;
     let unsubscribeDiaries: (() => void) | undefined;
     let isActive = true;
 
@@ -139,6 +142,7 @@ export default function App() {
 
     if (route === 'remember') {
       setRememberNotesLoading(Boolean(profile));
+      setSentRememberNotesLoading(Boolean(profile));
 
       void import('./services/firebaseMemoryBook')
         .then((service) => {
@@ -171,14 +175,32 @@ export default function App() {
                 setFirebaseNotice(error.message);
               },
             );
+
+            unsubscribeSentRememberNotes = service.subscribeSentRememberNotes(
+              profile,
+              (items) => {
+                if (!isActive) return;
+                setSentRememberNotes(items);
+                setSentRememberNotesLoading(false);
+                setFirebaseNotice('');
+              },
+              (error) => {
+                if (!isActive) return;
+                setSentRememberNotesLoading(false);
+                setFirebaseNotice(error.message);
+              },
+            );
           } else {
             setRememberNotes([]);
+            setSentRememberNotes([]);
             setRememberNotesLoading(false);
+            setSentRememberNotesLoading(false);
           }
         })
         .catch((caught) => {
           if (!isActive) return;
           setRememberNotesLoading(false);
+          setSentRememberNotesLoading(false);
           setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể mở Secret Message lúc này.');
         });
     }
@@ -221,6 +243,7 @@ export default function App() {
       unsubscribeGuestbook?.();
       unsubscribeClassmates?.();
       unsubscribeRememberNotes?.();
+      unsubscribeSentRememberNotes?.();
       unsubscribeDiaries?.();
     };
   }, [profile, route]);
@@ -481,8 +504,10 @@ export default function App() {
       const service = await import('./services/firebaseMemoryBook');
       const note = await service.addRememberNote(profile, draft);
 
+      setSentRememberNotes((items) => [note, ...items.filter((item) => item.id !== note.id)]);
+
       if (note.toNameKey === profile.nameKey) {
-        setRememberNotes((items) => [note, ...items]);
+        setRememberNotes((items) => [note, ...items.filter((item) => item.id !== note.id)]);
       }
     },
     [navigate, profile],
@@ -495,14 +520,19 @@ export default function App() {
         return;
       }
 
+      const wasReceived = note.toNameKey === profile.nameKey;
+      const wasSent = note.fromUid === profile.uid;
+
       setRememberNotes((items) => items.filter((item) => item.id !== note.id));
+      setSentRememberNotes((items) => items.filter((item) => item.id !== note.id));
 
       try {
         const service = await import('./services/firebaseMemoryBook');
         await service.deleteRememberNote(profile, note);
         setFirebaseNotice('');
       } catch (caught) {
-        setRememberNotes((items) => [note, ...items]);
+        if (wasReceived) setRememberNotes((items) => [note, ...items.filter((item) => item.id !== note.id)]);
+        if (wasSent) setSentRememberNotes((items) => [note, ...items.filter((item) => item.id !== note.id)]);
         setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể xóa lời nhắn lúc này.');
       }
     },
@@ -552,7 +582,9 @@ export default function App() {
           <RememberPage
             classmates={classmates}
             notes={rememberNotes}
+            sentNotes={sentRememberNotes}
             isLoading={rememberNotesLoading}
+            isLoadingSent={sentRememberNotesLoading}
             firebaseNotice={firebaseNotice}
             profile={profile}
             onJoin={() => navigate('join')}
