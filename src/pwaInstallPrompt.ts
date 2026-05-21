@@ -58,9 +58,7 @@ export const isStandaloneMode = () => {
 export const shouldSkipIntroOnInstalledLaunch = () => {
   if (typeof window === 'undefined') return false;
 
-  const launchSource = new URLSearchParams(window.location.search).get('source');
-
-  return isStandaloneMode() || launchSource === 'pwa';
+  return isStandaloneMode();
 };
 
 export const detectInstallPlatform = (): InstallPlatform => {

@@ -54,12 +54,32 @@ const PeoplePage = lazy(() => import('./pages/PeoplePage'));
 const VotesPage = lazy(() => import('./pages/VotesPage'));
 const MyMemoriesPage = lazy(() => import('./pages/MyMemoriesPage'));
 
+const BROWSER_ROUTE_SESSION_KEY = 'memory98-browser-route-session';
+
+const hasBrowserRouteSession = () => {
+  try {
+    return window.sessionStorage.getItem(BROWSER_ROUTE_SESSION_KEY) === 'active';
+  } catch {
+    return false;
+  }
+};
+
+const markBrowserRouteSession = () => {
+  try {
+    window.sessionStorage.setItem(BROWSER_ROUTE_SESSION_KEY, 'active');
+  } catch {
+    // Session storage can be blocked in private browsers; routing still works in memory.
+  }
+};
+
 const routeFromHash = (): AppRoute => {
   const route = window.location.hash.replace('#/', '') as AppRoute;
   const isKnownRoute = ['landing', 'join', 'home', 'letters', 'remember', 'diary', 'photobook', 'people', 'votes', 'mine'].includes(route);
+  const skipIntro = shouldSkipIntroOnInstalledLaunch();
 
-  if (!isKnownRoute) return shouldSkipIntroOnInstalledLaunch() ? 'home' : 'landing';
-  if (route === 'landing' && shouldSkipIntroOnInstalledLaunch()) return 'home';
+  if (!isKnownRoute) return skipIntro ? 'home' : 'landing';
+  if (route === 'landing' && skipIntro) return 'home';
+  if (!skipIntro && route !== 'landing' && !hasBrowserRouteSession()) return 'landing';
 
   return route;
 };
@@ -501,6 +521,7 @@ export default function App() {
     (nextRoute: AppRoute) => {
       const scrollBehavior: ScrollBehavior = reduceHeavyMotion ? 'auto' : 'smooth';
 
+      markBrowserRouteSession();
       setFirebaseNotice('');
       setMenuOpen(false);
       setOpenNavGroup(null);
@@ -734,11 +755,6 @@ export default function App() {
     const messageCount = navBadgeCount('remember');
     const voteCount = navBadgeCount('votes');
     const isOwnProfileOpen = Boolean(profile && route === 'people' && focusedPersonKey === profile.nameKey);
-    const closeMenus = () => {
-      setMenuOpen(false);
-      setOpenNavGroup(null);
-    };
-
     return [
       {
         id: 'memories',
@@ -840,10 +856,9 @@ export default function App() {
       {
         id: 'me',
         label: 'Tôi',
-        description: profile ? `${profile.name} - ${profile.className}` : 'Tài khoản và thông báo',
+        description: profile ? `${profile.name} - ${profile.className}` : 'Tài khoản cá nhân',
         icon: UserRound,
-        isActive: isOwnProfileOpen || route === 'join' || notificationsOpen,
-        badgeCount: unreadNotificationCount,
+        isActive: isOwnProfileOpen || route === 'join',
         items: [
           {
             id: 'profile',
@@ -861,18 +876,6 @@ export default function App() {
             },
           },
           {
-            id: 'notifications',
-            label: 'Thông báo',
-            description: 'Xem tim, bình luận, thư và bình chọn mới.',
-            icon: Bell,
-            isActive: notificationsOpen,
-            badgeCount: unreadNotificationCount,
-            onSelect: () => {
-              closeMenus();
-              setNotificationsOpen(true);
-            },
-          },
-          {
             id: 'account',
             label: 'Tài khoản',
             description: profile ? 'Đổi người dùng bằng màn hình check-in.' : 'Nhập tên để tạo hoặc mở tài khoản.',
@@ -887,12 +890,10 @@ export default function App() {
     focusedPersonKey,
     navBadgeCount,
     navigate,
-    notificationsOpen,
     openPeopleList,
     openPersonProfile,
     profile,
     route,
-    unreadNotificationCount,
   ]);
 
   const handleYouthProfileUpdate = useCallback(
@@ -1665,7 +1666,7 @@ export default function App() {
         </AnimatePresence>
 
         {bootSplashDone && route !== 'landing' && (
-          <header className="fixed left-0 right-0 top-0 z-40 border-b border-white/40 bg-cream/72 backdrop-blur-xl">
+          <header className="fixed left-0 right-0 top-0 z-40 border-b border-coffee/10 bg-[#fbf3e7] shadow-[0_8px_28px_rgba(53,41,31,0.08)]">
             <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
               <button
                 className="flex items-center gap-2 rounded-full px-2 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coffee"
@@ -1831,10 +1832,10 @@ export default function App() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={reduceHeavyMotion ? undefined : { opacity: 0, y: -10 }}
                   transition={{ duration: reduceHeavyMotion ? 0 : 0.16 }}
-                  className="max-h-[calc(100svh-4rem)] overflow-y-auto border-t border-white/50 bg-cream/96 px-4 py-3 shadow-paper lg:hidden"
+                  className="max-h-[calc(100svh-4rem)] overflow-y-auto border-t border-coffee/15 bg-[#fbf3e7] px-4 py-3 shadow-[0_18px_42px_rgba(53,41,31,0.18)] lg:hidden"
                 >
                   <div className="mx-auto grid max-w-2xl gap-3 pb-[max(0.65rem,env(safe-area-inset-bottom))]">
-                    <div className="rounded-[1.1rem] border border-white/70 bg-white/58 p-3 shadow-paper">
+                    <div className="rounded-[1.1rem] border border-coffee/12 bg-[#fffaf1] p-3 shadow-paper">
                       <p className="text-[11px] font-black uppercase tracking-[0.18em] text-coffee/58">Menu Memory98</p>
                       <p className="mt-1 text-sm font-bold leading-5 text-coffee/78">
                         Chọn một nhóm lớn trước, rồi vào tính năng cần dùng. Mọi thứ được giữ gọn để dễ thao tác trên điện thoại.
@@ -1849,7 +1850,7 @@ export default function App() {
                         <section
                           key={group.id}
                           className={`rounded-[1.2rem] border p-3 shadow-paper ${
-                            group.isActive ? 'border-ink/20 bg-paper' : 'border-white/70 bg-white/62'
+                            group.isActive ? 'border-ink/20 bg-[#fffaf1]' : 'border-coffee/12 bg-[#fffaf1]'
                           }`}
                         >
                           <button
@@ -1857,7 +1858,7 @@ export default function App() {
                             onClick={() => setOpenNavGroup((current) => (current === group.id ? null : group.id))}
                             aria-expanded={isExpanded}
                           >
-                            <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${group.isActive ? 'bg-ink text-paper' : 'bg-paper text-ink'}`}>
+                            <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${group.isActive ? 'bg-ink text-paper' : 'bg-[#fbf3e7] text-ink'}`}>
                               <Icon size={18} />
                             </span>
                             <div className="min-w-0 flex-1">
@@ -1898,7 +1899,7 @@ export default function App() {
                                     <button
                                       key={item.id}
                                       className={`flex min-h-[4.65rem] w-full items-start gap-3 rounded-2xl p-3 text-left transition-colors ${
-                                        item.isActive ? 'bg-ink text-paper' : 'bg-paper/82 text-ink hover:bg-paper'
+                                        item.isActive ? 'bg-ink text-paper' : 'bg-[#fbf3e7] text-ink hover:bg-[#f6e9d9]'
                                       }`}
                                       onClick={item.onSelect}
                                     >
