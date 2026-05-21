@@ -351,11 +351,26 @@ function TutorialIllustration({ step, device }: { step: TutorialStep; device: Tu
           <div className="mx-auto w-[min(15.5rem,78vw)] rounded-[2rem] border-[7px] border-ink/88 bg-paper p-2 text-ink shadow-[0_24px_54px_rgba(18,15,13,.38)]">
             <div className="mx-auto mb-2 h-1.5 w-14 rounded-full bg-ink/20" />
             <div className="overflow-hidden rounded-[1.35rem] bg-cream">
-              <div className="flex items-center justify-between bg-ink px-3 py-2 text-paper">
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-paper text-ink shadow-paper">
+              <div className="relative bg-ink px-3 py-2 text-paper">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-7 w-7 rounded-full bg-paper shadow-paper" />
+                    <span className="text-[10px] font-black uppercase leading-3">Memory Book</span>
+                  </span>
+                  <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-full bg-paper text-ink shadow-paper ring-4 ring-blush/75">
+                    <span className="absolute -inset-2 rounded-full border-2 border-dashed border-paper/70" />
+                    <Menu size={17} />
+                  </span>
+                </div>
+                <div className="mt-2 rounded-[0.7rem] bg-paper px-2.5 py-1.5 text-center text-[10px] font-black uppercase leading-3 text-coffee shadow-paper">
+                  Nút 3 gạch nằm ở góc phải trên cùng
+                </div>
+              </div>
+              <div className="flex items-center justify-between bg-coffee/10 px-3 py-2 text-ink">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-ink text-paper">
                   <Menu size={16} />
                 </span>
-                <span className="text-[10px] font-black uppercase">Bấm dấu 3 gạch</span>
+                <span className="text-[10px] font-black uppercase">Bấm nút này để mở menu</span>
                 <Icon size={16} />
               </div>
               <div className="space-y-2 p-3">
