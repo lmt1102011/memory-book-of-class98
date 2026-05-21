@@ -131,7 +131,15 @@ export default function App() {
     let unsubscribeVoteBoard: (() => void) | undefined;
     let isActive = true;
 
-    if (route === 'home' || route === 'people') {
+    if ((route === 'home' || route === 'people') && !profile) {
+      memoriesLoadedOnceRef.current = false;
+      setMemoriesLoading(false);
+      setRemoteMemories([]);
+      setRemoteComments([]);
+      setFirebaseNotice('');
+    }
+
+    if ((route === 'home' || route === 'people') && profile) {
       setMemoriesLoading(!memoriesLoadedOnceRef.current);
 
       void import('./services/firebaseRealtimeMemoryBook')

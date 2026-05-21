@@ -175,6 +175,46 @@ export default function HomePage({
         ? 'Riêng tư'
         : '';
 
+  if (!profile) {
+    return (
+      <div className="relative">
+        <section className="mx-auto max-w-7xl px-4 pb-8 pt-9 sm:px-6 lg:px-8">
+          <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+            <div>
+              <p className="section-kicker">Memory Feed</p>
+              <h1 className="max-w-4xl font-display text-6xl leading-[0.86] sm:text-8xl">
+                Ký ức lớp 9/8 chỉ mở cho người trong lớp.
+              </h1>
+              <p className="mt-5 max-w-2xl text-sm leading-7 text-ink/66 sm:text-base">
+                Đăng nhập bằng tên của bạn hoặc tạo tài khoản mới để xem ảnh, video, bình luận và album thanh xuân của lớp.
+              </p>
+            </div>
+
+            <div className="rounded-[1.5rem] border border-white/65 bg-white/55 p-5 text-center shadow-paper backdrop-blur-xl sm:p-7">
+              <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-ink text-paper shadow-paper">
+                <Lock size={28} />
+              </div>
+              <h2 className="mt-5 font-display text-5xl leading-none">Cần vào lớp trước</h2>
+              <p className="mx-auto mt-3 max-w-sm text-sm leading-7 text-ink/62">
+                Feed sẽ không tải dữ liệu Firebase khi bạn chưa có tài khoản, nên người ngoài không xem được kỷ niệm.
+              </p>
+              <button className="primary-button mx-auto mt-6 justify-center" onClick={onJoin}>
+                <UserRound size={17} />
+                Đăng nhập / tạo tài khoản
+              </button>
+              <button className="secondary-button mx-auto mt-3 justify-center" onClick={onPhotobook}>
+                <Camera size={17} />
+                Đăng kỷ niệm sau khi vào lớp
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <FirebaseNotice message={firebaseNotice} />
+      </div>
+    );
+  }
+
   return (
     <div className="relative">
       <section className="mx-auto max-w-7xl px-4 pb-8 pt-9 sm:px-6 lg:px-8">
