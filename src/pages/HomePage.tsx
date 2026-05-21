@@ -136,11 +136,22 @@ export default function HomePage({
       closeSelectedMemory();
     };
 
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousBodyOverscroll = document.body.style.overscrollBehavior;
+    document.documentElement.classList.add('memory-viewer-open');
+    document.body.classList.add('memory-viewer-open');
+    document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehavior = 'contain';
     window.addEventListener('keydown', onKeyDown);
 
     return () => {
-      document.body.style.overflow = '';
+      document.documentElement.classList.remove('memory-viewer-open');
+      document.body.classList.remove('memory-viewer-open');
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+      document.body.style.overscrollBehavior = previousBodyOverscroll;
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [closeImageZoomViewer, closeSelectedMemory, isImageZoomOpen, selectedMemory]);
@@ -515,7 +526,7 @@ export default function HomePage({
 
       {selectedMemory && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center overflow-x-hidden bg-ink/92 p-0 backdrop-blur-sm sm:p-6"
+          className="memory-modal-overlay fixed inset-0 z-50 grid place-items-center overflow-hidden bg-ink/92 p-0 backdrop-blur-sm sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label={`Xem ${selectedMediaLabel} của ${selectedMemory.name}`}
@@ -613,7 +624,7 @@ export default function HomePage({
               )}
             </div>
 
-            <aside className="max-h-[42svh] min-w-0 shrink-0 overflow-auto rounded-t-[1.15rem] bg-paper px-4 pb-4 pt-4 sm:max-h-none sm:rounded-none sm:bg-transparent sm:px-1 sm:pb-1 sm:pt-0 sm:pr-2">
+            <aside className="max-h-[42svh] min-w-0 shrink-0 overflow-x-hidden overflow-y-auto rounded-t-[1.15rem] bg-paper px-4 pb-4 pt-4 sm:max-h-none sm:rounded-none sm:bg-transparent sm:px-1 sm:pb-1 sm:pt-0 sm:pr-2">
               <p className="section-kicker">{selectedMemory.mediaType === 'video' ? 'Xem video rõ hơn' : 'Xem ảnh rõ hơn'}</p>
               <h2 className="break-words font-display text-5xl leading-none text-ink">{selectedMemory.name}</h2>
               <p className="mt-1 text-xs font-bold uppercase text-coffee/70">Lớp {selectedMemory.className}</p>
