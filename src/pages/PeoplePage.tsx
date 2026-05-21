@@ -628,10 +628,12 @@ function PersonDetail({
               </p>
             )}
           </div>
-          <button className="secondary-button min-h-10 px-3 text-xs" onClick={onPhotobook}>
-            <Camera size={15} />
-            Đăng ảnh/video
-          </button>
+          {isSelf && (
+            <button className="secondary-button min-h-10 px-3 text-xs" onClick={onPhotobook}>
+              <Camera size={15} />
+              Đăng ảnh/video
+            </button>
+          )}
         </div>
 
         {isSelf && isOwnMemoriesLoading ? (

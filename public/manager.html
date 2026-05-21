@@ -290,7 +290,7 @@
           </section>
 
           <section class="card">
-            <h2>Tất cả tài khoản</h2>
+            <h2>Tài khoản đang hoạt động</h2>
             <div id="accounts" class="list"></div>
           </section>
 
@@ -477,8 +477,9 @@
       });
 
       const renderAccounts = () => {
+        const visibleAccounts = accounts.filter((account) => !account.deleted);
         $('accounts').innerHTML =
-          accounts
+          visibleAccounts
             .map(
               (account) => `
                 <article class="item">
@@ -493,13 +494,14 @@
                     ${
                       account.disabled
                         ? `<button class="secondary" data-action="restore" data-id="${account.id}">Mở lại</button>`
-                        : `<button class="danger" data-action="disable" data-id="${account.id}">Xóa / khóa</button>`
+                        : `<button class="secondary" data-action="disable" data-id="${account.id}">Khóa</button>`
                     }
+                    <button class="danger" data-action="delete-account" data-id="${account.id}">Xóa tài khoản</button>
                   </div>
                 </article>
               `,
             )
-            .join('') || '<p class="muted">Chưa có tài khoản nào.</p>';
+            .join('') || '<p class="muted">Chưa có tài khoản đang hoạt động.</p>';
       };
 
       const renderDiaries = () => {
@@ -623,9 +625,51 @@
         if (!button) return;
 
         const id = button.dataset.id;
-        const disabled = button.dataset.action === 'disable';
+        const action = button.dataset.action;
+        const account = accounts.find((item) => item.id === id);
+        if (!id || !account) return;
+
+        if (action === 'delete-account') {
+          if (id === MANAGER_NAME_KEY) {
+            status.textContent = 'Không thể xóa tài khoản manager chính.';
+            return;
+          }
+          if (
+            !window.confirm(
+              `Xóa tài khoản ${account.name || id} khỏi lớp 9/8? Tài khoản này sẽ bị ẩn khỏi hồ sơ lớp và không đăng nhập được nữa.`,
+            )
+          ) {
+            return;
+          }
+
+          button.disabled = true;
+          button.textContent = 'Đang xóa...';
+          try {
+            await updateDoc(doc(db, 'students98', id), {
+              disabled: true,
+              deleted: true,
+              deletedAt: serverTimestamp(),
+              managerKey: MANAGER_KEY,
+              managerDeletedAt: serverTimestamp(),
+              managerUpdatedAt: serverTimestamp(),
+            });
+            accounts = accounts.map((item) =>
+              item.id === id ? { ...item, disabled: true, deleted: true } : item,
+            );
+            renderAccounts();
+            status.textContent = `Đã xóa tài khoản ${account.name || id} khỏi lớp.`;
+          } catch (error) {
+            button.disabled = false;
+            button.textContent = 'Xóa tài khoản';
+            status.textContent = error.message || 'Không thể xóa tài khoản lúc này.';
+          }
+          return;
+        }
+
+        const disabled = action === 'disable';
         await updateDoc(doc(db, 'students98', id), {
           disabled,
+          deleted: false,
           managerKey: MANAGER_KEY,
           managerUpdatedAt: serverTimestamp(),
         });
@@ -714,6 +758,14 @@
         const nameKey = makeNameKey(name);
         if (!nameKey || password.length < 6) {
           status.textContent = 'Hãy nhập tên hợp lệ và mật khẩu tối thiểu 6 ký tự.';
+          return;
+        }
+        if (accounts.some((account) => account.id === nameKey && !account.deleted)) {
+          status.textContent = 'Tài khoản này đã có trong lớp 9/8.';
+          return;
+        }
+        if (accounts.some((account) => account.id === nameKey && account.deleted)) {
+          status.textContent = 'Tài khoản này đã bị xóa khỏi lớp. Không thể tạo lại bằng manager tĩnh vì Firebase Auth vẫn giữ email cũ.';
           return;
         }
 

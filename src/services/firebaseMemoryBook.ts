@@ -379,6 +379,9 @@ export const checkStudentName = async (name: string) => {
   const nameKey = makeNameKey(name);
   if (!nameKey) throw new Error('Hãy nhập họ tên hợp lệ.');
   const snapshot = await withFirebaseRetry(() => getDoc(doc(db, STUDENTS_COLLECTION, nameKey)));
+  if (snapshot.exists() && (snapshot.data().disabled || snapshot.data().deleted)) {
+    throw new Error('Tài khoản này đã bị khóa hoặc xóa khỏi lớp 9/8.');
+  }
   return {
     exists: snapshot.exists(),
     nameKey,
@@ -395,7 +398,9 @@ export const registerStudent = async (name: string, password: string) => {
   const studentRef = doc(db, STUDENTS_COLLECTION, nameKey);
   const existing = await withFirebaseRetry(() => getDoc(studentRef));
   if (existing.exists()) {
-    if (existing.data().disabled) throw new Error('Tài khoản này đang bị khóa trong lớp 9/8.');
+    if (existing.data().disabled || existing.data().deleted) {
+      throw new Error('Tài khoản này đã bị khóa hoặc xóa khỏi lớp 9/8.');
+    }
     throw new Error('Tên này đã có trong lớp 9/8. Hãy nhập mật khẩu để tiếp tục.');
   }
 
@@ -458,9 +463,9 @@ export const loginStudent = async (name: string, password: string) => {
     };
   }
 
-  if (snapshot.data().disabled) {
+  if (snapshot.data().disabled || snapshot.data().deleted) {
     await signOut(auth);
-    throw new Error('Tài khoản này đang bị khóa trong lớp 9/8.');
+    throw new Error('Tài khoản này đã bị khóa hoặc xóa khỏi lớp 9/8.');
   }
 
   await withFirebaseRetry(() => updateDoc(studentRef, { lastLoginAt: serverTimestamp() }));
@@ -482,12 +487,12 @@ export const observeStudentSession = (onProfile: (profile: UserProfile | null) =
       onProfile(null);
       return;
     }
-    if (snapshot.exists() && !snapshot.data().disabled) {
+    if (snapshot.exists() && !snapshot.data().disabled && !snapshot.data().deleted) {
       onProfile(profileFromData(nameKey, snapshot.data(), user));
       return;
     }
 
-    if (snapshot.exists() && snapshot.data().disabled) {
+    if (snapshot.exists() && (snapshot.data().disabled || snapshot.data().deleted)) {
       await signOut(auth);
     }
     onProfile(null);
@@ -609,7 +614,7 @@ export const subscribeClassmates = (
       const snapshot = await withFirebaseRetry(() => getDocs(classmatesQuery));
       onNext(
         snapshot.docs
-          .filter((item) => !item.data().disabled)
+          .filter((item) => !item.data().disabled && !item.data().deleted)
           .map((item) => classmateFromDoc(item.id, item.data()))
           .filter((item) => item.nameKey && item.className === CLASS_NAME),
       );
