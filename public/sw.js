@@ -1,4 +1,4 @@
-const CACHE_NAME = 'memory98-app-shell-v1';
+const CACHE_NAME = 'memory98-app-shell-v2';
 const APP_SHELL_PATHS = [
   './',
   './index.html',
@@ -7,6 +7,9 @@ const APP_SHELL_PATHS = [
   './favicon.svg',
   './icon-192.png',
   './icon-512.png',
+  './icon-maskable-192.png',
+  './icon-maskable-512.png',
+  './apple-touch-icon.png',
 ];
 
 const scopedUrl = (path) => new URL(path, self.registration.scope).toString();
