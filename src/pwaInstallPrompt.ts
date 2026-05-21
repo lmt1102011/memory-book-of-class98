@@ -60,6 +60,30 @@ export const capturePwaInstallPrompt = () => {
 
 export const getDeferredPwaInstallPrompt = () => deferredPrompt;
 
+export const waitForPwaInstallPrompt = (timeoutMs = 1400) => {
+  if (deferredPrompt || typeof window === 'undefined') {
+    return Promise.resolve(deferredPrompt);
+  }
+
+  return new Promise<BeforeInstallPromptEvent | null>((resolve) => {
+    let isDone = false;
+    let unsubscribe: (() => void) | undefined;
+
+    const finish = (prompt: BeforeInstallPromptEvent | null) => {
+      if (isDone) return;
+      isDone = true;
+      window.clearTimeout(timer);
+      unsubscribe?.();
+      resolve(prompt);
+    };
+
+    const timer = window.setTimeout(() => finish(deferredPrompt), timeoutMs);
+    unsubscribe = subscribePwaInstallPrompt((prompt) => {
+      if (prompt) finish(prompt);
+    });
+  });
+};
+
 export const clearDeferredPwaInstallPrompt = () => {
   deferredPrompt = null;
   notifyPromptListeners();

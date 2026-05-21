@@ -8,6 +8,7 @@ import {
   type InstallOutcome,
   type InstallPlatform,
   subscribePwaInstallPrompt,
+  waitForPwaInstallPrompt,
 } from '../pwaInstallPrompt';
 
 export type { InstallPlatform } from '../pwaInstallPrompt';
@@ -45,15 +46,22 @@ export function usePwaInstall() {
   const install = useMemo(
     () => async (): Promise<InstallOutcome> => {
       if (isInstalled) return 'installed';
-      if (!deferredPrompt) return 'manual';
+      const prompt = deferredPrompt ?? (await waitForPwaInstallPrompt());
+      if (!prompt) return 'manual';
 
       try {
-        await deferredPrompt.prompt();
-        const choice = await deferredPrompt.userChoice;
+        const startedAt = performance.now();
+        await prompt.prompt();
+        const choice = await prompt.userChoice;
+        const elapsed = performance.now() - startedAt;
         clearDeferredPwaInstallPrompt();
 
         if (choice.outcome === 'accepted') {
           setIsInstalled(true);
+        }
+
+        if (choice.outcome === 'dismissed' && elapsed < 450) {
+          return 'unavailable';
         }
 
         return choice.outcome;

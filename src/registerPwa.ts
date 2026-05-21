@@ -10,10 +10,5 @@ export const registerPwa = () => {
     });
   };
 
-  if (document.readyState === 'complete') {
-    register();
-    return;
-  }
-
-  window.addEventListener('load', register, { once: true });
+  register();
 };
