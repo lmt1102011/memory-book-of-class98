@@ -144,7 +144,7 @@ export default function PeoplePage({
     const keyword = query.trim().toLowerCase();
     if (!keyword) return sortedClassmates;
     return sortedClassmates.filter((person) =>
-      [person.name, person.nickname || '', person.quote || '', ...(person.personalityTags || [])]
+      [person.name, person.nickname || '']
         .join(' ')
         .toLowerCase()
         .includes(keyword),
@@ -304,7 +304,7 @@ export default function PeoplePage({
                 className="input-field pl-11"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Tìm tên, biệt danh, tag"
+                placeholder="Tìm tên hoặc biệt danh"
               />
             </label>
           </div>
@@ -321,57 +321,28 @@ export default function PeoplePage({
           ) : (
             <div className="grid gap-5">
               <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-                {filteredClassmates.map((person) => {
-                  const stats = statsByKey[getPersonKey(person)] || { memories: [], hearts: 0, comments: 0 };
-                  const active = selectedPerson?.nameKey === person.nameKey;
-                  return (
+                {filteredClassmates.map((person) => (
+                  <article
+                    key={getPersonKey(person)}
+                    className="min-w-0 rounded-[1rem] border border-white/65 bg-white/54 p-4 text-left text-ink shadow-paper transition hover:bg-white/72"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar person={person} />
+                      <div className="min-w-0">
+                        <h3 className="truncate text-base font-black">{person.name}</h3>
+                        <p className="truncate text-xs font-bold text-coffee/70">{person.nickname || 'Bạn lớp 9/8'}</p>
+                      </div>
+                    </div>
                     <button
-                      key={getPersonKey(person)}
                       type="button"
-                      className={`min-w-0 rounded-[1rem] border p-4 text-left shadow-paper transition ${
-                        active ? 'border-ink bg-ink text-paper' : 'border-white/65 bg-white/54 text-ink hover:bg-white/72'
-                      }`}
+                      className="secondary-button mt-4 min-h-10 w-full justify-center text-xs"
                       onClick={() => setSelectedNameKey(person.nameKey)}
                     >
-                      <div className="flex items-center gap-3">
-                        <Avatar person={person} active={active} />
-                        <div className="min-w-0">
-                          <h3 className="truncate text-base font-black">{person.name}</h3>
-                          <p className={`truncate text-xs font-bold ${active ? 'text-paper/68' : 'text-coffee/70'}`}>
-                            {person.nickname || 'Chưa có biệt danh'}
-                          </p>
-                        </div>
-                      </div>
-                      <p className={`mt-3 line-clamp-2 text-sm leading-6 ${active ? 'text-paper/72' : 'text-ink/66'}`}>
-                        {person.quote || 'Một câu nói riêng đang chờ được viết.'}
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {(person.personalityTags.length ? person.personalityTags : ['9/8']).map((tag) => (
-                          <span
-                            key={tag}
-                            className={`rounded-full px-2 py-1 text-[11px] font-bold ${
-                              active ? 'bg-paper/14 text-paper/78' : 'bg-coffee/8 text-coffee'
-                            }`}
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                      <div className={`mt-4 grid grid-cols-3 gap-2 text-center text-xs font-bold ${active ? 'text-paper/74' : 'text-coffee/70'}`}>
-                        <span>{stats.memories.length} ảnh</span>
-                        <span>{stats.hearts} tim</span>
-                        <span>{stats.comments} bình luận</span>
-                      </div>
-                      <span
-                        className={`mt-3 inline-flex min-h-8 items-center rounded-full px-3 text-xs font-black ${
-                          active ? 'bg-paper/14 text-paper' : 'bg-coffee/8 text-coffee'
-                        }`}
-                      >
-                        {active ? 'Đang xem hồ sơ' : 'Xem hồ sơ'}
-                      </span>
+                      <UserRound size={15} />
+                      Xem hồ sơ
                     </button>
-                  );
-                })}
+                  </article>
+                ))}
               </div>
             </div>
           )}
