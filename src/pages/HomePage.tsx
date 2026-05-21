@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
-import { Camera, Download, Filter, Heart, Lock, RotateCcw, Search, UserRound, Video, X, ZoomIn, ZoomOut } from 'lucide-react';
+import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
+import { Camera, Download, Filter, Heart, Lock, RotateCcw, Search, UserRound, Video, X } from 'lucide-react';
 import FirebaseNotice from '../components/FirebaseNotice';
 import MemoryCard from '../components/MemoryCard';
 import { useDebounce } from '../hooks/useDebounce';
@@ -75,6 +75,7 @@ export default function HomePage({
   const [selectedMemory, setSelectedMemory] = useState<MemoryItem | null>(null);
   const [selectedImageLoaded, setSelectedImageLoaded] = useState(false);
   const [selectedImageFailed, setSelectedImageFailed] = useState(false);
+  const [isImageZoomOpen, setIsImageZoomOpen] = useState(false);
   const [imageZoom, setImageZoom] = useState(1);
   const [imagePan, setImagePan] = useState({ x: 0, y: 0 });
   const [selectedVideoUrl, setSelectedVideoUrl] = useState('');
@@ -102,22 +103,35 @@ export default function HomePage({
     setImagePan({ x: 0, y: 0 });
   }, []);
 
-  const zoomImageBy = useCallback(
-    (delta: number) => {
-      setImageZoom((current) => {
-        const next = clampZoom(current + delta);
-        setImagePan((pan) => clampImagePan(pan.x, pan.y, next));
-        return next;
-      });
-    },
-    [clampImagePan],
-  );
+  const closeSelectedMemory = useCallback(() => {
+    setSelectedMemory(null);
+    setIsImageZoomOpen(false);
+    resetImageZoom();
+  }, [resetImageZoom]);
+
+  const openImageZoomViewer = useCallback(() => {
+    if (selectedMemory?.mediaType === 'video') return;
+    activePointersRef.current.clear();
+    resetImageZoom();
+    setIsImageZoomOpen(true);
+  }, [resetImageZoom, selectedMemory?.mediaType]);
+
+  const closeImageZoomViewer = useCallback(() => {
+    activePointersRef.current.clear();
+    setIsImageZoomOpen(false);
+    resetImageZoom();
+  }, [resetImageZoom]);
 
   useEffect(() => {
     if (!selectedMemory) return undefined;
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSelectedMemory(null);
+      if (event.key !== 'Escape') return;
+      if (isImageZoomOpen) {
+        closeImageZoomViewer();
+        return;
+      }
+      closeSelectedMemory();
     };
 
     document.body.style.overflow = 'hidden';
@@ -127,12 +141,13 @@ export default function HomePage({
       document.body.style.overflow = '';
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [selectedMemory]);
+  }, [closeImageZoomViewer, closeSelectedMemory, isImageZoomOpen, selectedMemory]);
 
   useEffect(() => {
     let alive = true;
     setSelectedImageLoaded(false);
     setSelectedImageFailed(false);
+    setIsImageZoomOpen(false);
     resetImageZoom();
     activePointersRef.current.clear();
     setSelectedVideoUrl('');
@@ -168,7 +183,7 @@ export default function HomePage({
 
   const handleImagePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (selectedMemory?.mediaType === 'video') return;
+      if (!isImageZoomOpen || selectedMemory?.mediaType === 'video') return;
       event.currentTarget.setPointerCapture(event.pointerId);
       activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
@@ -199,11 +214,12 @@ export default function HomePage({
         };
       }
     },
-    [clampImagePan, imagePan.x, imagePan.y, imageZoom, selectedMemory?.mediaType],
+    [clampImagePan, imagePan.x, imagePan.y, imageZoom, isImageZoomOpen, selectedMemory?.mediaType],
   );
 
   const handleImagePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!isImageZoomOpen) return;
       if (!activePointersRef.current.has(event.pointerId)) return;
       activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
@@ -223,7 +239,7 @@ export default function HomePage({
       const nextY = panGestureRef.current.panY + event.clientY - panGestureRef.current.startY;
       setImagePan(clampImagePan(nextX, nextY, imageZoom));
     },
-    [clampImagePan, imageZoom],
+    [clampImagePan, imageZoom, isImageZoomOpen],
   );
 
   const handleImagePointerEnd = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
@@ -234,6 +250,19 @@ export default function HomePage({
       // Some browsers release capture automatically after a pinch.
     }
   }, []);
+
+  const handleImageWheel = useCallback(
+    (event: ReactWheelEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      const delta = event.deltaY > 0 ? -0.22 : 0.22;
+      setImageZoom((current) => {
+        const next = clampZoom(current + delta);
+        setImagePan((pan) => clampImagePan(pan.x, pan.y, next));
+        return next;
+      });
+    },
+    [clampImagePan],
+  );
 
   const tags = useMemo(() => {
     const unique = new Set<string>();
@@ -488,7 +517,7 @@ export default function HomePage({
           role="dialog"
           aria-modal="true"
           aria-label={`Xem ${selectedMediaLabel} của ${selectedMemory.name}`}
-          onClick={() => setSelectedMemory(null)}
+          onClick={closeSelectedMemory}
         >
           <div
             className="memory-viewer-panel relative flex h-[100svh] w-full flex-col overflow-hidden bg-ink shadow-glass sm:grid sm:max-h-[92svh] sm:max-w-6xl sm:grid-cols-[minmax(0,1fr)_20rem] sm:gap-4 sm:rounded-[1rem] sm:bg-paper sm:p-4"
@@ -502,30 +531,6 @@ export default function HomePage({
                 <strong className="block truncate text-sm text-paper sm:text-ink">{selectedMemory.name}</strong>
               </div>
               <div className="memory-viewer-actions">
-                {selectedMemory.mediaType !== 'video' && (
-                  <>
-                    <button
-                      className="memory-viewer-action"
-                      onClick={() => zoomImageBy(-0.45)}
-                      disabled={imageZoom <= 1}
-                      aria-label="Thu nhỏ ảnh"
-                    >
-                      <ZoomOut size={17} />
-                    </button>
-                    <button className="memory-viewer-action memory-viewer-zoom-reset" onClick={resetImageZoom} aria-label="Đưa ảnh về kích thước ban đầu">
-                      <RotateCcw size={15} />
-                      <span>{Math.round(imageZoom * 100)}%</span>
-                    </button>
-                    <button
-                      className="memory-viewer-action"
-                      onClick={() => zoomImageBy(0.55)}
-                      disabled={imageZoom >= 4}
-                      aria-label="Phóng to ảnh"
-                    >
-                      <ZoomIn size={17} />
-                    </button>
-                  </>
-                )}
                 {selectedDownloadHref && (
                   <a
                     className="memory-viewer-action"
@@ -538,7 +543,7 @@ export default function HomePage({
                 )}
                 <button
                   className="memory-viewer-action memory-viewer-close"
-                  onClick={() => setSelectedMemory(null)}
+                  onClick={closeSelectedMemory}
                   aria-label={`Đóng ${selectedMediaLabel}`}
                 >
                   <X size={18} />
@@ -546,18 +551,7 @@ export default function HomePage({
               </div>
             </div>
 
-            <div
-              ref={mediaStageRef}
-              className={`memory-media-stage relative grid min-h-0 flex-1 place-items-center overflow-hidden bg-ink sm:rounded-[0.75rem] ${
-                selectedMemory.mediaType !== 'video' ? 'memory-media-stage-image' : ''
-              } ${selectedMemory.mediaType !== 'video' && imageZoom > 1 ? 'memory-media-stage-zoomed' : ''
-              }`}
-              onPointerDown={handleImagePointerDown}
-              onPointerMove={handleImagePointerMove}
-              onPointerUp={handleImagePointerEnd}
-              onPointerCancel={handleImagePointerEnd}
-              onLostPointerCapture={handleImagePointerEnd}
-            >
+            <div className="memory-media-stage relative grid min-h-0 flex-1 place-items-center overflow-hidden bg-ink sm:rounded-[0.75rem]">
               {selectedMemory.mediaType !== 'video' && !selectedImageLoaded && !selectedImageFailed && (
                 <span className="memory-image-placeholder absolute inset-0 z-0" aria-hidden="true" />
               )}
@@ -597,18 +591,22 @@ export default function HomePage({
                   )}
                 </>
               ) : (
-                <img
-                  src={selectedMemory.imageUrl}
-                  alt={`Ảnh kỷ niệm của ${selectedMemory.name}`}
-                  className="zoomable-memory-image relative z-[1] max-h-[calc(100svh-13rem)] w-auto max-w-full object-contain sm:max-h-[86svh]"
-                  decoding="async"
-                  draggable={false}
-                  onLoad={() => setSelectedImageLoaded(true)}
-                  onError={() => setSelectedImageFailed(true)}
-                  style={{
-                    transform: `translate3d(${imagePan.x}px, ${imagePan.y}px, 0) scale(${imageZoom})`,
-                  }}
-                />
+                <button
+                  type="button"
+                  className="memory-open-zoom-button relative z-[1] grid h-full w-full place-items-center"
+                  onClick={openImageZoomViewer}
+                  aria-label="Mở ảnh để phóng to"
+                >
+                  <img
+                    src={selectedMemory.imageUrl}
+                    alt={`Ảnh kỷ niệm của ${selectedMemory.name}`}
+                    className="max-h-[calc(100svh-13rem)] w-auto max-w-full object-contain sm:max-h-[86svh]"
+                    decoding="async"
+                    draggable={false}
+                    onLoad={() => setSelectedImageLoaded(true)}
+                    onError={() => setSelectedImageFailed(true)}
+                  />
+                </button>
               )}
             </div>
 
@@ -667,6 +665,65 @@ export default function HomePage({
                 {selectedMemory.reactions} tim
               </p>
             </aside>
+          </div>
+        </div>
+      )}
+
+      {selectedMemory && selectedMemory.mediaType !== 'video' && isImageZoomOpen && (
+        <div
+          className="memory-zoom-overlay fixed inset-0 z-[60] bg-ink"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Phóng to ảnh của ${selectedMemory.name}`}
+          onClick={closeImageZoomViewer}
+        >
+          <div className="memory-viewer-topbar memory-zoom-topbar" onClick={(event) => event.stopPropagation()}>
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-paper/58">Zoom ảnh</p>
+              <strong className="block truncate text-sm text-paper">{selectedMemory.name}</strong>
+            </div>
+            <div className="memory-viewer-actions">
+              <button className="memory-viewer-action memory-viewer-zoom-reset" onClick={resetImageZoom} aria-label="Đưa ảnh về kích thước ban đầu">
+                <RotateCcw size={15} />
+                <span>{Math.round(imageZoom * 100)}%</span>
+              </button>
+              {selectedDownloadHref && (
+                <a
+                  className="memory-viewer-action"
+                  href={selectedDownloadHref}
+                  download={getMemoryDownloadName(selectedMemory)}
+                  aria-label="Tải ảnh"
+                >
+                  <Download size={17} />
+                </a>
+              )}
+              <button className="memory-viewer-action memory-viewer-close" onClick={closeImageZoomViewer} aria-label="Đóng zoom ảnh">
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          <div
+            ref={mediaStageRef}
+            className={`memory-zoom-stage memory-media-stage-image ${imageZoom > 1 ? 'memory-media-stage-zoomed' : ''}`}
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={handleImagePointerDown}
+            onPointerMove={handleImagePointerMove}
+            onPointerUp={handleImagePointerEnd}
+            onPointerCancel={handleImagePointerEnd}
+            onLostPointerCapture={handleImagePointerEnd}
+            onWheel={handleImageWheel}
+          >
+            <img
+              src={selectedMemory.imageUrl}
+              alt={`Ảnh kỷ niệm của ${selectedMemory.name}`}
+              className="zoomable-memory-image max-h-[92svh] w-auto max-w-full object-contain"
+              decoding="async"
+              draggable={false}
+              style={{
+                transform: `translate3d(${imagePan.x}px, ${imagePan.y}px, 0) scale(${imageZoom})`,
+              }}
+            />
           </div>
         </div>
       )}

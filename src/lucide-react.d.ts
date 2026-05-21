@@ -40,6 +40,4 @@ declare module 'lucide-react' {
   export const Users: LucideIcon;
   export const Video: LucideIcon;
   export const X: LucideIcon;
-  export const ZoomIn: LucideIcon;
-  export const ZoomOut: LucideIcon;
 }
