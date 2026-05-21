@@ -544,17 +544,6 @@ export default function HomePage({
                 <strong className="block truncate text-sm text-paper sm:text-ink">{selectedMemory.name}</strong>
               </div>
               <div className="memory-viewer-actions">
-                {selectedDownloadHref && (
-                  <a
-                    className="memory-viewer-action"
-                    href={selectedDownloadHref}
-                    download={getMemoryDownloadName(selectedMemory)}
-                    onClick={() => void onDownloadMemory(selectedMemory)}
-                    aria-label={`Tải ${selectedMediaLabel}`}
-                  >
-                    <Download size={17} />
-                  </a>
-                )}
                 <button
                   className="memory-viewer-action memory-viewer-close"
                   onClick={closeSelectedMemory}
@@ -702,17 +691,6 @@ export default function HomePage({
                 <RotateCcw size={15} />
                 <span>{Math.round(imageZoom * 100)}%</span>
               </button>
-              {selectedDownloadHref && (
-                <a
-                  className="memory-viewer-action"
-                  href={selectedDownloadHref}
-                  download={getMemoryDownloadName(selectedMemory)}
-                  onClick={() => void onDownloadMemory(selectedMemory)}
-                  aria-label="Tải ảnh"
-                >
-                  <Download size={17} />
-                </a>
-              )}
               <button className="memory-viewer-action memory-viewer-close" onClick={closeImageZoomViewer} aria-label="Đóng zoom ảnh">
                 <X size={18} />
               </button>
