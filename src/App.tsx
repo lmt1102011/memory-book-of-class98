@@ -1,9 +1,11 @@
 import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion';
 import { BadgeCheck, Camera, Heart, Home, Lock, Menu, MessageCircle, Sparkles, UserRound, X } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import AppStatusToast from './components/AppStatusToast';
 import BootSplash from './components/BootSplash';
 import LoadingScreen from './components/LoadingScreen';
 import { useMobilePerformanceMode } from './hooks/useMobilePerformanceMode';
+import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion';
 import LandingPage from './pages/LandingPage';
 import type {
@@ -87,10 +89,13 @@ export default function App() {
   const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [bootSplashDone, setBootSplashDone] = useState(false);
+  const [routeFeedbackVisible, setRouteFeedbackVisible] = useState(false);
   const [pendingReactionIds, setPendingReactionIds] = useState<string[]>([]);
   const memoriesLoadedOnceRef = useRef(false);
   const pendingReactionIdsRef = useRef(new Set<string>());
+  const routeFeedbackTimerRef = useRef(0);
   const mobilePerformanceMode = useMobilePerformanceMode();
+  const { isOnline, justRestored } = useNetworkStatus();
   const prefersReducedMotion = usePrefersReducedMotion();
   const reduceHeavyMotion = prefersReducedMotion || mobilePerformanceMode;
 
@@ -99,6 +104,30 @@ export default function App() {
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
+
+  useEffect(() => {
+    if (!bootSplashDone) return undefined;
+
+    const timer = window.setTimeout(() => {
+      void import('./pages/HomePage');
+      void import('./pages/RememberPage');
+      void import('./pages/PeoplePage');
+      void import('./pages/VotesPage');
+      void import('./pages/LettersPage');
+      void import('./pages/DiaryPage');
+      void import('./pages/JoinPage');
+      if (!mobilePerformanceMode) void import('./pages/PhotobookPage');
+    }, mobilePerformanceMode ? 2200 : 900);
+
+    return () => window.clearTimeout(timer);
+  }, [bootSplashDone, mobilePerformanceMode]);
+
+  useEffect(
+    () => () => {
+      if (routeFeedbackTimerRef.current) window.clearTimeout(routeFeedbackTimerRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -337,13 +366,31 @@ export default function App() {
     };
   }, [profile, route]);
 
-  const navigate = useCallback((nextRoute: AppRoute) => {
-    setRoute(nextRoute);
-    setFirebaseNotice('');
-    setMenuOpen(false);
-    window.history.pushState(null, '', `#/${nextRoute}`);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  const navigate = useCallback(
+    (nextRoute: AppRoute) => {
+      const scrollBehavior: ScrollBehavior = reduceHeavyMotion ? 'auto' : 'smooth';
+
+      setFirebaseNotice('');
+      setMenuOpen(false);
+      window.scrollTo({ top: 0, behavior: scrollBehavior });
+
+      if (nextRoute === route) return;
+
+      setRouteFeedbackVisible(true);
+      if (routeFeedbackTimerRef.current) window.clearTimeout(routeFeedbackTimerRef.current);
+      routeFeedbackTimerRef.current = window.setTimeout(
+        () => {
+          routeFeedbackTimerRef.current = 0;
+          setRouteFeedbackVisible(false);
+        },
+        reduceHeavyMotion ? 180 : 520,
+      );
+
+      setRoute(nextRoute);
+      window.history.pushState(null, '', `#/${nextRoute}`);
+    },
+    [reduceHeavyMotion, route],
+  );
 
   const handleBootSplashComplete = useCallback(() => {
     setBootSplashDone(true);
@@ -1003,6 +1050,7 @@ export default function App() {
       <div className="min-h-screen overflow-x-hidden bg-cream text-ink">
         <div className="fixed inset-0 pointer-events-none bg-paper opacity-80" aria-hidden="true" />
         <div className="film-grain" aria-hidden="true" />
+        {routeFeedbackVisible && <div className="app-route-progress" aria-hidden="true" />}
 
         <AnimatePresence>
           {!bootSplashDone && <BootSplash logoSrc={logoSrc} onComplete={handleBootSplashComplete} />}
@@ -1096,6 +1144,7 @@ export default function App() {
           </AnimatePresence>
         </main>
         )}
+        {bootSplashDone && <AppStatusToast isOnline={isOnline} justRestored={justRestored} />}
       </div>
     </LazyMotion>
   );

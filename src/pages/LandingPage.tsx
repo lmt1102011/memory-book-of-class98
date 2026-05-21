@@ -681,17 +681,10 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
       : canPrompt
         ? 'Thêm vào màn hình chính'
         : 'Thêm vào màn hình chính';
-  const installHint =
-    platform === 'ios'
-      ? 'iPhone dùng Safari: Chia sẻ → Thêm vào Màn hình chính.'
-      : platform === 'android'
-        ? 'Android có thể cài Memory98 như app riêng ngoài màn hình chính.'
-        : 'Chrome/Edge trên máy tính có thể cài Memory98 như ứng dụng riêng.';
-
   const handleInstallClick = async () => {
     if (canPrompt && !isInstalled) {
       const outcome = await install();
-      if (outcome !== 'accepted') setInstallGuideOpen(true);
+      if (outcome === 'manual' || outcome === 'unavailable') setInstallGuideOpen(true);
       return;
     }
 
@@ -701,7 +694,7 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
   const handleInstallFromGuide = async () => {
     if (canPrompt && !isInstalled) {
       const outcome = await install();
-      if (outcome === 'accepted') setInstallGuideOpen(false);
+      if (outcome === 'accepted' || outcome === 'dismissed') setInstallGuideOpen(false);
       return;
     }
 

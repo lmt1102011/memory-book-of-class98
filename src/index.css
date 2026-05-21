@@ -21,6 +21,7 @@
     overscroll-behavior: none;
     touch-action: pan-x pan-y;
     -webkit-text-size-adjust: 100%;
+    scrollbar-gutter: stable;
   }
 
   body {
@@ -33,6 +34,7 @@
     font-family: Poppins, "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
     overscroll-behavior: none;
     touch-action: pan-x pan-y;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body.camera-open {
@@ -55,6 +57,15 @@
   input,
   textarea {
     font: inherit;
+  }
+
+  button,
+  a,
+  [role='button'],
+  input,
+  textarea,
+  select {
+    touch-action: manipulation;
   }
 
   img,
@@ -424,6 +435,87 @@
     transform: translateX(-115%);
     background: linear-gradient(90deg, transparent, rgba(255, 250, 241, 0.42), transparent);
     animation: boot-progress-shine 1.18s ease-in-out infinite;
+  }
+
+  .app-route-progress {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 0;
+    z-index: 95;
+    height: 3px;
+    overflow: hidden;
+    background: rgba(255, 250, 241, 0.4);
+    transform: translateZ(0);
+  }
+
+  .app-route-progress::before {
+    content: '';
+    display: block;
+    height: 100%;
+    width: 42%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #f7b7c7, #fffaf1, #385b58);
+    animation: app-route-progress 620ms ease-in-out infinite;
+    will-change: transform;
+  }
+
+  .app-status-toast {
+    position: fixed;
+    left: max(0.75rem, env(safe-area-inset-left));
+    right: max(0.75rem, env(safe-area-inset-right));
+    bottom: max(0.9rem, env(safe-area-inset-bottom));
+    z-index: 86;
+    display: flex;
+    align-items: center;
+    gap: 0.78rem;
+    max-width: 28rem;
+    margin-inline: auto;
+    border-radius: 999px;
+    background: rgba(255, 250, 241, 0.96);
+    padding: 0.72rem 0.86rem;
+    color: #35291f;
+    box-shadow:
+      0 18px 42px rgba(53, 41, 31, 0.18),
+      inset 0 0 0 1px rgba(122, 86, 57, 0.1);
+    animation: app-toast-in 180ms ease-out both;
+  }
+
+  .app-status-dot {
+    width: 0.7rem;
+    height: 0.7rem;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    box-shadow: 0 0 0 0.35rem rgba(56, 91, 88, 0.1);
+  }
+
+  .app-status-toast strong,
+  .app-status-toast small {
+    display: block;
+    min-width: 0;
+  }
+
+  .app-status-toast strong {
+    font-size: 0.82rem;
+    font-weight: 950;
+    line-height: 1.2;
+  }
+
+  .app-status-toast small {
+    margin-top: 0.08rem;
+    color: rgba(53, 41, 31, 0.62);
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  .app-status-toast-online .app-status-dot {
+    background: #385b58;
+  }
+
+  .app-status-toast-offline .app-status-dot {
+    background: #d88745;
+    box-shadow: 0 0 0 0.35rem rgba(216, 135, 69, 0.12);
   }
 
   .board-note {
@@ -1554,6 +1646,17 @@
     .polaroid:hover {
       box-shadow: 0 18px 45px rgba(84, 57, 35, 0.16);
     }
+
+    .primary-button:active,
+    .secondary-button:active,
+    .icon-button:active,
+    .nav-pill:active,
+    .tag-button:active,
+    .memory-viewer-action:active,
+    .camera-secondary-button:active,
+    .camera-action-button:active {
+      transform: scale(0.985);
+    }
   }
 
   @media (max-width: 768px) {
@@ -1609,6 +1712,18 @@
       animation: none;
       display: none;
     }
+
+    .app-route-progress::before {
+      animation-duration: 880ms;
+    }
+
+    .app-status-toast {
+      border-radius: 1rem;
+      padding: 0.68rem 0.75rem;
+      box-shadow:
+        0 12px 28px rgba(53, 41, 31, 0.14),
+        inset 0 0 0 1px rgba(122, 86, 57, 0.1);
+    }
   }
 
   @media (max-width: 380px) {
@@ -1661,5 +1776,27 @@
 
   100% {
     transform: translateX(245%);
+  }
+}
+
+@keyframes app-route-progress {
+  0% {
+    transform: translate3d(-110%, 0, 0);
+  }
+
+  100% {
+    transform: translate3d(250%, 0, 0);
+  }
+}
+
+@keyframes app-toast-in {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0.6rem, 0) scale(0.98);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
