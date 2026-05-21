@@ -18,6 +18,7 @@
   html {
     scroll-behavior: smooth;
     background: #fbf3e7;
+    touch-action: pan-x pan-y;
   }
 
   body {
@@ -28,6 +29,7 @@
     background: #fbf3e7;
     color: #35291f;
     font-family: Poppins, "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+    touch-action: pan-x pan-y;
   }
 
   body.camera-open {
