@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Camera, Download, Filter, Heart, Lock, Search, UserRound, Video, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
+import { Camera, Download, Filter, Heart, Lock, RotateCcw, Search, UserRound, Video, X, ZoomIn, ZoomOut } from 'lucide-react';
 import FirebaseNotice from '../components/FirebaseNotice';
 import MemoryCard from '../components/MemoryCard';
 import { useDebounce } from '../hooks/useDebounce';
@@ -29,6 +30,8 @@ const getMemoryDownloadName = (memory: MemoryItem) => {
 };
 
 const formatVideoDuration = (seconds: number) => `${Math.max(1, Math.round(seconds || 0))}s`;
+
+const clampZoom = (value: number) => Math.min(4, Math.max(1, value));
 
 interface HomePageProps {
   memories: MemoryItem[];
@@ -61,6 +64,10 @@ export default function HomePage({
   onDeleteComment,
   onDeleteMemory,
 }: HomePageProps) {
+  const mediaStageRef = useRef<HTMLDivElement | null>(null);
+  const activePointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const panGestureRef = useRef({ startX: 0, startY: 0, panX: 0, panY: 0, lastTapAt: 0 });
+  const pinchGestureRef = useRef({ distance: 0, zoom: 1 });
   const [nameQuery, setNameQuery] = useState('');
   const [keywordQuery, setKeywordQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -68,12 +75,43 @@ export default function HomePage({
   const [selectedMemory, setSelectedMemory] = useState<MemoryItem | null>(null);
   const [selectedImageLoaded, setSelectedImageLoaded] = useState(false);
   const [selectedImageFailed, setSelectedImageFailed] = useState(false);
+  const [imageZoom, setImageZoom] = useState(1);
+  const [imagePan, setImagePan] = useState({ x: 0, y: 0 });
   const [selectedVideoUrl, setSelectedVideoUrl] = useState('');
   const [selectedVideoLoading, setSelectedVideoLoading] = useState(false);
   const [selectedVideoError, setSelectedVideoError] = useState('');
 
   const debouncedName = useDebounce(nameQuery);
   const debouncedKeyword = useDebounce(keywordQuery);
+
+  const clampImagePan = useCallback((x: number, y: number, zoom: number) => {
+    if (zoom <= 1) return { x: 0, y: 0 };
+    const rect = mediaStageRef.current?.getBoundingClientRect();
+    const width = rect?.width || window.innerWidth || 360;
+    const height = rect?.height || window.innerHeight || 640;
+    const limitX = Math.max(0, (width * (zoom - 1)) / 2);
+    const limitY = Math.max(0, (height * (zoom - 1)) / 2);
+    return {
+      x: Math.min(limitX, Math.max(-limitX, x)),
+      y: Math.min(limitY, Math.max(-limitY, y)),
+    };
+  }, []);
+
+  const resetImageZoom = useCallback(() => {
+    setImageZoom(1);
+    setImagePan({ x: 0, y: 0 });
+  }, []);
+
+  const zoomImageBy = useCallback(
+    (delta: number) => {
+      setImageZoom((current) => {
+        const next = clampZoom(current + delta);
+        setImagePan((pan) => clampImagePan(pan.x, pan.y, next));
+        return next;
+      });
+    },
+    [clampImagePan],
+  );
 
   useEffect(() => {
     if (!selectedMemory) return undefined;
@@ -95,6 +133,8 @@ export default function HomePage({
     let alive = true;
     setSelectedImageLoaded(false);
     setSelectedImageFailed(false);
+    resetImageZoom();
+    activePointersRef.current.clear();
     setSelectedVideoUrl('');
     setSelectedVideoError('');
     setSelectedVideoLoading(Boolean(selectedMemory?.mediaType === 'video'));
@@ -117,7 +157,83 @@ export default function HomePage({
     return () => {
       alive = false;
     };
-  }, [selectedMemory]);
+  }, [resetImageZoom, selectedMemory]);
+
+  const getPointerDistance = () => {
+    const points = Array.from(activePointersRef.current.values());
+    if (points.length < 2) return 0;
+    const [first, second] = points;
+    return Math.hypot(second.x - first.x, second.y - first.y);
+  };
+
+  const handleImagePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (selectedMemory?.mediaType === 'video') return;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+      const now = performance.now();
+      if (activePointersRef.current.size === 1) {
+        if (now - panGestureRef.current.lastTapAt < 280) {
+          const nextZoom = imageZoom > 1 ? 1 : 2.35;
+          setImageZoom(nextZoom);
+          setImagePan((pan) => clampImagePan(pan.x, pan.y, nextZoom));
+          panGestureRef.current.lastTapAt = 0;
+        } else {
+          panGestureRef.current.lastTapAt = now;
+        }
+
+        panGestureRef.current = {
+          ...panGestureRef.current,
+          startX: event.clientX,
+          startY: event.clientY,
+          panX: imagePan.x,
+          panY: imagePan.y,
+        };
+      }
+
+      if (activePointersRef.current.size === 2) {
+        pinchGestureRef.current = {
+          distance: getPointerDistance(),
+          zoom: imageZoom,
+        };
+      }
+    },
+    [clampImagePan, imagePan.x, imagePan.y, imageZoom, selectedMemory?.mediaType],
+  );
+
+  const handleImagePointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!activePointersRef.current.has(event.pointerId)) return;
+      activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+      if (activePointersRef.current.size >= 2) {
+        event.preventDefault();
+        const distance = getPointerDistance();
+        if (!pinchGestureRef.current.distance || !distance) return;
+        const nextZoom = clampZoom((pinchGestureRef.current.zoom * distance) / pinchGestureRef.current.distance);
+        setImageZoom(nextZoom);
+        setImagePan((pan) => clampImagePan(pan.x, pan.y, nextZoom));
+        return;
+      }
+
+      if (imageZoom <= 1) return;
+      event.preventDefault();
+      const nextX = panGestureRef.current.panX + event.clientX - panGestureRef.current.startX;
+      const nextY = panGestureRef.current.panY + event.clientY - panGestureRef.current.startY;
+      setImagePan(clampImagePan(nextX, nextY, imageZoom));
+    },
+    [clampImagePan, imageZoom],
+  );
+
+  const handleImagePointerEnd = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    activePointersRef.current.delete(event.pointerId);
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      // Some browsers release capture automatically after a pinch.
+    }
+  }, []);
 
   const tags = useMemo(() => {
     const unique = new Set<string>();
@@ -375,29 +491,73 @@ export default function HomePage({
           onClick={() => setSelectedMemory(null)}
         >
           <div
-            className="relative flex h-[100svh] w-full flex-col overflow-hidden bg-ink shadow-glass sm:grid sm:max-h-[92svh] sm:max-w-6xl sm:grid-cols-[minmax(0,1fr)_20rem] sm:gap-4 sm:rounded-[1rem] sm:bg-paper sm:p-4"
+            className="memory-viewer-panel relative flex h-[100svh] w-full flex-col overflow-hidden bg-ink shadow-glass sm:grid sm:max-h-[92svh] sm:max-w-6xl sm:grid-cols-[minmax(0,1fr)_20rem] sm:gap-4 sm:rounded-[1rem] sm:bg-paper sm:p-4"
             onClick={(event) => event.stopPropagation()}
           >
-            <button
-              className="absolute right-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-full bg-ink/78 text-paper shadow-paper"
-              onClick={() => setSelectedMemory(null)}
-              aria-label={`Đóng ${selectedMediaLabel}`}
+            <div className="memory-viewer-topbar">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-paper/58 sm:text-coffee/62">
+                  {selectedMemory.mediaType === 'video' ? 'Video ngắn' : 'Ảnh kỷ niệm'}
+                </p>
+                <strong className="block truncate text-sm text-paper sm:text-ink">{selectedMemory.name}</strong>
+              </div>
+              <div className="memory-viewer-actions">
+                {selectedMemory.mediaType !== 'video' && (
+                  <>
+                    <button
+                      className="memory-viewer-action"
+                      onClick={() => zoomImageBy(-0.45)}
+                      disabled={imageZoom <= 1}
+                      aria-label="Thu nhỏ ảnh"
+                    >
+                      <ZoomOut size={17} />
+                    </button>
+                    <button className="memory-viewer-action memory-viewer-zoom-reset" onClick={resetImageZoom} aria-label="Đưa ảnh về kích thước ban đầu">
+                      <RotateCcw size={15} />
+                      <span>{Math.round(imageZoom * 100)}%</span>
+                    </button>
+                    <button
+                      className="memory-viewer-action"
+                      onClick={() => zoomImageBy(0.55)}
+                      disabled={imageZoom >= 4}
+                      aria-label="Phóng to ảnh"
+                    >
+                      <ZoomIn size={17} />
+                    </button>
+                  </>
+                )}
+                {selectedDownloadHref && (
+                  <a
+                    className="memory-viewer-action"
+                    href={selectedDownloadHref}
+                    download={getMemoryDownloadName(selectedMemory)}
+                    aria-label={`Tải ${selectedMediaLabel}`}
+                  >
+                    <Download size={17} />
+                  </a>
+                )}
+                <button
+                  className="memory-viewer-action memory-viewer-close"
+                  onClick={() => setSelectedMemory(null)}
+                  aria-label={`Đóng ${selectedMediaLabel}`}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div
+              ref={mediaStageRef}
+              className={`memory-media-stage relative grid min-h-0 flex-1 place-items-center overflow-hidden bg-ink sm:rounded-[0.75rem] ${
+                selectedMemory.mediaType !== 'video' ? 'memory-media-stage-image' : ''
+              } ${selectedMemory.mediaType !== 'video' && imageZoom > 1 ? 'memory-media-stage-zoomed' : ''
+              }`}
+              onPointerDown={handleImagePointerDown}
+              onPointerMove={handleImagePointerMove}
+              onPointerUp={handleImagePointerEnd}
+              onPointerCancel={handleImagePointerEnd}
+              onLostPointerCapture={handleImagePointerEnd}
             >
-              <X size={19} />
-            </button>
-
-            {selectedDownloadHref && (
-              <a
-                className="absolute left-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-full bg-paper/92 text-ink shadow-paper sm:hidden"
-                href={selectedDownloadHref}
-                download={getMemoryDownloadName(selectedMemory)}
-                aria-label={`Tải ${selectedMediaLabel}`}
-              >
-                <Download size={18} />
-              </a>
-            )}
-
-            <div className="relative grid min-h-0 flex-1 place-items-center overflow-hidden bg-ink sm:rounded-[0.75rem]">
               {selectedMemory.mediaType !== 'video' && !selectedImageLoaded && !selectedImageFailed && (
                 <span className="memory-image-placeholder absolute inset-0 z-0" aria-hidden="true" />
               )}
@@ -440,10 +600,14 @@ export default function HomePage({
                 <img
                   src={selectedMemory.imageUrl}
                   alt={`Ảnh kỷ niệm của ${selectedMemory.name}`}
-                  className="relative z-[1] max-h-[calc(100svh-13rem)] w-auto max-w-full object-contain sm:max-h-[86svh]"
+                  className="zoomable-memory-image relative z-[1] max-h-[calc(100svh-13rem)] w-auto max-w-full object-contain sm:max-h-[86svh]"
                   decoding="async"
+                  draggable={false}
                   onLoad={() => setSelectedImageLoaded(true)}
                   onError={() => setSelectedImageFailed(true)}
+                  style={{
+                    transform: `translate3d(${imagePan.x}px, ${imagePan.y}px, 0) scale(${imageZoom})`,
+                  }}
                 />
               )}
             </div>
