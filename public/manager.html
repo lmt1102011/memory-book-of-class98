@@ -262,8 +262,11 @@
         </p>
         <form id="gateForm" class="form" style="margin-top: 14px">
           <input id="managerCode" type="password" placeholder="Manager code" autocomplete="current-password" />
+          <input id="managerStudentName" placeholder="Tài khoản Firebase quản lý" value="Lê Minh Trí" autocomplete="username" />
+          <input id="managerStudentPassword" type="password" placeholder="Mật khẩu tài khoản Lê Minh Trí" autocomplete="current-password" />
           <button>Mở manager</button>
         </form>
+        <p id="gateStatus" class="status"></p>
       </section>
 
       <section id="app" class="hidden">
@@ -324,6 +327,8 @@
       import {
         createUserWithEmailAndPassword,
         getAuth,
+        onAuthStateChanged,
+        signInWithEmailAndPassword,
         signOut,
         updateProfile,
       } from 'https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js';
@@ -351,6 +356,7 @@
       };
 
       const MANAGER_KEY = 'lmt1102011';
+      const MANAGER_NAME_KEY = 'le-minh-tri';
       const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
       const CLASS_NAME = '9/8';
       const PUBLIC_MEMORIES_COLLECTION = 'memories98';
@@ -360,6 +366,7 @@
 
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
+      const managerAuth = getAuth(app);
       const creatorApp = initializeApp(firebaseConfig, 'creator');
       const creatorAuth = getAuth(creatorApp);
       const creatorDb = getFirestore(creatorApp);
@@ -368,6 +375,7 @@
       const gate = $('gate');
       const managerApp = $('app');
       const status = $('accountStatus');
+      const gateStatus = $('gateStatus');
       const memoryStatus = $('memoryStatus');
       let accounts = [];
       let diaries = [];
@@ -388,6 +396,35 @@
           .replace(/^-+|-+$/g, '');
 
       const makeStudentEmail = (nameKey) => `${nameKey}@${AUTH_DOMAIN}`;
+      const isManagerFirebaseUser = () => managerAuth.currentUser?.email?.toLowerCase() === makeStudentEmail(MANAGER_NAME_KEY);
+
+      const waitForCurrentUser = () =>
+        new Promise((resolve) => {
+          const unsubscribe = onAuthStateChanged(managerAuth, (user) => {
+            unsubscribe();
+            resolve(user);
+          });
+        });
+
+      const ensureManagerFirebaseAuth = async () => {
+        await waitForCurrentUser();
+        if (isManagerFirebaseUser()) return true;
+
+        const nameKey = makeNameKey($('managerStudentName').value || 'Lê Minh Trí');
+        const password = $('managerStudentPassword').value;
+        if (!password) {
+          gateStatus.textContent = 'Hãy nhập mật khẩu tài khoản Lê Minh Trí để Firestore cho phép manager đọc ảnh/video.';
+          return false;
+        }
+
+        await signInWithEmailAndPassword(managerAuth, makeStudentEmail(nameKey), password);
+        if (!isManagerFirebaseUser()) {
+          await signOut(managerAuth);
+          throw new Error('Manager chỉ được mở bằng tài khoản Firebase Lê Minh Trí.');
+        }
+        return true;
+      };
+
       const formatDate = (value) => {
         if (!value) return '';
         const date = value.toDate ? value.toDate() : new Date(value);
@@ -416,11 +453,19 @@
         startPolling();
       };
 
-      $('gateForm').addEventListener('submit', (event) => {
+      $('gateForm').addEventListener('submit', async (event) => {
         event.preventDefault();
         if ($('managerCode').value === MANAGER_KEY) {
-          localStorage.setItem('class98-manager', MANAGER_KEY);
-          showManager();
+          try {
+            gateStatus.textContent = 'Đang xác thực Firebase manager...';
+            const canOpen = await ensureManagerFirebaseAuth();
+            if (!canOpen) return;
+            localStorage.setItem('class98-manager', MANAGER_KEY);
+            gateStatus.textContent = '';
+            showManager();
+          } catch (error) {
+            gateStatus.textContent = error.message || 'Không thể đăng nhập Firebase manager.';
+          }
         } else {
           alert('Sai ma quan ly.');
         }
@@ -698,6 +743,10 @@
 
       const refreshManagerData = async () => {
         if (isLoadingManagerData) return;
+        if (!isManagerFirebaseUser()) {
+          status.textContent = 'Manager cần đăng nhập Firebase bằng tài khoản Lê Minh Trí để đọc dữ liệu.';
+          return;
+        }
         isLoadingManagerData = true;
 
         try {
@@ -742,7 +791,13 @@
       };
 
       if (localStorage.getItem('class98-manager') === MANAGER_KEY) {
-        showManager();
+        void waitForCurrentUser().then(() => {
+          if (isManagerFirebaseUser()) {
+            showManager();
+            return;
+          }
+          gateStatus.textContent = 'Nhập mật khẩu tài khoản Lê Minh Trí để mở lại manager.';
+        });
       }
     </script>
   </body>

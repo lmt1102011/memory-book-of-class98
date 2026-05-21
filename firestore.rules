@@ -12,6 +12,11 @@ service cloud.firestore {
         || resource.data.managerKey == 'lmt1102011';
     }
 
+    function isManagerAuth() {
+      return request.auth != null
+        && request.auth.token.email == 'le-minh-tri@memorybook-of-class98.firebaseapp.com';
+    }
+
     function ownsResource() {
       return request.auth != null
         && (
@@ -179,7 +184,7 @@ service cloud.firestore {
     }
 
     match /privateMemories98/{memoryId} {
-      allow read: if canAccessPrivateMemoryResource();
+      allow read: if canAccessPrivateMemoryResource() || isManagerAuth();
       allow create: if validMemoryBaseCreate()
         && request.resource.data.visibility in ['private', 'tagged']
         && (
@@ -195,13 +200,16 @@ service cloud.firestore {
     }
 
     match /memoryVideoChunks98/{memoryId}/chunks/{chunkId} {
-      allow read: if request.auth != null
-        && (
-          resource.data.visibility == 'public'
-          || resource.data.uid == request.auth.uid
-          || (
-            resource.data.visibleToUids is list
-            && request.auth.uid in resource.data.visibleToUids
+      allow read: if isManagerAuth()
+        || (
+          request.auth != null
+          && (
+            resource.data.visibility == 'public'
+            || resource.data.uid == request.auth.uid
+            || (
+              resource.data.visibleToUids is list
+              && request.auth.uid in resource.data.visibleToUids
+            )
           )
         );
       allow create: if request.auth != null
