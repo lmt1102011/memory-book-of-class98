@@ -141,15 +141,16 @@ export default function PeoplePage({
   }, [commentsByMemory, memories, sortedClassmates]);
 
   const filteredClassmates = useMemo(() => {
+    const classmatesWithoutSelf = sortedClassmates.filter((person) => person.nameKey !== profile?.nameKey);
     const keyword = query.trim().toLowerCase();
-    if (!keyword) return sortedClassmates;
-    return sortedClassmates.filter((person) =>
+    if (!keyword) return classmatesWithoutSelf;
+    return classmatesWithoutSelf.filter((person) =>
       [person.name, person.nickname || '']
         .join(' ')
         .toLowerCase()
         .includes(keyword),
     );
-  }, [query, sortedClassmates]);
+  }, [profile?.nameKey, query, sortedClassmates]);
 
   const selectedIsSelf = Boolean(profile && selectedPerson && selectedPerson.nameKey === profile.nameKey);
   const selectedOwnStats = useMemo(
