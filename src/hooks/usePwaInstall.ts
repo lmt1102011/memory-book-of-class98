@@ -4,6 +4,7 @@ import {
   detectInstallPlatform,
   getDeferredPwaInstallPrompt,
   isStandaloneMode,
+  rememberPwaInstalled,
   type BeforeInstallPromptEvent,
   type InstallOutcome,
   type InstallPlatform,
@@ -25,6 +26,7 @@ export function usePwaInstall() {
     };
 
     const handleInstalled = () => {
+      rememberPwaInstalled();
       setDeferredPrompt(null);
       setIsInstalled(true);
     };
@@ -57,6 +59,7 @@ export function usePwaInstall() {
         clearDeferredPwaInstallPrompt();
 
         if (choice.outcome === 'accepted') {
+          rememberPwaInstalled();
           setIsInstalled(true);
         }
 

@@ -3,7 +3,7 @@
   "short_name": "Memory98",
   "description": "Kỷ yếu số của lớp 9/8 với ký ức, photobook, thư bí mật và hồ sơ thanh xuân.",
   "id": "./",
-  "start_url": "./#/home",
+  "start_url": "./?source=pwa#/home",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
@@ -12,25 +12,25 @@
   "categories": ["photo", "social", "education"],
   "icons": [
     {
-      "src": "./logo-web-class-98-192.png?v=20260521-pwa2",
+      "src": "./logo-web-class-98-192.png?v=20260521-pwa3",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./logo-web-class-98.png?v=20260521-pwa2",
+      "src": "./logo-web-class-98.png?v=20260521-pwa3",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./logo-web-class-98-maskable-192.png?v=20260521-pwa2",
+      "src": "./logo-web-class-98-maskable-192.png?v=20260521-pwa3",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "./logo-web-class-98-maskable-512.png?v=20260521-pwa2",
+      "src": "./logo-web-class-98-maskable-512.png?v=20260521-pwa3",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

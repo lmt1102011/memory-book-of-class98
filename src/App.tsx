@@ -9,7 +9,7 @@ import { useMobilePerformanceMode } from './hooks/useMobilePerformanceMode';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion';
 import LandingPage from './pages/LandingPage';
-import { isStandaloneMode } from './pwaInstallPrompt';
+import { shouldSkipIntroOnInstalledLaunch } from './pwaInstallPrompt';
 import type {
   AppRoute,
   ClassmateProfile,
@@ -44,8 +44,8 @@ const routeFromHash = (): AppRoute => {
   const route = window.location.hash.replace('#/', '') as AppRoute;
   const isKnownRoute = ['landing', 'join', 'home', 'letters', 'remember', 'diary', 'photobook', 'people', 'votes', 'mine'].includes(route);
 
-  if (!isKnownRoute) return isStandaloneMode() ? 'home' : 'landing';
-  if (route === 'landing' && isStandaloneMode()) return 'home';
+  if (!isKnownRoute) return shouldSkipIntroOnInstalledLaunch() ? 'home' : 'landing';
+  if (route === 'landing' && shouldSkipIntroOnInstalledLaunch()) return 'home';
 
   return route;
 };
@@ -121,6 +121,13 @@ export default function App() {
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
+
+  useEffect(() => {
+    if (route !== 'landing' || !shouldSkipIntroOnInstalledLaunch()) return;
+
+    setRoute('home');
+    window.history.replaceState(null, '', '#/home');
+  }, [route]);
 
   useEffect(() => {
     if (!bootSplashDone) return undefined;

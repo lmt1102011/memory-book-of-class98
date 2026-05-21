@@ -18,16 +18,50 @@ type PromptListener = (prompt: BeforeInstallPromptEvent | null) => void;
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 let isCaptureStarted = false;
 const promptListeners = new Set<PromptListener>();
+const PWA_INSTALLED_STORAGE_KEY = 'memory98-pwa-installed';
 
 const notifyPromptListeners = () => {
   promptListeners.forEach((listener) => listener(deferredPrompt));
+};
+
+export const rememberPwaInstalled = () => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.setItem(PWA_INSTALLED_STORAGE_KEY, 'yes');
+  } catch {
+    // Ignore private browsing/storage failures; install detection still works through display-mode.
+  }
+};
+
+export const hasRememberedPwaInstall = () => {
+  if (typeof window === 'undefined') return false;
+
+  try {
+    return window.localStorage.getItem(PWA_INSTALLED_STORAGE_KEY) === 'yes';
+  } catch {
+    return false;
+  }
 };
 
 export const isStandaloneMode = () => {
   if (typeof window === 'undefined') return false;
 
   const navigatorWithStandalone = window.navigator as Navigator & { standalone?: boolean };
-  return window.matchMedia('(display-mode: standalone)').matches || navigatorWithStandalone.standalone === true;
+  const displayModes = ['standalone', 'fullscreen', 'minimal-ui', 'window-controls-overlay'];
+  const isDisplayModeApp = displayModes.some((mode) => window.matchMedia(`(display-mode: ${mode})`).matches);
+  const isAndroidWebApk = document.referrer.startsWith('android-app://');
+
+  return isDisplayModeApp || navigatorWithStandalone.standalone === true || isAndroidWebApk;
+};
+
+export const shouldSkipIntroOnInstalledLaunch = () => {
+  if (typeof window === 'undefined') return false;
+
+  const launchSource = new URLSearchParams(window.location.search).get('source');
+  const hasNoDeepLink = !window.location.hash || window.location.hash === '#/' || window.location.hash === '#/landing';
+
+  return isStandaloneMode() || launchSource === 'pwa' || (hasRememberedPwaInstall() && hasNoDeepLink);
 };
 
 export const detectInstallPlatform = (): InstallPlatform => {
@@ -53,6 +87,7 @@ export const capturePwaInstallPrompt = () => {
   });
 
   window.addEventListener('appinstalled', () => {
+    rememberPwaInstalled();
     deferredPrompt = null;
     notifyPromptListeners();
   });
