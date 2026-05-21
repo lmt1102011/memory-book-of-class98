@@ -9,6 +9,7 @@ import { useMobilePerformanceMode } from './hooks/useMobilePerformanceMode';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion';
 import LandingPage from './pages/LandingPage';
+import { isStandaloneMode } from './pwaInstallPrompt';
 import type {
   AppRoute,
   ClassmateProfile,
@@ -41,9 +42,12 @@ const MyMemoriesPage = lazy(() => import('./pages/MyMemoriesPage'));
 
 const routeFromHash = (): AppRoute => {
   const route = window.location.hash.replace('#/', '') as AppRoute;
-  return ['landing', 'join', 'home', 'letters', 'remember', 'diary', 'photobook', 'people', 'votes', 'mine'].includes(route)
-    ? route
-    : 'landing';
+  const isKnownRoute = ['landing', 'join', 'home', 'letters', 'remember', 'diary', 'photobook', 'people', 'votes', 'mine'].includes(route);
+
+  if (!isKnownRoute) return isStandaloneMode() ? 'home' : 'landing';
+  if (route === 'landing' && isStandaloneMode()) return 'home';
+
+  return route;
 };
 
 const navItems: Array<{ route: AppRoute; label: string; icon: typeof Home }> = [

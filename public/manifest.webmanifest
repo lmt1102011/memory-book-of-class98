@@ -3,7 +3,7 @@
   "short_name": "Memory98",
   "description": "Kỷ yếu số của lớp 9/8 với ký ức, photobook, thư bí mật và hồ sơ thanh xuân.",
   "id": "./",
-  "start_url": "./",
+  "start_url": "./#/home",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",

@@ -11,7 +11,7 @@ interface BootSplashProps {
 const getProgressLabel = (progress: number) => {
   if (progress < 34) return 'Đang mở logo lớp 9/8';
   if (progress < 72) return 'Đang chuẩn bị cuốn sổ ký ức';
-  if (progress < 98) return 'Đang đưa bạn vào intro';
+  if (progress < 98) return 'Đang đưa bạn vào Memory98';
   return 'Sẵn sàng';
 };
 
