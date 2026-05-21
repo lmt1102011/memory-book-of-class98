@@ -1,8 +1,9 @@
-const CACHE_NAME = 'memory98-app-shell-v6';
+const CACHE_NAME = 'memory98-app-shell-v7';
 const APP_SHELL_PATHS = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './logo-web-class-98.svg',
   './logo-web-class-98.png',
   './logo-web-class-98-192.png',
   './logo-web-class-98-maskable-192.png',

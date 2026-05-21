@@ -38,7 +38,7 @@ const quotes = [
   'We were only students, and somehow that was everything.',
 ];
 
-const logoSrc = `${import.meta.env.BASE_URL}logo-web-class-98.png?v=20260521`;
+const logoSrc = `${import.meta.env.BASE_URL}logo-web-class-98.svg?v=20260521-logo2`;
 
 const tutorialImage = (index: number) => LANDING_SLIDES[index % LANDING_SLIDES.length].src.replace('w=1800', 'w=900');
 
@@ -524,8 +524,8 @@ function InstallGuideMockup({ platform, isInstalled }: { platform: InstallPlatfo
             </div>
             <div className="p-3">
               <div className="rounded-[1rem] bg-white p-3 shadow-paper">
-                <div className="mx-auto grid h-16 w-16 place-items-center rounded-[1rem] bg-paper">
-                  <img src={logoSrc} alt="" className="h-12 w-12 object-contain" loading="eager" decoding="async" />
+                <div className="mx-auto grid h-16 w-16 place-items-center rounded-[1rem] bg-[#fff7ec] p-1 shadow-paper ring-1 ring-coffee/10">
+                  <img src={logoSrc} alt="" className="h-full w-full object-contain" loading="eager" decoding="async" />
                 </div>
                 <p className="mt-3 text-center text-sm font-black">Memory98</p>
                 <p className="mt-1 text-center text-[11px] font-bold text-coffee/70">Class 9/8 app</p>
@@ -794,8 +794,8 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
         <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-7xl flex-col px-4 pb-10 pt-5 sm:px-6 lg:px-8">
           <header className="flex flex-wrap items-center justify-between gap-3">
             <div className="hidden items-center gap-2 rounded-full bg-white/35 px-3 py-2 shadow-glass backdrop-blur-xl sm:inline-flex">
-              <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-full bg-paper ring-1 ring-coffee/15">
-                <img src={logoSrc} alt="" className="h-8 w-8 object-contain" loading="eager" decoding="async" />
+              <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-[0.8rem] bg-[#fff7ec] p-1 shadow-paper ring-1 ring-coffee/15">
+                <img src={logoSrc} alt="" className="h-full w-full object-contain" loading="eager" decoding="async" />
               </span>
               <span className="pr-1 text-sm font-bold text-ink">Class 98</span>
             </div>

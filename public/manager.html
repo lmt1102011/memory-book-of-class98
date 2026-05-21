@@ -295,6 +295,14 @@
           </section>
 
           <section class="card" style="grid-column: 1 / -1">
+            <h2>Tài khoản đã xóa</h2>
+            <p class="muted" style="margin-bottom: 12px">
+              Nếu xóa nhầm, hãy khôi phục tại đây. Vì manager chạy tĩnh không có máy chủ Admin SDK, tài khoản sẽ dùng lại mật khẩu Firebase cũ.
+            </p>
+            <div id="deletedAccounts" class="list"></div>
+          </section>
+
+          <section class="card" style="grid-column: 1 / -1">
             <h2>Nhật ký bí mật - hiện tên người viết</h2>
             <div id="diaries" class="list"></div>
           </section>
@@ -502,6 +510,31 @@
               `,
             )
             .join('') || '<p class="muted">Chưa có tài khoản đang hoạt động.</p>';
+
+        renderDeletedAccounts();
+      };
+
+      const renderDeletedAccounts = () => {
+        const deletedAccounts = accounts.filter((account) => account.deleted);
+        $('deletedAccounts').innerHTML =
+          deletedAccounts
+            .map(
+              (account) => `
+                <article class="item">
+                  <div class="row">
+                    <strong>${escapeHtml(account.name || account.id)}</strong>
+                    <span class="pill pink">Đã xóa khỏi lớp</span>
+                  </div>
+                  <p class="muted">Class ${escapeHtml(account.className || CLASS_NAME)} | key: ${escapeHtml(account.id)}</p>
+                  <p class="muted">UID: ${escapeHtml(account.uid || 'manual')}</p>
+                  <p class="muted">Deleted: ${formatDate(account.deletedAt || account.managerDeletedAt)}</p>
+                  <div class="row" style="margin-top: 10px">
+                    <button class="secondary" data-action="restore-deleted" data-id="${account.id}">Khôi phục tài khoản</button>
+                  </div>
+                </article>
+              `,
+            )
+            .join('') || '<p class="muted">Chưa có tài khoản nào bị xóa.</p>';
       };
 
       const renderDiaries = () => {
@@ -666,6 +699,30 @@
           return;
         }
 
+        if (action === 'restore-deleted') {
+          button.disabled = true;
+          button.textContent = 'Đang khôi phục...';
+          try {
+            await updateDoc(doc(db, 'students98', id), {
+              disabled: false,
+              deleted: false,
+              restoredAt: serverTimestamp(),
+              managerKey: MANAGER_KEY,
+              managerUpdatedAt: serverTimestamp(),
+            });
+            accounts = accounts.map((item) =>
+              item.id === id ? { ...item, disabled: false, deleted: false } : item,
+            );
+            renderAccounts();
+            status.textContent = `Đã khôi phục tài khoản ${account.name || id}. Người dùng đăng nhập bằng mật khẩu cũ.`;
+          } catch (error) {
+            button.disabled = false;
+            button.textContent = 'Khôi phục tài khoản';
+            status.textContent = error.message || 'Không thể khôi phục tài khoản lúc này.';
+          }
+          return;
+        }
+
         const disabled = action === 'disable';
         await updateDoc(doc(db, 'students98', id), {
           disabled,
@@ -764,8 +821,24 @@
           status.textContent = 'Tài khoản này đã có trong lớp 9/8.';
           return;
         }
-        if (accounts.some((account) => account.id === nameKey && account.deleted)) {
-          status.textContent = 'Tài khoản này đã bị xóa khỏi lớp. Không thể tạo lại bằng manager tĩnh vì Firebase Auth vẫn giữ email cũ.';
+        const deletedAccount = accounts.find((account) => account.id === nameKey && account.deleted);
+        if (deletedAccount) {
+          try {
+            status.textContent = 'Tài khoản này từng bị xóa, đang khôi phục lại...';
+            await updateDoc(doc(db, 'students98', nameKey), {
+              disabled: false,
+              deleted: false,
+              restoredAt: serverTimestamp(),
+              managerKey: MANAGER_KEY,
+              managerUpdatedAt: serverTimestamp(),
+            });
+            $('studentName').value = '';
+            $('studentPassword').value = '';
+            await refreshManagerData();
+            status.textContent = `Đã khôi phục tài khoản ${deletedAccount.name || name}. Người dùng đăng nhập bằng mật khẩu cũ.`;
+          } catch (error) {
+            status.textContent = error.message || 'Không thể khôi phục tài khoản này.';
+          }
           return;
         }
 

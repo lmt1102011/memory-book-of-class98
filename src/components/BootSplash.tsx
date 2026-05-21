@@ -105,8 +105,14 @@ export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
         role="status"
       >
         <div className="relative w-full max-w-xl text-center">
-          <div className="mx-auto grid h-[clamp(10rem,54vw,15rem)] w-[clamp(10rem,54vw,15rem)] place-items-center rounded-[1.6rem] border border-white/70 bg-white/72 p-4 shadow-paper">
-            <img src={logoSrc} alt="Logo Class 98" className="h-full w-full object-contain" loading="eager" decoding="async" />
+          <div className="mx-auto grid h-[clamp(10rem,54vw,15rem)] w-[clamp(10rem,54vw,15rem)] place-items-center rounded-[2rem] border border-white/80 bg-[#fff7ec]/90 p-2 shadow-paper ring-1 ring-coffee/10">
+            <img
+              src={logoSrc}
+              alt="Logo Class 98"
+              className="h-full w-full object-contain drop-shadow-[0_12px_24px_rgba(53,41,31,0.12)]"
+              loading="eager"
+              decoding="async"
+            />
           </div>
 
           <p className="mt-6 text-xs font-black uppercase tracking-[0.2em] text-coffee/70">Class 98 Memory Book</p>
@@ -162,11 +168,11 @@ export default function BootSplash({ logoSrc, onComplete }: BootSplashProps) {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: reduceHeavyMotion ? 0 : 0.68, ease: 'easeOut' }}
       >
-        <div className="mx-auto grid h-[clamp(10.5rem,42vw,18rem)] w-[clamp(10.5rem,42vw,18rem)] place-items-center rounded-[2rem] border border-white/70 bg-white/68 p-5 shadow-glass backdrop-blur-xl">
+        <div className="mx-auto grid h-[clamp(10.5rem,42vw,18rem)] w-[clamp(10.5rem,42vw,18rem)] place-items-center rounded-[2.15rem] border border-white/80 bg-[#fff7ec]/82 p-3 shadow-glass ring-1 ring-coffee/10 backdrop-blur-xl">
           <m.img
             src={logoSrc}
             alt="Logo Class 98"
-            className="h-full w-full object-contain"
+            className="h-full w-full object-contain drop-shadow-[0_16px_30px_rgba(53,41,31,0.14)]"
             loading="eager"
             decoding="async"
             initial={reduceHeavyMotion ? false : { scale: 0.92, opacity: 0 }}

@@ -65,7 +65,7 @@ const rememberReactionLabels: Record<RememberReactionId, string> = {
   'good-luck': 'Chúc may mắn',
 };
 
-const logoSrc = `${import.meta.env.BASE_URL}logo-web-class-98.png?v=20260521`;
+const logoSrc = `${import.meta.env.BASE_URL}logo-web-class-98.svg?v=20260521-logo2`;
 
 const sortCommentsNewestFirst = (comments: MemoryComment[]) =>
   [...comments].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
@@ -1432,11 +1432,11 @@ export default function App() {
                 className="flex items-center gap-2 rounded-full px-2 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coffee"
                 onClick={() => navigate('home')}
               >
-                <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-paper shadow-paper ring-1 ring-coffee/20">
-                  <img src={logoSrc} alt="" className="h-9 w-9 object-contain" loading="eager" decoding="async" />
+                <span className="grid h-11 w-11 place-items-center overflow-hidden rounded-[0.9rem] bg-white/78 p-1 shadow-paper ring-1 ring-coffee/20">
+                  <img src={logoSrc} alt="" className="h-full w-full object-contain" loading="eager" decoding="async" />
                 </span>
                 <span>
-                  <span className="block font-display text-2xl leading-none">Memory Book</span>
+                  <span className="block font-display text-2xl leading-none">Memory98</span>
                   <span className="block text-[11px] font-semibold uppercase text-coffee/70">
                     {profile ? `${profile.name} - ${profile.className}` : 'School Youth Archive'}
                   </span>
