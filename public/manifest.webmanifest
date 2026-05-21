@@ -1,0 +1,38 @@
+{
+  "name": "Memory98 - School Memory Photobook",
+  "short_name": "Memory98",
+  "description": "Kỷ yếu số của lớp 9/8 với ký ức, photobook, thư bí mật và hồ sơ thanh xuân.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#fbf3e7",
+  "theme_color": "#fbf3e7",
+  "categories": ["photo", "social", "education"],
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./logo-web-class-98.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

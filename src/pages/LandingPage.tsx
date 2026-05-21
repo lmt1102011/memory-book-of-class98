@@ -24,6 +24,7 @@ import { LANDING_SLIDES } from '../data/memories';
 import { useAmbientTone } from '../hooks/useAmbientTone';
 import { useMobilePerformanceMode } from '../hooks/useMobilePerformanceMode';
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
+import { type InstallPlatform, usePwaInstall } from '../hooks/usePwaInstall';
 import { useRafScrollProgress } from '../hooks/useRafScrollProgress';
 
 interface LandingPageProps {
@@ -444,15 +445,212 @@ function TutorialIllustration({ step, device }: { step: TutorialStep; device: Tu
   );
 }
 
+type InstallGuideModalProps = {
+  platform: InstallPlatform;
+  canPrompt: boolean;
+  isInstalled: boolean;
+  reduceHeavyMotion: boolean;
+  onClose: () => void;
+  onInstall: () => void;
+};
+
+const getInstallGuide = (platform: InstallPlatform, canPrompt: boolean, isInstalled: boolean) => {
+  if (isInstalled) {
+    return {
+      title: 'Memory98 đã nằm trên màn hình chính',
+      summary: 'Bạn có thể mở web như một app riêng, nhanh hơn và gọn hơn khi dùng trên điện thoại.',
+      badge: 'Đã cài',
+      steps: ['Mở icon Memory98 trên màn hình chính.', 'Đăng nhập lại nếu trình duyệt yêu cầu.', 'Dùng như app riêng của lớp 9/8.'],
+      note: 'Nếu đổi điện thoại hoặc xóa icon, bạn vẫn có thể mở web và thêm lại bất cứ lúc nào.',
+      primaryLabel: 'Đóng',
+    };
+  }
+
+  if (platform === 'ios') {
+    return {
+      title: 'Cài Memory98 trên iPhone',
+      summary: 'iPhone không cho web tự bật hộp thoại cài. Bạn chỉ cần làm theo 3 bước trong Safari.',
+      badge: 'Safari iPhone',
+      steps: ['Mở web bằng Safari.', 'Bấm nút Chia sẻ ở thanh dưới.', 'Chọn Thêm vào Màn hình chính rồi bấm Thêm.'],
+      note: 'Nếu đang mở bằng Chrome/Facebook/Zalo trên iPhone, hãy copy link sang Safari trước để nút Thêm vào Màn hình chính hiện đúng.',
+      primaryLabel: 'Mình đã hiểu',
+    };
+  }
+
+  if (platform === 'android') {
+    return {
+      title: 'Thêm Memory98 vào màn hình chính',
+      summary: canPrompt
+        ? 'Trình duyệt đã sẵn sàng hiện hộp thoại cài. Bạn chỉ cần bấm Cài đặt hoặc OK là xong.'
+        : 'Nếu hộp thoại chưa tự hiện, dùng menu của Chrome để thêm Memory98 vào màn hình chính.',
+      badge: 'Android Chrome',
+      steps: canPrompt
+        ? ['Bấm nút Thêm vào màn hình chính bên dưới.', 'Chọn Cài đặt hoặc OK trong hộp thoại của Chrome.', 'Mở icon Memory98 ngoài màn hình chính.']
+        : ['Mở web bằng Chrome.', 'Bấm menu ba chấm ở góc trên.', 'Chọn Cài đặt ứng dụng hoặc Thêm vào màn hình chính.'],
+      note: 'Sau khi cài, app vẫn dùng dữ liệu Firebase như web hiện tại, không cần máy chủ riêng.',
+      primaryLabel: canPrompt ? 'Thêm vào màn hình chính' : 'Đã hiểu',
+    };
+  }
+
+  return {
+    title: 'Cài Memory98 trên máy tính',
+    summary: canPrompt
+      ? 'Chrome hoặc Edge đã cho phép cài Memory98 vào máy tính của bạn.'
+      : 'Nếu chưa thấy hộp thoại, hãy dùng biểu tượng cài đặt trong thanh địa chỉ của Chrome hoặc Edge.',
+    badge: 'Desktop',
+    steps: canPrompt
+      ? ['Bấm Cài app bên dưới.', 'Xác nhận cài Memory98.', 'Mở app từ desktop hoặc thanh tìm kiếm.']
+      : ['Mở bằng Chrome hoặc Edge.', 'Bấm biểu tượng cài app ở thanh địa chỉ.', 'Chọn Cài đặt để mở Memory98 như app riêng.'],
+    note: 'Trên máy tính, PWA giúp mở nhanh hơn và giữ giao diện sạch như app kỷ yếu riêng.',
+    primaryLabel: canPrompt ? 'Cài app ngay' : 'Đã hiểu',
+  };
+};
+
+function InstallGuideMockup({ platform, isInstalled }: { platform: InstallPlatform; isInstalled: boolean }) {
+  const isDesktop = platform === 'desktop';
+  const DeviceIcon = isDesktop ? Home : Camera;
+
+  return (
+    <div className="rounded-[1.2rem] bg-ink p-3 text-paper shadow-paper">
+      <div className={`mx-auto ${isDesktop ? 'max-w-md' : 'max-w-[15rem]'}`}>
+        <div className={`overflow-hidden bg-paper text-ink shadow-glass ${isDesktop ? 'rounded-[1rem]' : 'rounded-[1.8rem] p-2'}`}>
+          <div className={`${isDesktop ? 'rounded-t-[1rem]' : 'rounded-[1.45rem]'} overflow-hidden bg-cream`}>
+            <div className="flex items-center justify-between bg-ink px-3 py-2 text-paper">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.12em]">
+                <DeviceIcon size={14} />
+                Memory98
+              </span>
+              {isDesktop ? <Download size={15} /> : platform === 'ios' ? <Upload size={15} /> : <Menu size={15} />}
+            </div>
+            <div className="p-3">
+              <div className="rounded-[1rem] bg-white p-3 shadow-paper">
+                <div className="mx-auto grid h-16 w-16 place-items-center rounded-[1rem] bg-paper">
+                  <img src={logoSrc} alt="" className="h-12 w-12 object-contain" loading="eager" decoding="async" />
+                </div>
+                <p className="mt-3 text-center text-sm font-black">Memory98</p>
+                <p className="mt-1 text-center text-[11px] font-bold text-coffee/70">Class 9/8 app</p>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {[Download, Home, BadgeCheck].map((Icon, index) => (
+                  <span key={index} className="grid h-10 place-items-center rounded-[0.8rem] bg-white text-coffee">
+                    <Icon size={16} />
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        <p className="mt-3 text-center text-xs font-bold text-paper/74">
+          {isInstalled ? 'Đã cài trên thiết bị này' : 'Thêm icon Memory98 ra màn hình chính'}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function InstallGuideModal({
+  platform,
+  canPrompt,
+  isInstalled,
+  reduceHeavyMotion,
+  onClose,
+  onInstall,
+}: InstallGuideModalProps) {
+  const guide = getInstallGuide(platform, canPrompt, isInstalled);
+  const stepIcons = platform === 'ios' ? [Upload, Home, BadgeCheck] : platform === 'android' ? [Menu, Home, BadgeCheck] : [Download, Home, BadgeCheck];
+
+  return (
+    <m.div
+      className="fixed inset-0 z-50 grid place-items-center bg-ink/82 p-3 backdrop-blur-sm sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-label={guide.title}
+      initial={reduceHeavyMotion ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={reduceHeavyMotion ? undefined : { opacity: 0 }}
+      transition={{ duration: reduceHeavyMotion ? 0 : 0.18 }}
+      onClick={onClose}
+    >
+      <m.div
+        className="relative max-h-[92svh] w-full max-w-5xl overflow-auto rounded-[1.25rem] bg-paper p-4 text-ink shadow-glass sm:p-6"
+        initial={reduceHeavyMotion ? false : { opacity: 0, y: 18, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={reduceHeavyMotion ? undefined : { opacity: 0, y: 12, scale: 0.98 }}
+        transition={{ duration: reduceHeavyMotion ? 0 : 0.22, ease: 'easeOut' }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button
+          className="absolute right-3 top-3 z-10 grid h-10 w-10 place-items-center rounded-full bg-ink text-paper shadow-paper"
+          onClick={onClose}
+          aria-label="Đóng hướng dẫn cài app"
+        >
+          <X size={19} />
+        </button>
+
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+          <div className="min-w-0 pr-10 lg:pr-0">
+            <p className="section-kicker">Cài app Memory98</p>
+            <h2 className="font-display text-5xl leading-none sm:text-7xl">{guide.title}</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-ink/68">{guide.summary}</p>
+
+            <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-black uppercase text-coffee shadow-paper">
+              {isInstalled ? <BadgeCheck size={16} /> : platform === 'desktop' ? <Home size={16} /> : <Camera size={16} />}
+              {guide.badge}
+            </div>
+
+            <div className="mt-5 grid gap-3">
+              {guide.steps.map((step, index) => {
+                const Icon = stepIcons[index] || BadgeCheck;
+                return (
+                  <div key={step} className="flex gap-3 rounded-[1rem] bg-white/70 p-3 shadow-paper">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink text-paper">
+                      <Icon size={18} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-coffee/62">Bước {index + 1}</p>
+                      <p className="mt-0.5 text-sm font-bold leading-6 text-ink/78">{step}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="mt-4 rounded-[1rem] bg-coffee/10 px-4 py-3 text-xs font-bold leading-6 text-coffee">{guide.note}</p>
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <button
+                className="primary-button min-h-12 px-6"
+                onClick={canPrompt && !isInstalled ? onInstall : onClose}
+              >
+                {isInstalled ? <BadgeCheck size={18} /> : canPrompt ? <Download size={18} /> : <BadgeCheck size={18} />}
+                {guide.primaryLabel}
+              </button>
+              {!isInstalled && (
+                <button className="secondary-button min-h-12 px-6" onClick={onClose}>
+                  Để sau
+                </button>
+              )}
+            </div>
+          </div>
+
+          <InstallGuideMockup platform={platform} isInstalled={isInstalled} />
+        </div>
+      </m.div>
+    </m.div>
+  );
+}
+
 export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
   const [active, setActive] = useState(0);
   const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [installGuideOpen, setInstallGuideOpen] = useState(false);
   const mobilePerformanceMode = useMobilePerformanceMode();
   const isPhoneTutorial = usePhoneTutorialMode();
   const prefersReducedMotion = usePrefersReducedMotion();
   const reduceHeavyMotion = prefersReducedMotion || mobilePerformanceMode;
   const scrollProgress = useRafScrollProgress();
   const { enabled, toggle } = useAmbientTone();
+  const { canPrompt, install, isInstalled, platform } = usePwaInstall();
   const activeQuote = useMemo(() => quotes[active % quotes.length], [active]);
   const activeSlide = LANDING_SLIDES[active % LANDING_SLIDES.length];
   const activeSlideSrc = mobilePerformanceMode ? activeSlide.src.replace('w=1800', 'w=900') : activeSlide.src;
@@ -476,6 +674,39 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
         ['3', 'Tạo photobook'],
         ['4', 'Quản lý thư'],
       ];
+  const installButtonLabel = isInstalled
+    ? 'Đã cài app'
+    : platform === 'ios'
+      ? 'Thêm trên iPhone'
+      : canPrompt
+        ? 'Thêm vào màn hình chính'
+        : 'Thêm vào màn hình chính';
+  const installHint =
+    platform === 'ios'
+      ? 'iPhone dùng Safari: Chia sẻ → Thêm vào Màn hình chính.'
+      : platform === 'android'
+        ? 'Android có thể cài Memory98 như app riêng ngoài màn hình chính.'
+        : 'Chrome/Edge trên máy tính có thể cài Memory98 như ứng dụng riêng.';
+
+  const handleInstallClick = async () => {
+    if (canPrompt && !isInstalled) {
+      const outcome = await install();
+      if (outcome !== 'accepted') setInstallGuideOpen(true);
+      return;
+    }
+
+    setInstallGuideOpen(true);
+  };
+
+  const handleInstallFromGuide = async () => {
+    if (canPrompt && !isInstalled) {
+      const outcome = await install();
+      if (outcome === 'accepted') setInstallGuideOpen(false);
+      return;
+    }
+
+    setInstallGuideOpen(false);
+  };
 
   useEffect(() => {
     if (reduceHeavyMotion) return undefined;
@@ -493,10 +724,13 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
   }, [active, mobilePerformanceMode]);
 
   useEffect(() => {
-    if (!tutorialOpen) return undefined;
+    if (!tutorialOpen && !installGuideOpen) return undefined;
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setTutorialOpen(false);
+      if (event.key === 'Escape') {
+        setTutorialOpen(false);
+        setInstallGuideOpen(false);
+      }
     };
 
     document.body.style.overflow = 'hidden';
@@ -506,7 +740,7 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
       document.body.style.overflow = '';
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [tutorialOpen]);
+  }, [installGuideOpen, tutorialOpen]);
 
   return (
     <div className="relative">
@@ -565,7 +799,7 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
         </div>
 
         <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-7xl flex-col px-4 pb-10 pt-5 sm:px-6 lg:px-8">
-          <header className="flex items-center justify-between gap-4">
+          <header className="flex flex-wrap items-center justify-between gap-3">
             <div className="hidden items-center gap-2 rounded-full bg-white/35 px-3 py-2 shadow-glass backdrop-blur-xl sm:inline-flex">
               <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-full bg-paper ring-1 ring-coffee/15">
                 <img src={logoSrc} alt="" className="h-8 w-8 object-contain" loading="eager" decoding="async" />
@@ -579,7 +813,7 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
               {enabled ? <Music2 size={17} /> : <Music size={17} />}
               {enabled ? 'Music On' : 'Music Off'}
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <button className="secondary-button intro-header-button bg-white/40 backdrop-blur-xl" onClick={() => setTutorialOpen(true)}>
                 <BookOpen size={17} />
                 Tutorial
@@ -622,7 +856,7 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
               </m.p>
 
               <m.div
-                className="mt-8 flex flex-col gap-3 sm:flex-row"
+                className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap"
                 initial={reduceHeavyMotion ? false : { opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: reduceHeavyMotion ? 0 : 0.5, delay: reduceHeavyMotion ? 0 : 0.16 }}
@@ -638,6 +872,10 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
                   <BookOpen size={19} />
                   Tutorial
                 </button>
+                <button className="secondary-button min-h-14 px-7 text-base" onClick={handleInstallClick}>
+                  {isInstalled ? <BadgeCheck size={19} /> : <Download size={19} />}
+                  {installButtonLabel}
+                </button>
               </m.div>
             </div>
           </div>
@@ -651,6 +889,19 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
           </div>
         </div>
       </section>
+
+      <AnimatePresence>
+        {installGuideOpen && (
+          <InstallGuideModal
+            platform={platform}
+            canPrompt={canPrompt}
+            isInstalled={isInstalled}
+            reduceHeavyMotion={reduceHeavyMotion}
+            onClose={() => setInstallGuideOpen(false)}
+            onInstall={handleInstallFromGuide}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {tutorialOpen && (
