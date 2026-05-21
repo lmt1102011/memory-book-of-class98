@@ -138,6 +138,7 @@ export default function App() {
   const memoriesLoadedOnceRef = useRef(false);
   const pendingReactionIdsRef = useRef(new Set<string>());
   const routeFeedbackTimerRef = useRef(0);
+  const desktopNavRef = useRef<HTMLDivElement | null>(null);
   const mobilePerformanceMode = useMobilePerformanceMode();
   const { isOnline, justRestored } = useNetworkStatus();
   const prefersReducedMotion = usePrefersReducedMotion();
@@ -179,6 +180,30 @@ export default function App() {
     },
     [],
   );
+
+  useEffect(() => {
+    if (!openNavGroup || menuOpen) return undefined;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (desktopNavRef.current?.contains(target)) return;
+
+      setOpenNavGroup(null);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenNavGroup(null);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [menuOpen, openNavGroup]);
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -1657,13 +1682,13 @@ export default function App() {
                 </span>
               </button>
 
-              <div className="hidden items-center gap-2 lg:flex">
+              <div ref={desktopNavRef} className="hidden items-center gap-2 lg:flex">
                 {navigationGroups.map((group) => {
                   const Icon = group.icon;
                   const isOpen = openNavGroup === group.id;
 
                   return (
-                    <div key={group.id} className="relative" onMouseLeave={() => setOpenNavGroup(null)}>
+                    <div key={group.id} className="relative">
                       <button
                         className={`nav-pill relative h-11 ${group.isActive ? 'nav-pill-active' : 'bg-white/35'}`}
                         onClick={() => setOpenNavGroup((current) => (current === group.id ? null : group.id))}
@@ -1688,14 +1713,14 @@ export default function App() {
                       <AnimatePresence>
                         {isOpen && (
                           <m.div
-                            className="absolute right-0 top-[calc(100%+0.65rem)] z-50 w-80 overflow-hidden rounded-[1.25rem] border border-white/70 bg-paper/96 p-3 text-ink shadow-glass backdrop-blur-xl"
+                            className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-80 overflow-hidden rounded-[1.25rem] border border-coffee/15 bg-[#fffaf1] p-3 text-ink shadow-[0_24px_60px_rgba(53,41,31,0.2)]"
                             role="menu"
                             initial={reduceHeavyMotion ? false : { opacity: 0, y: 8, scale: 0.98 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={reduceHeavyMotion ? undefined : { opacity: 0, y: 6, scale: 0.98 }}
                             transition={{ duration: reduceHeavyMotion ? 0 : 0.16, ease: 'easeOut' }}
                           >
-                            <div className="mb-2 rounded-2xl bg-white/60 px-3 py-2">
+                            <div className="mb-2 rounded-2xl bg-[#fbf3e7] px-3 py-2 ring-1 ring-coffee/8">
                               <p className="text-xs font-black uppercase tracking-[0.18em] text-coffee/60">{group.label}</p>
                               <p className="mt-1 text-sm font-bold leading-5 text-coffee/82">{group.description}</p>
                             </div>
@@ -1753,6 +1778,7 @@ export default function App() {
                 <button
                   className="icon-button relative"
                   onClick={() => {
+                    setMenuOpen(false);
                     setOpenNavGroup(null);
                     setNotificationsOpen((open) => !open);
                   }}
@@ -1768,6 +1794,7 @@ export default function App() {
                 <button
                   className="icon-button"
                   onClick={() => {
+                    setMenuOpen(false);
                     setOpenNavGroup(null);
                     if (profile) {
                       openPersonProfile(profile.nameKey);
@@ -1783,7 +1810,13 @@ export default function App() {
                 </button>
                 <button
                   className="icon-button lg:hidden"
-                  onClick={() => setMenuOpen((open) => !open)}
+                  onClick={() =>
+                    setMenuOpen((open) => {
+                      const nextOpen = !open;
+                      if (!nextOpen) setOpenNavGroup(null);
+                      return nextOpen;
+                    })
+                  }
                   aria-label="Mở menu"
                 >
                   {menuOpen ? <X size={20} /> : <Menu size={20} />}
@@ -1810,6 +1843,7 @@ export default function App() {
 
                     {navigationGroups.map((group) => {
                       const Icon = group.icon;
+                      const isExpanded = openNavGroup === group.id;
 
                       return (
                         <section
@@ -1818,7 +1852,11 @@ export default function App() {
                             group.isActive ? 'border-ink/20 bg-paper' : 'border-white/70 bg-white/62'
                           }`}
                         >
-                          <div className="flex items-start gap-3">
+                          <button
+                            className="flex w-full items-start gap-3 text-left"
+                            onClick={() => setOpenNavGroup((current) => (current === group.id ? null : group.id))}
+                            aria-expanded={isExpanded}
+                          >
                             <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${group.isActive ? 'bg-ink text-paper' : 'bg-paper text-ink'}`}>
                               <Icon size={18} />
                             </span>
@@ -1833,48 +1871,67 @@ export default function App() {
                               </div>
                               <p className="mt-1 text-xs font-bold leading-5 text-coffee/68">{group.description}</p>
                             </div>
-                          </div>
+                            <span className="mt-1 inline-flex shrink-0 items-center gap-1 rounded-full bg-ink px-3 py-1.5 text-[11px] font-black text-paper">
+                              {isExpanded ? 'Ẩn' : 'Mở'}
+                              <span
+                                className={`h-0 w-0 border-x-[3.5px] border-t-[4.5px] border-x-transparent border-t-current transition-transform duration-150 ${
+                                  isExpanded ? 'rotate-180' : ''
+                                }`}
+                                aria-hidden="true"
+                              />
+                            </span>
+                          </button>
 
-                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                            {group.items.map((item) => {
-                              const ItemIcon = item.icon;
+                          <AnimatePresence initial={false}>
+                            {isExpanded && (
+                              <m.div
+                                className="mt-3 grid gap-2 sm:grid-cols-2"
+                                initial={reduceHeavyMotion ? false : { opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={reduceHeavyMotion ? undefined : { opacity: 0, height: 0 }}
+                                transition={{ duration: reduceHeavyMotion ? 0 : 0.16, ease: 'easeOut' }}
+                              >
+                                {group.items.map((item) => {
+                                  const ItemIcon = item.icon;
 
-                              return (
-                                <button
-                                  key={item.id}
-                                  className={`flex min-h-[4.65rem] w-full items-start gap-3 rounded-2xl p-3 text-left transition-colors ${
-                                    item.isActive ? 'bg-ink text-paper' : 'bg-paper/82 text-ink hover:bg-paper'
-                                  }`}
-                                  onClick={item.onSelect}
-                                >
-                                  <span
-                                    className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${
-                                      item.isActive ? 'bg-paper/18 text-paper' : 'bg-white text-coffee'
-                                    }`}
-                                  >
-                                    <ItemIcon size={17} />
-                                  </span>
-                                  <span className="min-w-0 flex-1">
-                                    <span className="flex items-center gap-2 text-sm font-black leading-5">
-                                      {item.label}
-                                      {(item.badgeCount || 0) > 0 && (
-                                        <span
-                                          className={`inline-flex min-w-6 justify-center rounded-full px-1.5 py-0.5 text-[10px] font-black ${
-                                            item.isActive ? 'bg-paper text-ink' : 'bg-roseDust text-white'
-                                          }`}
-                                        >
-                                          {formatBadgeCount(item.badgeCount || 0)}
+                                  return (
+                                    <button
+                                      key={item.id}
+                                      className={`flex min-h-[4.65rem] w-full items-start gap-3 rounded-2xl p-3 text-left transition-colors ${
+                                        item.isActive ? 'bg-ink text-paper' : 'bg-paper/82 text-ink hover:bg-paper'
+                                      }`}
+                                      onClick={item.onSelect}
+                                    >
+                                      <span
+                                        className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${
+                                          item.isActive ? 'bg-paper/18 text-paper' : 'bg-white text-coffee'
+                                        }`}
+                                      >
+                                        <ItemIcon size={17} />
+                                      </span>
+                                      <span className="min-w-0 flex-1">
+                                        <span className="flex items-center gap-2 text-sm font-black leading-5">
+                                          {item.label}
+                                          {(item.badgeCount || 0) > 0 && (
+                                            <span
+                                              className={`inline-flex min-w-6 justify-center rounded-full px-1.5 py-0.5 text-[10px] font-black ${
+                                                item.isActive ? 'bg-paper text-ink' : 'bg-roseDust text-white'
+                                              }`}
+                                            >
+                                              {formatBadgeCount(item.badgeCount || 0)}
+                                            </span>
+                                          )}
                                         </span>
-                                      )}
-                                    </span>
-                                    <span className={`mt-1 block text-xs font-bold leading-5 ${item.isActive ? 'text-paper/78' : 'text-coffee/68'}`}>
-                                      {item.description}
-                                    </span>
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
+                                        <span className={`mt-1 block text-xs font-bold leading-5 ${item.isActive ? 'text-paper/78' : 'text-coffee/68'}`}>
+                                          {item.description}
+                                        </span>
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </m.div>
+                            )}
+                          </AnimatePresence>
                         </section>
                       );
                     })}

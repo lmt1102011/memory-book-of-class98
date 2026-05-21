@@ -59,9 +59,8 @@ export const shouldSkipIntroOnInstalledLaunch = () => {
   if (typeof window === 'undefined') return false;
 
   const launchSource = new URLSearchParams(window.location.search).get('source');
-  const hasNoDeepLink = !window.location.hash || window.location.hash === '#/' || window.location.hash === '#/landing';
 
-  return isStandaloneMode() || launchSource === 'pwa' || (hasRememberedPwaInstall() && hasNoDeepLink);
+  return isStandaloneMode() || launchSource === 'pwa';
 };
 
 export const detectInstallPlatform = (): InstallPlatform => {
