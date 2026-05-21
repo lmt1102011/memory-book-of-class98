@@ -41,6 +41,7 @@ const logoSrc = `${import.meta.env.BASE_URL}logo-web-class-98.svg`;
 const tutorialImage = (index: number) => LANDING_SLIDES[index % LANDING_SLIDES.length].src.replace('w=1800', 'w=900');
 
 type TutorialKind = 'join' | 'feed' | 'photobook' | 'profile' | 'votes' | 'letters' | 'secret' | 'diary';
+type TutorialDevice = 'phone' | 'desktop';
 
 type TutorialStep = {
   title: string;
@@ -54,7 +55,7 @@ type TutorialStep = {
   kind: TutorialKind;
 };
 
-const tutorialSteps: TutorialStep[] = [
+const desktopTutorialSteps: TutorialStep[] = [
   {
     title: '1. Vào lớp 9/8',
     text: 'Bắt đầu bằng tài khoản theo họ tên thật trong lớp. Nếu tên chưa có, bạn đặt mật khẩu mới; nếu tên đã tồn tại, nhập đúng mật khẩu để quay lại hồ sơ của mình.',
@@ -145,6 +146,78 @@ const tutorialSteps: TutorialStep[] = [
   },
 ];
 
+const phoneTutorialOverrides: Record<TutorialKind, Omit<Partial<TutorialStep>, 'kind' | 'image' | 'alt'>> = {
+  join: {
+    title: '1. Vào lớp 9/8 trên điện thoại',
+    text: 'Trên điện thoại, mở trang intro rồi chạm Join Memory Book. Nhập đúng họ tên trong lớp 9/8; nếu tên mới thì đặt mật khẩu, nếu tên đã có thì nhập mật khẩu cũ.',
+    where: 'Intro → Join Memory Book',
+    action: 'Chạm từng ô nhập, dùng bàn phím điện thoại để nhập tên và mật khẩu, rồi bấm nút xác nhận.',
+    result: 'Tài khoản của bạn được giữ lại trên điện thoại để xem ký ức, đăng ảnh, gửi thư và viết nhật ký riêng.',
+    highlight: 'Chạm Join Memory Book',
+  },
+  feed: {
+    title: '2. Lướt ký ức trên điện thoại',
+    text: 'Trang Ký ức trên điện thoại được xếp một cột dễ vuốt. Dùng ô tìm kiếm ở đầu trang để tìm theo tên, chạm ảnh/video để mở popup xem rõ hơn.',
+    where: 'Menu → Ký ức',
+    action: 'Vuốt để xem feed, chạm vào ảnh để mở, chạm lần nữa vào ảnh để vào màn zoom rồi dùng hai ngón tay để phóng to/thu nhỏ.',
+    result: 'Ảnh xem rõ trên màn hình nhỏ, có tim, bình luận và nút tải lớn nằm trong phần thông tin bên dưới.',
+    highlight: 'Chạm ảnh để xem rõ',
+  },
+  photobook: {
+    title: '3. Chụp hoặc upload bằng điện thoại',
+    text: 'Bấm Đăng ảnh/video, chọn số tấm và layout. Khi mở camera, màn chụp sẽ gần full màn hình để dễ tạo dáng; cũng có thể upload ảnh sẵn từ thư viện điện thoại.',
+    where: 'Ký ức → Đăng ảnh/video',
+    action: 'Chọn layout, bấm Mở cam hoặc Upload ảnh, xem trước ảnh gốc và ảnh làm đẹp, rồi xác nhận từng tấm.',
+    result: 'Photobook tạo ra đủ nét để đăng lên feed hoặc tải về máy mà không cần Firebase Storage.',
+    highlight: 'Mở cam / Upload ảnh',
+  },
+  profile: {
+    title: '4. Xem hồ sơ lớp trên điện thoại',
+    text: 'Trong Hồ sơ lớp, các bạn được xếp thành card dọc. Chạm một bạn để mở popup hồ sơ; chỉ khi bấm Sửa hồ sơ mới hiện form chỉnh thông tin của bạn.',
+    where: 'Menu → Hồ sơ lớp',
+    action: 'Vuốt danh sách, chạm Xem hồ sơ, rồi mở album riêng của bạn đó ngay trong popup.',
+    result: 'Mỗi bạn có một góc kỷ yếu riêng với avatar, biệt danh, câu nói và album đã đăng.',
+    highlight: 'Chạm Xem hồ sơ',
+  },
+  votes: {
+    title: '5. Bình chọn nhanh trên điện thoại',
+    text: 'Trang Bình chọn hiển thị dạng card dọc. Chỉ khi bấm Tạo hạng mục mới hiện popup tạo danh hiệu, còn vote thì chạm vào tên một bạn trong danh sách.',
+    where: 'Menu → Bình chọn',
+    action: 'Chạm Tạo hạng mục nếu muốn tạo danh hiệu mới, hoặc vuốt từng card để vote/đổi vote cho một bạn.',
+    result: 'Top 3, tổng vote và lựa chọn của bạn cập nhật gọn gàng trên màn hình điện thoại.',
+    highlight: 'Chạm để vote',
+  },
+  letters: {
+    title: '6. Đọc bảng thư trên điện thoại',
+    text: 'Bảng thư hiện như những mảnh giấy dán trên bảng lớp. Trên điện thoại, chạm một lá thư để mở popup đọc rõ; chạm Viết thư để mở form gửi tin cho lớp.',
+    where: 'Menu → Bảng thư',
+    action: 'Chạm lá thư để đọc, hoặc bấm Viết thư rồi chọn gửi có tên hay ẩn danh.',
+    result: 'Tin nhắn hiện trên bảng thư lớp theo dạng giấy nhớ, dễ đọc và dễ gửi bằng điện thoại.',
+    highlight: 'Chạm lá thư / Viết thư',
+  },
+  secret: {
+    title: '7. Secret Message trên điện thoại',
+    text: 'Secret Message có tab Thư mình nhận và Thư mình gửi. Chỉ khi bấm Viết thư cho ai đó mới mở popup chọn người nhận và viết thư.',
+    where: 'Menu → Secret Message',
+    action: 'Chạm Viết thư cho ai đó, chọn một bạn, nhập nội dung, chọn ẩn danh nếu muốn rồi gửi.',
+    result: 'Người nhận có thể thả một cảm xúc; bạn xem được trạng thái đã gửi, đã xem hoặc đã phản hồi.',
+    highlight: 'Viết thư cho ai đó',
+  },
+  diary: {
+    title: '8. Nhật ký riêng trên điện thoại',
+    text: 'Nhật ký là nơi riêng tư cho những điều tiếc nuối chưa kịp nói. Trên điện thoại, chỉ khi bấm Tạo nhật ký mới mở popup viết nội dung.',
+    where: 'Menu → Nhật ký',
+    action: 'Bấm Tạo nhật ký, viết nội dung bằng bàn phím điện thoại rồi lưu. Có thể xóa trang nhật ký của mình khi cần.',
+    result: 'Chỉ tài khoản của bạn thấy nhật ký trong web; manager vẫn lưu được tên người viết để quản lý.',
+    highlight: 'Tạo nhật ký',
+  },
+};
+
+const phoneTutorialSteps: TutorialStep[] = desktopTutorialSteps.map((step) => ({
+  ...step,
+  ...phoneTutorialOverrides[step.kind],
+}));
+
 const tutorialVisuals: Record<
   TutorialKind,
   { Icon: LucideIcon; nav: string[]; primary: string; secondary: string; details: string[] }
@@ -207,15 +280,44 @@ const tutorialVisuals: Record<
   },
 };
 
-function TutorialIllustration({ step }: { step: TutorialStep }) {
+const isPhoneTutorialViewport = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(max-width: 767px), (pointer: coarse) and (max-width: 900px)').matches;
+
+function usePhoneTutorialMode() {
+  const [isPhone, setIsPhone] = useState(() => isPhoneTutorialViewport());
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px), (pointer: coarse) and (max-width: 900px)');
+    const update = () => setIsPhone(media.matches);
+
+    update();
+    media.addEventListener('change', update);
+
+    return () => media.removeEventListener('change', update);
+  }, []);
+
+  return isPhone;
+}
+
+function TutorialIllustration({ step, device }: { step: TutorialStep; device: TutorialDevice }) {
   const visual = tutorialVisuals[step.kind];
   const Icon = visual.Icon;
-  const toolPills = [
-    { Icon: Search, label: 'Tìm' },
-    { Icon: Upload, label: 'Thêm' },
-    { Icon: Download, label: 'Tải' },
-    { Icon: Send, label: 'Gửi' },
-  ];
+  const DeviceIcon = device === 'phone' ? Camera : Home;
+  const toolPills =
+    device === 'phone'
+      ? [
+          { Icon: Search, label: 'Tìm' },
+          { Icon: Upload, label: 'Thêm' },
+          { Icon: Send, label: 'Gửi' },
+        ]
+      : [
+          { Icon: Search, label: 'Tìm' },
+          { Icon: Upload, label: 'Thêm' },
+          { Icon: Download, label: 'Tải' },
+          { Icon: Send, label: 'Gửi' },
+        ];
+  const deviceLabel = device === 'phone' ? 'Điện thoại' : 'Máy tính';
 
   return (
     <div className="relative min-h-64 overflow-hidden bg-ink">
@@ -229,48 +331,95 @@ function TutorialIllustration({ step }: { step: TutorialStep }) {
       />
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(21,16,12,.16),rgba(21,16,12,.58))]" />
 
-      <div className="relative z-10 flex min-h-64 flex-col justify-between p-3 text-paper sm:p-4">
-        <div className="flex flex-wrap gap-1.5">
-          {visual.nav.map((item) => (
-            <span key={item} className="rounded-full bg-white/18 px-2.5 py-1 text-[10px] font-black uppercase text-paper/88 backdrop-blur-md">
-              {item}
-            </span>
-          ))}
-        </div>
-
-        <div className="rounded-[1rem] border border-white/24 bg-white/18 p-3 shadow-glass backdrop-blur-xl">
-          <div className="flex items-start gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-paper text-coffee shadow-paper">
-              <Icon size={20} />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-paper/72">Chỗ thực hiện</p>
-              <p className="mt-1 break-words text-base font-black leading-5">{step.highlight}</p>
-            </div>
-          </div>
-
-          <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
-            <div className="rounded-[0.8rem] bg-paper px-3 py-2 text-ink shadow-paper">
-              <p className="text-sm font-black">{visual.primary}</p>
-              <p className="mt-0.5 text-xs font-bold text-coffee/70">{visual.secondary}</p>
-            </div>
-            <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-2">
-              {toolPills.map(({ Icon: ToolIcon, label }) => (
-                <span key={label} className="grid h-10 min-w-10 place-items-center rounded-[0.7rem] bg-ink/72 text-paper" title={label}>
-                  <ToolIcon size={15} />
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {visual.details.map((detail) => (
-              <span key={detail} className="rounded-full bg-paper/16 px-2.5 py-1 text-[11px] font-bold text-paper/86">
-                {detail}
+      <div className="relative z-10 grid min-h-64 gap-3 p-3 text-paper sm:p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 self-start">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-paper px-3 py-1.5 text-[11px] font-black uppercase text-coffee shadow-paper">
+            <DeviceIcon size={14} />
+            {deviceLabel}
+          </span>
+          <div className="flex flex-wrap justify-end gap-1.5">
+            {visual.nav.slice(0, 3).map((item) => (
+              <span key={item} className="rounded-full bg-white/18 px-2.5 py-1 text-[10px] font-black uppercase text-paper/88 backdrop-blur-md">
+                {item}
               </span>
             ))}
           </div>
         </div>
+
+        {device === 'phone' ? (
+          <div className="mx-auto w-[min(15.5rem,78vw)] rounded-[2rem] border-[7px] border-ink/88 bg-paper p-2 text-ink shadow-[0_24px_54px_rgba(18,15,13,.38)]">
+            <div className="mx-auto mb-2 h-1.5 w-14 rounded-full bg-ink/20" />
+            <div className="overflow-hidden rounded-[1.35rem] bg-cream">
+              <div className="flex items-center justify-between bg-ink px-3 py-2 text-paper">
+                <span className="text-[10px] font-black uppercase">Class 9/8</span>
+                <Icon size={16} />
+              </div>
+              <div className="space-y-2 p-3">
+                <div className="rounded-[0.9rem] bg-paper p-3 shadow-paper">
+                  <p className="text-[10px] font-black uppercase text-coffee/70">Chạm vào</p>
+                  <p className="mt-1 text-sm font-black leading-4">{step.highlight}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {visual.details.slice(0, 4).map((detail) => (
+                    <span key={detail} className="rounded-[0.75rem] bg-white px-2 py-2 text-[10px] font-bold leading-3 text-ink/68">
+                      {detail}
+                    </span>
+                  ))}
+                </div>
+                <div className="flex items-center justify-around rounded-full bg-ink px-2 py-2 text-paper">
+                  {toolPills.map(({ Icon: ToolIcon, label }) => (
+                    <span key={label} className="grid h-8 w-8 place-items-center rounded-full bg-paper/12" title={label}>
+                      <ToolIcon size={14} />
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-[1rem] border border-white/24 bg-paper/94 p-2 text-ink shadow-glass">
+            <div className="mb-2 flex items-center gap-1.5 rounded-t-[0.8rem] bg-ink/10 px-3 py-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#e87d8c]" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[#f2c66d]" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[#7bbd8a]" />
+              <span className="ml-2 min-w-0 flex-1 rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase text-coffee/60">
+                memory-book-of-class98
+              </span>
+            </div>
+            <div className="grid gap-3 p-2 sm:grid-cols-[8.5rem_minmax(0,1fr)]">
+              <div className="space-y-2 rounded-[0.8rem] bg-cream p-3">
+                {visual.nav.map((item) => (
+                  <span key={item} className="block rounded-full bg-white px-3 py-2 text-[11px] font-black text-coffee">
+                    {item}
+                  </span>
+                ))}
+              </div>
+              <div className="min-w-0 rounded-[0.8rem] bg-white p-3 shadow-paper">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-ink text-paper shadow-paper">
+                    <Icon size={20} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-black uppercase tracking-[0.14em] text-coffee/70">Chỗ bấm trên máy tính</p>
+                    <p className="mt-1 break-words text-lg font-black leading-5">{step.highlight}</p>
+                  </div>
+                </div>
+                <div className="mt-3 rounded-[0.8rem] bg-cream px-3 py-2">
+                  <p className="text-sm font-black">{visual.primary}</p>
+                  <p className="mt-0.5 text-xs font-bold text-coffee/70">{visual.secondary}</p>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {toolPills.map(({ Icon: ToolIcon, label }) => (
+                    <span key={label} className="inline-flex items-center gap-1.5 rounded-full bg-ink px-2.5 py-1.5 text-[11px] font-bold text-paper">
+                      <ToolIcon size={13} />
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -280,6 +429,7 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
   const [active, setActive] = useState(0);
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const mobilePerformanceMode = useMobilePerformanceMode();
+  const isPhoneTutorial = usePhoneTutorialMode();
   const prefersReducedMotion = usePrefersReducedMotion();
   const reduceHeavyMotion = prefersReducedMotion || mobilePerformanceMode;
   const scrollProgress = useRafScrollProgress();
@@ -287,6 +437,26 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
   const activeQuote = useMemo(() => quotes[active % quotes.length], [active]);
   const activeSlide = LANDING_SLIDES[active % LANDING_SLIDES.length];
   const activeSlideSrc = mobilePerformanceMode ? activeSlide.src.replace('w=1800', 'w=900') : activeSlide.src;
+  const tutorialDevice: TutorialDevice = isPhoneTutorial ? 'phone' : 'desktop';
+  const visibleTutorialSteps = isPhoneTutorial ? phoneTutorialSteps : desktopTutorialSteps;
+  const tutorialDeviceLabel = isPhoneTutorial ? 'điện thoại' : 'máy tính';
+  const tutorialHeading = isPhoneTutorial ? 'Cách dùng trên điện thoại' : 'Cách dùng trên máy tính';
+  const tutorialSummary = isPhoneTutorial
+    ? 'Hướng dẫn này chỉ hiện cho người đang dùng điện thoại: thao tác chạm, vuốt, mở menu, zoom ảnh bằng tay, chụp/upload và gửi thư trên màn hình nhỏ.'
+    : 'Hướng dẫn này chỉ hiện cho người đang dùng máy tính: dùng navbar, click chuột, popup rộng, tìm kiếm, tải ảnh và quản lý các mục bằng bố cục desktop.';
+  const tutorialQuickSteps = isPhoneTutorial
+    ? [
+        ['1', 'Chạm để vào lớp'],
+        ['2', 'Vuốt ký ức'],
+        ['3', 'Zoom bằng tay'],
+        ['4', 'Gửi thư'],
+      ]
+    : [
+        ['1', 'Dùng navbar'],
+        ['2', 'Click ảnh'],
+        ['3', 'Tạo photobook'],
+        ['4', 'Quản lý thư'],
+      ];
 
   useEffect(() => {
     if (reduceHeavyMotion) return undefined;
@@ -469,7 +639,7 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
             className="fixed inset-0 z-50 grid place-items-center bg-ink/82 p-3 backdrop-blur-sm sm:p-6"
             role="dialog"
             aria-modal="true"
-            aria-label="Hướng dẫn sử dụng Memory Book"
+            aria-label={`Hướng dẫn sử dụng Memory Book trên ${tutorialDeviceLabel}`}
             initial={reduceHeavyMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={reduceHeavyMotion ? undefined : { opacity: 0 }}
@@ -493,20 +663,15 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
               </button>
 
               <div className="pr-12">
-                <p className="section-kicker">Tutorial</p>
-                <h2 className="font-display text-5xl leading-none sm:text-7xl">Cách dùng Memory Book</h2>
+                <p className="section-kicker">Tutorial {tutorialDeviceLabel}</p>
+                <h2 className="font-display text-5xl leading-none sm:text-7xl">{tutorialHeading}</h2>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-ink/66">
-                  Hướng dẫn đầy đủ từng chỗ cần bấm: vào lớp, đăng photobook, xem ảnh, hồ sơ, bình chọn, bảng thư, Secret Message và nhật ký riêng.
+                  {tutorialSummary}
                 </p>
               </div>
 
               <div className="mt-5 grid gap-2 rounded-[1rem] bg-white/55 p-2 sm:grid-cols-4">
-                {[
-                  ['1', 'Vào lớp'],
-                  ['2', 'Đăng ảnh'],
-                  ['3', 'Tương tác'],
-                  ['4', 'Gửi lời nhắn'],
-                ].map(([index, label]) => (
+                {tutorialQuickSteps.map(([index, label]) => (
                   <div key={index} className="rounded-[0.8rem] bg-paper/78 px-3 py-3 text-center">
                     <span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-ink text-xs font-black text-paper">{index}</span>
                     <p className="mt-2 text-xs font-black uppercase text-coffee/70">{label}</p>
@@ -515,9 +680,9 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
               </div>
 
               <div className="mt-6 grid gap-4 xl:grid-cols-2">
-                {tutorialSteps.map((step) => (
+                {visibleTutorialSteps.map((step) => (
                   <article key={step.title} className="overflow-hidden rounded-[1rem] bg-white/62 shadow-paper">
-                    <TutorialIllustration step={step} />
+                    <TutorialIllustration step={step} device={tutorialDevice} />
                     <div className="p-4">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-display text-4xl leading-none">{step.title}</h3>
