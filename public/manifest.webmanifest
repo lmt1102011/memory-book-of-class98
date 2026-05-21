@@ -2,6 +2,7 @@
   "name": "Memory98 - School Memory Photobook",
   "short_name": "Memory98",
   "description": "Kỷ yếu số của lớp 9/8 với ký ức, photobook, thư bí mật và hồ sơ thanh xuân.",
+  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -11,40 +12,28 @@
   "categories": ["photo", "social", "education"],
   "icons": [
     {
-      "src": "./icon-192.png",
+      "src": "./memory98-icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icon-512.png",
+      "src": "./memory98-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icon-maskable-192.png",
+      "src": "./memory98-maskable-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "./icon-maskable-512.png",
+      "src": "./memory98-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
-    },
-    {
-      "src": "./logo-web-class-98.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "./favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
     }
   ]
 }
