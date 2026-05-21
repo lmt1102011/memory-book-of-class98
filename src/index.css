@@ -241,6 +241,8 @@
 
   .memory-viewer-panel {
     isolation: isolate;
+    max-width: 100vw;
+    overflow-x: hidden;
   }
 
   .memory-viewer-topbar {
@@ -251,9 +253,11 @@
     z-index: 30;
     display: flex;
     min-width: 0;
+    max-width: calc(100vw - 1.5rem);
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
+    overflow: hidden;
     border-radius: 999px;
     background: rgba(18, 15, 13, 0.72);
     padding: 0.48rem 0.52rem 0.48rem 0.82rem;
@@ -261,11 +265,19 @@
     backdrop-filter: blur(14px);
   }
 
+  .memory-viewer-topbar > .min-w-0 {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
   .memory-viewer-actions {
     display: inline-flex;
     flex: 0 0 auto;
+    min-width: 0;
+    max-width: 100%;
     align-items: center;
     gap: 0.38rem;
+    overflow: hidden;
   }
 
   .memory-viewer-action {
@@ -317,11 +329,14 @@
 
   .memory-zoom-overlay {
     isolation: isolate;
+    max-width: 100vw;
+    overflow-x: hidden;
   }
 
   .memory-zoom-stage {
     display: grid;
     width: 100%;
+    max-width: 100vw;
     height: 100svh;
     place-items: center;
     overflow: hidden;
@@ -1354,6 +1369,7 @@
     .memory-viewer-topbar {
       left: 0.55rem;
       right: 0.55rem;
+      max-width: calc(100vw - 1.1rem);
       border-radius: 1rem;
       padding: 0.42rem 0.45rem 0.42rem 0.68rem;
     }
@@ -1365,7 +1381,11 @@
     }
 
     .memory-viewer-zoom-reset {
-      min-width: 3.85rem;
+      min-width: 2.08rem;
+    }
+
+    .memory-viewer-zoom-reset span {
+      display: none;
     }
 
     .photobook-setup-panel .grid {

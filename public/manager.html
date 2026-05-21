@@ -307,6 +307,14 @@
             <p id="memoryStatus" class="status"></p>
             <div id="memories" class="list"></div>
           </section>
+
+          <section class="card" style="grid-column: 1 / -1">
+            <h2>Lịch sử tải ảnh / video</h2>
+            <p class="muted" style="margin-bottom: 12px">
+              Hiển thị tài khoản nào đã tải kỷ niệm nào về máy.
+            </p>
+            <div id="downloads" class="list"></div>
+          </section>
         </div>
       </section>
     </main>
@@ -348,6 +356,7 @@
       const PUBLIC_MEMORIES_COLLECTION = 'memories98';
       const PRIVATE_MEMORIES_COLLECTION = 'privateMemories98';
       const MEMORY_VIDEO_CHUNKS_COLLECTION = 'memoryVideoChunks98';
+      const MEMORY_DOWNLOAD_LOGS_COLLECTION = 'memoryDownloadLogs98';
 
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
@@ -363,6 +372,7 @@
       let accounts = [];
       let diaries = [];
       let memories = [];
+      let downloads = [];
       let managerPoll = 0;
       let isLoadingManagerData = false;
 
@@ -531,6 +541,38 @@
             .join('') || '<p class="muted">Chua co ky niem nao duoc dang len feed lop.</p>';
       };
 
+      const renderDownloads = () => {
+        $('downloads').innerHTML =
+          downloads
+            .map((item) => {
+              const memoryKey = `${item.memoryCollection || PUBLIC_MEMORIES_COLLECTION}:${item.memoryId || ''}`;
+              const memory = memories.find((memoryItem) => getMemoryKey(memoryItem) === memoryKey);
+              const thumb = memory?.imageUrl || '';
+              const isVideo = item.memoryMediaType === 'video';
+
+              return `
+                <article class="item memory-item">
+                  ${
+                    thumb
+                      ? `<img class="memory-thumb" src="${escapeHtml(thumb)}" alt="Ky niem da tai" loading="lazy" decoding="async" />`
+                      : `<div class="memory-thumb" style="display:grid;place-items:center;color:rgba(53,41,31,.55);font-weight:900">${isVideo ? 'VIDEO' : 'ANH'}</div>`
+                  }
+                  <div class="memory-body">
+                    <div class="row">
+                      <strong>${escapeHtml(item.name || 'Khong ro ten')}</strong>
+                      <span class="pill">${formatDate(item.downloadedAt || item.createdAt)}</span>
+                      <span class="pill dark">${isVideo ? 'Video' : 'Anh'}</span>
+                    </div>
+                    <p class="muted">Da tai ky niem cua ${escapeHtml(item.memoryOwnerName || 'khong ro ten')}</p>
+                    <p class="muted">Nguoi tai: ${escapeHtml(item.nameKey || '')} | UID: ${escapeHtml(item.uid || '')}</p>
+                    <p class="memory-caption">${escapeHtml(item.memoryCaption || memory?.caption || '')}</p>
+                  </div>
+                </article>
+              `;
+            })
+            .join('') || '<p class="muted">Chua co luot tai nao.</p>';
+      };
+
       $('accounts').addEventListener('click', async (event) => {
         const button = event.target.closest('button[data-action]');
         if (!button) return;
@@ -659,15 +701,17 @@
         isLoadingManagerData = true;
 
         try {
-          const [accountSnapshot, diarySnapshot, publicMemorySnapshot, privateMemorySnapshot] = await Promise.all([
+          const [accountSnapshot, diarySnapshot, publicMemorySnapshot, privateMemorySnapshot, downloadSnapshot] = await Promise.all([
             getDocs(query(collection(db, 'students98'), orderBy('name'))),
             getDocs(query(collection(db, 'secretMailboxPrivate98'), orderBy('createdAt', 'desc'))),
             getDocs(query(collection(db, PUBLIC_MEMORIES_COLLECTION), orderBy('createdAt', 'desc'))),
             getDocs(query(collection(db, PRIVATE_MEMORIES_COLLECTION), orderBy('createdAt', 'desc'))),
+            getDocs(query(collection(db, MEMORY_DOWNLOAD_LOGS_COLLECTION), orderBy('downloadedAt', 'desc'))),
           ]);
 
           accounts = accountSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
           diaries = diarySnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+          downloads = downloadSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
           memories = [
             ...publicMemorySnapshot.docs.map((item) => ({ id: item.id, collectionName: PUBLIC_MEMORIES_COLLECTION, ...item.data() })),
             ...privateMemorySnapshot.docs.map((item) => ({ id: item.id, collectionName: PRIVATE_MEMORIES_COLLECTION, ...item.data() })),
@@ -681,6 +725,7 @@
           renderAccounts();
           renderDiaries();
           renderAllMemories();
+          renderDownloads();
         } catch (error) {
           status.textContent = error.message || 'Không thể tải dữ liệu manager.';
         } finally {

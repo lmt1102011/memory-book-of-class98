@@ -51,6 +51,7 @@ const MEMORIES_COLLECTION = 'memories98';
 const PRIVATE_MEMORIES_COLLECTION = 'privateMemories98';
 const MEMORY_VIDEO_CHUNKS_COLLECTION = 'memoryVideoChunks98';
 const MEMORY_COMMENTS_COLLECTION = 'memoryComments98';
+const MEMORY_DOWNLOAD_LOGS_COLLECTION = 'memoryDownloadLogs98';
 const GUESTBOOK_COLLECTION = 'guestbook98';
 const SECRET_MAILBOX_PRIVATE_COLLECTION = 'secretMailboxPrivate98';
 const REMEMBER_NOTES_COLLECTION = 'rememberNotes98';
@@ -799,6 +800,27 @@ export const addMemoryComment = async (profile: UserProfile, memory: MemoryItem,
     message: safeMessage,
     createdAt,
   };
+};
+
+export const logMemoryDownload = async (profile: UserProfile, memory: MemoryItem) => {
+  if (memory.source !== 'firebase') return;
+
+  await withFirebaseRetry(() => addDoc(collection(db, MEMORY_DOWNLOAD_LOGS_COLLECTION), {
+    uid: profile.uid,
+    name: profile.name,
+    nameKey: profile.nameKey,
+    className: CLASS_NAME,
+    memoryId: memory.id,
+    memoryCollection: memoryCollectionForItem(memory),
+    memoryMediaType: memory.mediaType || 'image',
+    memoryOwnerUid: memory.uid || '',
+    memoryOwnerName: memory.name || '',
+    memoryOwnerNameKey: memory.nameKey || '',
+    memoryCaption: String(memory.caption || '').slice(0, 220),
+    memoryVisibility: memory.visibility || 'public',
+    downloadedAt: serverTimestamp(),
+    createdAt: serverTimestamp(),
+  }));
 };
 
 export const deleteMemoryComment = async (profile: UserProfile, comment: MemoryComment) => {

@@ -47,6 +47,7 @@ interface HomePageProps {
   onAddComment: (memory: MemoryItem, message: string) => void | Promise<void>;
   onDeleteComment: (comment: MemoryComment) => void | Promise<void>;
   onDeleteMemory: (memory: MemoryItem) => void | Promise<void>;
+  onDownloadMemory: (memory: MemoryItem) => void | Promise<void>;
 }
 
 export default function HomePage({
@@ -63,6 +64,7 @@ export default function HomePage({
   onAddComment,
   onDeleteComment,
   onDeleteMemory,
+  onDownloadMemory,
 }: HomePageProps) {
   const mediaStageRef = useRef<HTMLDivElement | null>(null);
   const activePointersRef = useRef(new Map<number, { x: number; y: number }>());
@@ -513,7 +515,7 @@ export default function HomePage({
 
       {selectedMemory && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-ink/92 p-0 backdrop-blur-sm sm:p-6"
+          className="fixed inset-0 z-50 grid place-items-center overflow-x-hidden bg-ink/92 p-0 backdrop-blur-sm sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label={`Xem ${selectedMediaLabel} của ${selectedMemory.name}`}
@@ -536,6 +538,7 @@ export default function HomePage({
                     className="memory-viewer-action"
                     href={selectedDownloadHref}
                     download={getMemoryDownloadName(selectedMemory)}
+                    onClick={() => void onDownloadMemory(selectedMemory)}
                     aria-label={`Tải ${selectedMediaLabel}`}
                   >
                     <Download size={17} />
@@ -641,6 +644,7 @@ export default function HomePage({
                   className="primary-button mt-4 w-full sm:mt-5"
                   href={selectedDownloadHref}
                   download={getMemoryDownloadName(selectedMemory)}
+                  onClick={() => void onDownloadMemory(selectedMemory)}
                 >
                   <Download size={17} />
                   Tải {selectedMediaLabel}
@@ -671,7 +675,7 @@ export default function HomePage({
 
       {selectedMemory && selectedMemory.mediaType !== 'video' && isImageZoomOpen && (
         <div
-          className="memory-zoom-overlay fixed inset-0 z-[60] bg-ink"
+          className="memory-zoom-overlay fixed inset-0 z-[60] overflow-hidden bg-ink"
           role="dialog"
           aria-modal="true"
           aria-label={`Phóng to ảnh của ${selectedMemory.name}`}
@@ -692,6 +696,7 @@ export default function HomePage({
                   className="memory-viewer-action"
                   href={selectedDownloadHref}
                   download={getMemoryDownloadName(selectedMemory)}
+                  onClick={() => void onDownloadMemory(selectedMemory)}
                   aria-label="Tải ảnh"
                 >
                   <Download size={17} />

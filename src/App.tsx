@@ -548,6 +548,23 @@ export default function App() {
     [navigate, profile],
   );
 
+  const handleMemoryDownload = useCallback(
+    async (memory: MemoryItem) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+
+      try {
+        const service = await import('./services/firebaseMemoryBook');
+        await service.logMemoryDownload(profile, memory);
+      } catch {
+        // The browser download should still work if the manager log cannot be saved.
+      }
+    },
+    [navigate, profile],
+  );
+
   const handleMemoryDelete = useCallback(
     async (memory: MemoryItem) => {
       if (!profile) {
@@ -975,6 +992,7 @@ export default function App() {
           onAddComment={handleMemoryCommentAdd}
           onDeleteComment={handleMemoryCommentDelete}
           onDeleteMemory={handleMemoryDelete}
+          onDownloadMemory={handleMemoryDownload}
         />
       </Suspense>
     );
