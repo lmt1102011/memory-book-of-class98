@@ -44,6 +44,7 @@ const tutorialImage = (index: number) => LANDING_SLIDES[index % LANDING_SLIDES.l
 
 type TutorialKind = 'join' | 'feed' | 'photobook' | 'profile' | 'votes' | 'letters' | 'secret' | 'diary';
 type TutorialDevice = 'phone' | 'desktop';
+type InstallStatus = 'idle' | 'checking' | 'prompting' | 'installed' | 'manual' | 'dismissed' | 'unavailable';
 
 type TutorialStep = {
   title: string;
@@ -55,6 +56,17 @@ type TutorialStep = {
   image: string;
   alt: string;
   kind: TutorialKind;
+};
+
+const wait = (duration: number) => new Promise<void>((resolve) => window.setTimeout(resolve, duration));
+
+const waitForInstallReadiness = async () => {
+  if (!('serviceWorker' in navigator)) return;
+
+  await Promise.race([
+    navigator.serviceWorker.ready.catch(() => undefined),
+    wait(1200),
+  ]);
 };
 
 const desktopTutorialSteps: TutorialStep[] = [
@@ -640,10 +652,70 @@ function InstallGuideModal({
   );
 }
 
+function InstallProgressToast({
+  status,
+  progress,
+  platform,
+}: {
+  status: InstallStatus;
+  progress: number;
+  platform: InstallPlatform;
+}) {
+  if (status === 'idle') return null;
+
+  const statusText: Record<Exclude<InstallStatus, 'idle'>, string> = {
+    checking: platform === 'ios' ? 'Đang kiểm tra cách thêm app trên iPhone...' : 'Đang kiểm tra điều kiện cài app...',
+    prompting: 'Đang mở hộp thoại cài đặt của trình duyệt...',
+    installed: 'Đã cài xong Memory98.',
+    manual: 'Trình duyệt cần bạn cài thủ công.',
+    dismissed: 'Bạn đã đóng hộp thoại cài đặt.',
+    unavailable: 'Trình duyệt chưa cho mở hộp thoại cài đặt.',
+  };
+
+  const hintText: Record<Exclude<InstallStatus, 'idle'>, string> = {
+    checking: 'Memory98 đang chuẩn bị manifest, icon và service worker.',
+    prompting: 'Nếu hộp thoại hiện ra, hãy bấm Cài đặt hoặc OK.',
+    installed: 'Mở icon Memory98 ngoài màn hình chính để dùng như app.',
+    manual: 'Mình sẽ mở hướng dẫn để bạn làm theo từng bước.',
+    dismissed: 'Bạn có thể bấm lại nút cài app bất cứ lúc nào.',
+    unavailable: 'Mình sẽ chuyển sang hướng dẫn cài thủ công.',
+  };
+
+  return (
+    <m.div
+      className="fixed inset-x-3 bottom-4 z-[60] mx-auto max-w-md rounded-[1.1rem] border border-white/70 bg-paper/96 p-4 text-ink shadow-glass backdrop-blur-xl"
+      initial={{ opacity: 0, y: 18, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 12, scale: 0.98 }}
+      transition={{ duration: 0.18, ease: 'easeOut' }}
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex items-start gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink text-paper">
+          {status === 'installed' ? <BadgeCheck size={18} /> : <Download size={18} />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-black">{statusText[status]}</p>
+          <p className="mt-1 text-xs font-bold leading-5 text-coffee/70">{hintText[status]}</p>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-coffee/12">
+            <div
+              className="h-full rounded-full bg-ink transition-transform duration-300 ease-out"
+              style={{ transform: `scaleX(${Math.max(0, Math.min(progress, 100)) / 100})`, transformOrigin: 'left' }}
+            />
+          </div>
+        </div>
+      </div>
+    </m.div>
+  );
+}
+
 export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
   const [active, setActive] = useState(0);
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [installGuideOpen, setInstallGuideOpen] = useState(false);
+  const [installStatus, setInstallStatus] = useState<InstallStatus>('idle');
+  const [installProgress, setInstallProgress] = useState(0);
   const mobilePerformanceMode = useMobilePerformanceMode();
   const isPhoneTutorial = usePhoneTutorialMode();
   const prefersReducedMotion = usePrefersReducedMotion();
@@ -676,28 +748,87 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
       ];
   const installButtonLabel = isInstalled
     ? 'Đã cài app'
-    : platform === 'ios'
-      ? 'Thêm trên iPhone'
-      : canPrompt
-        ? 'Thêm vào màn hình chính'
-        : 'Thêm vào màn hình chính';
-  const handleInstallClick = async () => {
-    if (canPrompt && !isInstalled) {
-      const outcome = await install();
-      if (outcome === 'manual' || outcome === 'unavailable') setInstallGuideOpen(true);
+    : installStatus === 'checking'
+      ? 'Đang kiểm tra...'
+      : installStatus === 'prompting'
+        ? 'Đang mở cài đặt...'
+        : platform === 'ios'
+          ? 'Thêm trên iPhone'
+          : canPrompt
+            ? 'Thêm vào màn hình chính'
+            : 'Thêm vào màn hình chính';
+  const isInstalling = installStatus === 'checking' || installStatus === 'prompting';
+
+  const finishInstallStatus = async (status: InstallStatus, progress = 100) => {
+    setInstallStatus(status);
+    setInstallProgress(progress);
+
+    if (status === 'manual' || status === 'unavailable') {
+      await wait(520);
+      setInstallGuideOpen(true);
+      setInstallStatus('idle');
+      setInstallProgress(0);
       return;
     }
 
-    setInstallGuideOpen(true);
+    await wait(status === 'installed' ? 900 : 1200);
+    setInstallStatus('idle');
+    setInstallProgress(0);
+  };
+
+  const runInstallFlow = async () => {
+    if (isInstalling) return;
+
+    setInstallStatus('checking');
+    setInstallProgress(18);
+    await wait(180);
+
+    if (isInstalled) {
+      await finishInstallStatus('installed');
+      return;
+    }
+
+    if (platform === 'ios') {
+      await finishInstallStatus('manual');
+      return;
+    }
+
+    setInstallProgress(42);
+    await waitForInstallReadiness();
+
+    if (!canPrompt) {
+      await finishInstallStatus('manual');
+      return;
+    }
+
+    setInstallStatus('prompting');
+    setInstallProgress(68);
+    const outcome = await install();
+
+    if (outcome === 'accepted' || outcome === 'installed') {
+      await finishInstallStatus('installed');
+      return;
+    }
+
+    if (outcome === 'dismissed') {
+      await finishInstallStatus('dismissed', 82);
+      return;
+    }
+
+    await finishInstallStatus(outcome === 'unavailable' ? 'unavailable' : 'manual');
+  };
+
+  const handleInstallClick = async () => {
+    await runInstallFlow();
   };
 
   const handleInstallFromGuide = async () => {
-    if (canPrompt && !isInstalled) {
-      const outcome = await install();
-      if (outcome === 'accepted' || outcome === 'dismissed') setInstallGuideOpen(false);
+    if (!canPrompt || isInstalled || platform === 'ios') {
+      setInstallGuideOpen(false);
       return;
     }
 
+    await runInstallFlow();
     setInstallGuideOpen(false);
   };
 
@@ -865,7 +996,12 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
                   <BookOpen size={19} />
                   Tutorial
                 </button>
-                <button className="secondary-button min-h-14 px-7 text-base" onClick={handleInstallClick}>
+                <button
+                  className="secondary-button min-h-14 px-7 text-base disabled:cursor-wait disabled:opacity-75"
+                  onClick={handleInstallClick}
+                  disabled={isInstalling}
+                  aria-busy={isInstalling}
+                >
                   {isInstalled ? <BadgeCheck size={19} /> : <Download size={19} />}
                   {installButtonLabel}
                 </button>
@@ -893,6 +1029,12 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
             onClose={() => setInstallGuideOpen(false)}
             onInstall={handleInstallFromGuide}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {installStatus !== 'idle' && (
+          <InstallProgressToast status={installStatus} progress={installProgress} platform={platform} />
         )}
       </AnimatePresence>
 
