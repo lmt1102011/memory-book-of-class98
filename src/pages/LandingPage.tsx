@@ -7,6 +7,7 @@ import {
   Heart,
   Home,
   Lock,
+  Menu,
   MessageCircle,
   Music,
   Music2,
@@ -157,59 +158,59 @@ const phoneTutorialOverrides: Record<TutorialKind, Omit<Partial<TutorialStep>, '
   },
   feed: {
     title: '2. Lướt ký ức trên điện thoại',
-    text: 'Trang Ký ức trên điện thoại được xếp một cột dễ vuốt. Dùng ô tìm kiếm ở đầu trang để tìm theo tên, chạm ảnh/video để mở popup xem rõ hơn.',
-    where: 'Menu → Ký ức',
-    action: 'Vuốt để xem feed, chạm vào ảnh để mở, chạm lần nữa vào ảnh để vào màn zoom rồi dùng hai ngón tay để phóng to/thu nhỏ.',
+    text: 'Trên điện thoại, trước tiên bấm dấu 3 gạch ở góc trên để mở menu, rồi chọn Ký ức. Feed được xếp một cột dễ vuốt; chạm ảnh/video để mở popup xem rõ hơn.',
+    where: 'Dấu 3 gạch → Ký ức',
+    action: 'Bấm nút 3 gạch, chọn Ký ức, vuốt để xem feed, chạm ảnh để mở, chạm lần nữa vào ảnh để vào màn zoom rồi dùng hai ngón tay để phóng to/thu nhỏ.',
     result: 'Ảnh xem rõ trên màn hình nhỏ, có tim, bình luận và nút tải lớn nằm trong phần thông tin bên dưới.',
-    highlight: 'Chạm ảnh để xem rõ',
+    highlight: 'Bấm ☰ rồi chọn Ký ức',
   },
   photobook: {
     title: '3. Chụp hoặc upload bằng điện thoại',
-    text: 'Bấm Đăng ảnh/video, chọn số tấm và layout. Khi mở camera, màn chụp sẽ gần full màn hình để dễ tạo dáng; cũng có thể upload ảnh sẵn từ thư viện điện thoại.',
-    where: 'Ký ức → Đăng ảnh/video',
-    action: 'Chọn layout, bấm Mở cam hoặc Upload ảnh, xem trước ảnh gốc và ảnh làm đẹp, rồi xác nhận từng tấm.',
+    text: 'Bấm dấu 3 gạch để mở menu, vào Ký ức rồi bấm Đăng ảnh/video. Khi mở camera, màn chụp sẽ gần full màn hình để dễ tạo dáng; cũng có thể upload ảnh sẵn từ thư viện điện thoại.',
+    where: '☰ → Ký ức → Đăng ảnh/video',
+    action: 'Mở menu bằng dấu 3 gạch, chọn Ký ức, chọn layout, bấm Mở cam hoặc Upload ảnh, xem trước ảnh gốc và ảnh làm đẹp, rồi xác nhận từng tấm.',
     result: 'Photobook tạo ra đủ nét để đăng lên feed hoặc tải về máy mà không cần Firebase Storage.',
-    highlight: 'Mở cam / Upload ảnh',
+    highlight: '☰ rồi Đăng ảnh/video',
   },
   profile: {
     title: '4. Xem hồ sơ lớp trên điện thoại',
-    text: 'Trong Hồ sơ lớp, các bạn được xếp thành card dọc. Chạm một bạn để mở popup hồ sơ; chỉ khi bấm Sửa hồ sơ mới hiện form chỉnh thông tin của bạn.',
-    where: 'Menu → Hồ sơ lớp',
-    action: 'Vuốt danh sách, chạm Xem hồ sơ, rồi mở album riêng của bạn đó ngay trong popup.',
+    text: 'Bấm dấu 3 gạch ở góc trên để mở menu, chọn Hồ sơ lớp. Các bạn được xếp thành card dọc; chạm một bạn để mở popup hồ sơ.',
+    where: 'Dấu 3 gạch → Hồ sơ lớp',
+    action: 'Bấm ☰, chọn Hồ sơ lớp, vuốt danh sách, chạm Xem hồ sơ, rồi mở album riêng của bạn đó ngay trong popup.',
     result: 'Mỗi bạn có một góc kỷ yếu riêng với avatar, biệt danh, câu nói và album đã đăng.',
-    highlight: 'Chạm Xem hồ sơ',
+    highlight: '☰ rồi Hồ sơ lớp',
   },
   votes: {
     title: '5. Bình chọn nhanh trên điện thoại',
-    text: 'Trang Bình chọn hiển thị dạng card dọc. Chỉ khi bấm Tạo hạng mục mới hiện popup tạo danh hiệu, còn vote thì chạm vào tên một bạn trong danh sách.',
-    where: 'Menu → Bình chọn',
-    action: 'Chạm Tạo hạng mục nếu muốn tạo danh hiệu mới, hoặc vuốt từng card để vote/đổi vote cho một bạn.',
+    text: 'Bấm dấu 3 gạch để mở menu, chọn Bình chọn. Trang Bình chọn hiển thị dạng card dọc; chỉ khi bấm Tạo hạng mục mới hiện popup tạo danh hiệu.',
+    where: 'Dấu 3 gạch → Bình chọn',
+    action: 'Bấm ☰, chọn Bình chọn, chạm Tạo hạng mục nếu muốn tạo danh hiệu mới, hoặc vuốt từng card để vote/đổi vote cho một bạn.',
     result: 'Top 3, tổng vote và lựa chọn của bạn cập nhật gọn gàng trên màn hình điện thoại.',
-    highlight: 'Chạm để vote',
+    highlight: '☰ rồi Bình chọn',
   },
   letters: {
     title: '6. Đọc bảng thư trên điện thoại',
-    text: 'Bảng thư hiện như những mảnh giấy dán trên bảng lớp. Trên điện thoại, chạm một lá thư để mở popup đọc rõ; chạm Viết thư để mở form gửi tin cho lớp.',
-    where: 'Menu → Bảng thư',
-    action: 'Chạm lá thư để đọc, hoặc bấm Viết thư rồi chọn gửi có tên hay ẩn danh.',
+    text: 'Bấm dấu 3 gạch để mở menu, chọn Bảng thư. Các lá thư hiện như mảnh giấy dán trên bảng lớp; chạm một lá thư để mở popup đọc rõ.',
+    where: 'Dấu 3 gạch → Bảng thư',
+    action: 'Bấm ☰, chọn Bảng thư, chạm lá thư để đọc, hoặc bấm Viết thư rồi chọn gửi có tên hay ẩn danh.',
     result: 'Tin nhắn hiện trên bảng thư lớp theo dạng giấy nhớ, dễ đọc và dễ gửi bằng điện thoại.',
-    highlight: 'Chạm lá thư / Viết thư',
+    highlight: '☰ rồi Bảng thư',
   },
   secret: {
     title: '7. Secret Message trên điện thoại',
-    text: 'Secret Message có tab Thư mình nhận và Thư mình gửi. Chỉ khi bấm Viết thư cho ai đó mới mở popup chọn người nhận và viết thư.',
-    where: 'Menu → Secret Message',
-    action: 'Chạm Viết thư cho ai đó, chọn một bạn, nhập nội dung, chọn ẩn danh nếu muốn rồi gửi.',
+    text: 'Bấm dấu 3 gạch để mở menu, chọn Secret Message. Trang này có tab Thư mình nhận và Thư mình gửi; chỉ khi bấm Viết thư cho ai đó mới mở popup chọn người nhận.',
+    where: 'Dấu 3 gạch → Secret Message',
+    action: 'Bấm ☰, chọn Secret Message, chạm Viết thư cho ai đó, chọn một bạn, nhập nội dung, chọn ẩn danh nếu muốn rồi gửi.',
     result: 'Người nhận có thể thả một cảm xúc; bạn xem được trạng thái đã gửi, đã xem hoặc đã phản hồi.',
-    highlight: 'Viết thư cho ai đó',
+    highlight: '☰ rồi Secret Message',
   },
   diary: {
     title: '8. Nhật ký riêng trên điện thoại',
-    text: 'Nhật ký là nơi riêng tư cho những điều tiếc nuối chưa kịp nói. Trên điện thoại, chỉ khi bấm Tạo nhật ký mới mở popup viết nội dung.',
-    where: 'Menu → Nhật ký',
-    action: 'Bấm Tạo nhật ký, viết nội dung bằng bàn phím điện thoại rồi lưu. Có thể xóa trang nhật ký của mình khi cần.',
+    text: 'Bấm dấu 3 gạch để mở menu, chọn Nhật ký. Đây là nơi riêng tư cho những điều tiếc nuối chưa kịp nói; chỉ khi bấm Tạo nhật ký mới mở popup viết nội dung.',
+    where: 'Dấu 3 gạch → Nhật ký',
+    action: 'Bấm ☰, chọn Nhật ký, bấm Tạo nhật ký, viết nội dung bằng bàn phím điện thoại rồi lưu. Có thể xóa trang nhật ký của mình khi cần.',
     result: 'Chỉ tài khoản của bạn thấy nhật ký trong web; manager vẫn lưu được tên người viết để quản lý.',
-    highlight: 'Tạo nhật ký',
+    highlight: '☰ rồi Nhật ký',
   },
 };
 
@@ -351,7 +352,10 @@ function TutorialIllustration({ step, device }: { step: TutorialStep; device: Tu
             <div className="mx-auto mb-2 h-1.5 w-14 rounded-full bg-ink/20" />
             <div className="overflow-hidden rounded-[1.35rem] bg-cream">
               <div className="flex items-center justify-between bg-ink px-3 py-2 text-paper">
-                <span className="text-[10px] font-black uppercase">Class 9/8</span>
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-paper text-ink shadow-paper">
+                  <Menu size={16} />
+                </span>
+                <span className="text-[10px] font-black uppercase">Bấm dấu 3 gạch</span>
                 <Icon size={16} />
               </div>
               <div className="space-y-2 p-3">
