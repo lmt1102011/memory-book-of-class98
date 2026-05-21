@@ -83,6 +83,7 @@ export default function App() {
   const [voteRecords, setVoteRecords] = useState<VoteRecord[]>([]);
   const [votesLoading, setVotesLoading] = useState(false);
   const [focusedPersonKey, setFocusedPersonKey] = useState('');
+  const [peopleListResetKey, setPeopleListResetKey] = useState(0);
   const [rememberNotes, setRememberNotes] = useState<RememberNote[]>([]);
   const [rememberNotesLoading, setRememberNotesLoading] = useState(false);
   const [sentRememberNotes, setSentRememberNotes] = useState<RememberNote[]>([]);
@@ -477,6 +478,24 @@ export default function App() {
       navigate('people');
     },
     [navigate],
+  );
+
+  const openPeopleList = useCallback(() => {
+    setFocusedPersonKey('');
+    setPeopleListResetKey((key) => key + 1);
+    navigate('people');
+  }, [navigate]);
+
+  const handleNavItemClick = useCallback(
+    (itemRoute: AppRoute) => {
+      if (itemRoute === 'people') {
+        openPeopleList();
+        return;
+      }
+
+      navigate(itemRoute);
+    },
+    [navigate, openPeopleList],
   );
 
   const allMemories = useMemo(() => remoteMemories, [remoteMemories]);
@@ -1325,11 +1344,13 @@ export default function App() {
             isOwnMemoriesLoading={notificationActivityLoading}
             profile={profile}
             focusedNameKey={focusedPersonKey}
+            listResetKey={peopleListResetKey}
             onJoin={() => navigate('join')}
             onPhotobook={() => navigate('photobook')}
             onUpdateProfile={handleYouthProfileUpdate}
             onDeleteMemory={handleMemoryDelete}
             onDownloadMemory={handleMemoryDownload}
+            onClearFocusedProfile={() => setFocusedPersonKey('')}
           />
         </Suspense>
       );
@@ -1451,7 +1472,7 @@ export default function App() {
                     <button
                       key={itemRoute}
                       className={`nav-pill relative ${route === itemRoute ? 'nav-pill-active' : ''}`}
-                      onClick={() => navigate(itemRoute)}
+                      onClick={() => handleNavItemClick(itemRoute)}
                     >
                       <Icon size={16} />
                       {label}
@@ -1513,7 +1534,7 @@ export default function App() {
                         <button
                           key={itemRoute}
                           className={`nav-pill relative justify-start ${route === itemRoute ? 'nav-pill-active' : ''}`}
-                          onClick={() => navigate(itemRoute)}
+                          onClick={() => handleNavItemClick(itemRoute)}
                         >
                           <Icon size={16} />
                           {label}

@@ -16,11 +16,13 @@ interface PeoplePageProps {
   isOwnMemoriesLoading: boolean;
   profile: UserProfile | null;
   focusedNameKey: string;
+  listResetKey: number;
   onJoin: () => void;
   onPhotobook: () => void;
   onUpdateProfile: (draft: YouthProfileDraft) => void | Promise<void>;
   onDeleteMemory: (memory: MemoryItem) => void | Promise<void>;
   onDownloadMemory: (memory: MemoryItem) => void | Promise<void>;
+  onClearFocusedProfile: () => void;
 }
 
 const defaultTags = ['ấm áp', 'hài hước', 'đáng nhớ'];
@@ -78,11 +80,13 @@ export default function PeoplePage({
   isOwnMemoriesLoading,
   profile,
   focusedNameKey,
+  listResetKey,
   onJoin,
   onPhotobook,
   onUpdateProfile,
   onDeleteMemory,
   onDownloadMemory,
+  onClearFocusedProfile,
 }: PeoplePageProps) {
   const uploadRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState('');
@@ -111,6 +115,10 @@ export default function PeoplePage({
     () => sortedClassmates.find((person) => person.nameKey === profile?.nameKey) || null,
     [profile?.nameKey, sortedClassmates],
   );
+
+  useEffect(() => {
+    setSelectedNameKey('');
+  }, [listResetKey]);
 
   useEffect(() => {
     if (focusedNameKey) setSelectedNameKey(focusedNameKey);
@@ -356,7 +364,10 @@ export default function PeoplePage({
         description="Thông tin cá nhân, lời gửi lớp và album ảnh riêng của bạn này."
         icon={<UserRound size={20} />}
         wide
-        onClose={() => setSelectedNameKey('')}
+        onClose={() => {
+          setSelectedNameKey('');
+          onClearFocusedProfile();
+        }}
       >
         <PersonDetail
           person={selectedPerson}

@@ -7,30 +7,30 @@
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#fbf3e7",
+  "background_color": "#fff7ec",
   "theme_color": "#fbf3e7",
   "categories": ["photo", "social", "education"],
   "icons": [
     {
-      "src": "./logo-web-class-98-192.png",
+      "src": "./logo-web-class-98-192.png?v=20260521-pwa2",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./logo-web-class-98.png",
+      "src": "./logo-web-class-98.png?v=20260521-pwa2",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./logo-web-class-98-maskable-192.png",
+      "src": "./logo-web-class-98-maskable-192.png?v=20260521-pwa2",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "./logo-web-class-98-maskable-512.png",
+      "src": "./logo-web-class-98-maskable-512.png?v=20260521-pwa2",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
