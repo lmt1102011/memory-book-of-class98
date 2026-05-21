@@ -52,6 +52,13 @@ import {
 } from '../utils/photoEdit';
 import { beautifyPhotoDataUrl } from '../utils/photoEnhance';
 import { makeFeedThumbnailDataUrl, renderPhotobook } from '../utils/photobookCanvas';
+import {
+  formatVideoDuration,
+  formatVideoSize,
+  prepareShortVideo,
+  type PreparedVideoDraft,
+  type VideoPrepareProgress,
+} from '../utils/videoPrepare';
 
 interface PhotobookPageProps {
   profile: UserProfile | null;
@@ -64,14 +71,7 @@ type BoothStage = 'setup' | 'camera' | 'final';
 type CaptureSource = 'camera' | 'upload';
 type PhotoPreviewMode = 'original' | 'enhanced';
 
-interface VideoDraft {
-  dataUrl: string;
-  thumbnailDataUrl: string;
-  name: string;
-  mimeType: string;
-  size: number;
-  duration: number;
-}
+type VideoDraft = PreparedVideoDraft;
 
 const defaultBackgroundEdit: BackgroundEdit = {
   scale: 1,
@@ -119,16 +119,6 @@ const PHOTO_EDIT_CONTROLS: Array<{
   { key: 'vignette', label: 'Viền film', min: 0, max: 34, step: 1, suffix: '%' },
 ];
 
-const MAX_SHORT_VIDEO_BYTES = 8 * 1024 * 1024;
-const MAX_SHORT_VIDEO_SECONDS = 20;
-
-const formatVideoSize = (bytes: number) => {
-  if (!bytes) return '0MB';
-  return `${(bytes / (1024 * 1024)).toFixed(bytes > 1024 * 1024 ? 1 : 2)}MB`;
-};
-
-const formatVideoDuration = (seconds: number) => `${Math.max(1, Math.round(seconds || 0))}s`;
-
 const loadImageFromSource = (src: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
@@ -136,56 +126,6 @@ const loadImageFromSource = (src: string) =>
     image.onerror = reject;
     image.src = src;
   });
-
-const readFileAsDataUrl = (file: File) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-
-const loadVideoMetadata = (src: string) =>
-  new Promise<HTMLVideoElement>((resolve, reject) => {
-    const video = document.createElement('video');
-    video.preload = 'metadata';
-    video.muted = true;
-    video.playsInline = true;
-    video.onloadedmetadata = () => resolve(video);
-    video.onerror = reject;
-    video.src = src;
-  });
-
-const makeVideoThumbnail = async (src: string) => {
-  const video = await loadVideoMetadata(src);
-  const seekTo = Math.min(Math.max(video.duration * 0.12, 0.1), 1.2);
-
-  await new Promise<void>((resolve) => {
-    const finish = () => resolve();
-    video.onseeked = finish;
-    video.currentTime = Number.isFinite(seekTo) ? seekTo : 0.1;
-    window.setTimeout(finish, 900);
-  });
-
-  const maxWidth = 920;
-  const aspect = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 16 / 9;
-  const width = Math.min(maxWidth, video.videoWidth || maxWidth);
-  const height = Math.round(width / aspect);
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d', { alpha: false });
-  if (!ctx) throw new Error('Canvas is not supported in this browser.');
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.fillStyle = '#35291f';
-  ctx.fillRect(0, 0, width, height);
-  ctx.drawImage(video, 0, 0, width, height);
-  return {
-    thumbnailDataUrl: canvas.toDataURL('image/jpeg', 0.84),
-    duration: Number.isFinite(video.duration) ? video.duration : 0,
-  };
-};
 
 const compressUploadedBackground = async (file: File) => {
   const objectUrl = URL.createObjectURL(file);
@@ -328,6 +268,7 @@ export default function PhotobookPage({ profile, classmates, onJoinNeeded, onPub
   const [videoError, setVideoError] = useState('');
   const [isVideoPreparing, setIsVideoPreparing] = useState(false);
   const [isVideoPublishing, setIsVideoPublishing] = useState(false);
+  const [videoPrepareProgress, setVideoPrepareProgress] = useState<VideoPrepareProgress | null>(null);
   const mobilePerformanceMode = useMobilePerformanceMode();
 
   const selectedBackground = useMemo<BackgroundOption>(
@@ -470,41 +411,21 @@ export default function PhotobookPage({ profile, classmates, onJoinNeeded, onPub
     event.target.value = '';
     if (!file) return;
 
-    if (!file.type.startsWith('video/')) {
-      setVideoError('Hãy chọn một file video hợp lệ.');
-      return;
-    }
-
-    if (file.size > MAX_SHORT_VIDEO_BYTES) {
-      setVideoError('Video ngắn tối đa 8MB để web vẫn mượt trên điện thoại.');
-      return;
-    }
-
-    const objectUrlForVideo = URL.createObjectURL(file);
     try {
       setVideoError('');
+      setVideoDraft(null);
       setIsVideoPreparing(true);
-      const { thumbnailDataUrl, duration } = await makeVideoThumbnail(objectUrlForVideo);
-
-      if (duration > MAX_SHORT_VIDEO_SECONDS) {
-        setVideoError('Video tối đa 20 giây để tải nhanh và không làm nặng database.');
-        return;
-      }
-
-      const dataUrl = await readFileAsDataUrl(file);
-      setVideoDraft({
-        dataUrl,
-        thumbnailDataUrl,
-        name: file.name,
-        mimeType: file.type || 'video/mp4',
-        size: file.size,
-        duration,
+      setVideoPrepareProgress({ label: 'Đang đọc video', percent: 8, detail: 'Chuẩn bị kiểm tra file.' });
+      const prepared = await prepareShortVideo(file, {
+        mobile: mobilePerformanceMode,
+        onProgress: setVideoPrepareProgress,
       });
-    } catch {
-      setVideoError('Không thể đọc video này. Hãy thử MP4/WebM ngắn hơn.');
+      setVideoDraft(prepared);
+    } catch (caught) {
+      setVideoError(caught instanceof Error ? caught.message : 'Không thể xử lý video này. Hãy thử MP4/WebM ngắn hơn hoặc nhẹ hơn.');
     } finally {
-      URL.revokeObjectURL(objectUrlForVideo);
       setIsVideoPreparing(false);
+      window.setTimeout(() => setVideoPrepareProgress(null), 900);
     }
   };
 
@@ -942,7 +863,7 @@ export default function PhotobookPage({ profile, classmates, onJoinNeeded, onPub
                   <div className="min-w-0">
                     <h3 className="text-sm font-black text-ink">Đăng video ngắn</h3>
                     <p className="mt-1 text-xs leading-5 text-ink/58">
-                      Video tối đa 20 giây, 8MB. Web sẽ tạo ảnh bìa để feed vẫn tải nhanh.
+                      Video tối đa 20 giây. App sẽ tự tạo ảnh bìa và nén video khi cần để feed vẫn tải mượt.
                     </p>
                   </div>
                 </div>
@@ -953,8 +874,26 @@ export default function PhotobookPage({ profile, classmates, onJoinNeeded, onPub
                   disabled={isVideoPreparing || isVideoPublishing}
                 >
                   <Video size={17} />
-                  {isVideoPreparing ? 'Đang đọc video...' : videoDraft ? 'Đổi video' : 'Chọn video'}
+                  {isVideoPreparing ? 'Đang xử lý video...' : videoDraft ? 'Đổi video' : 'Chọn video'}
                 </button>
+
+                {isVideoPreparing && videoPrepareProgress && (
+                  <div className="mt-3 rounded-xl bg-white/72 p-3 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.08)]">
+                    <div className="flex items-center justify-between gap-3 text-xs font-black uppercase text-coffee/70">
+                      <span>{videoPrepareProgress.label}</span>
+                      <span>{Math.round(videoPrepareProgress.percent)}%</span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-coffee/10">
+                      <div
+                        className="h-full rounded-full bg-coffee transition-[width] duration-300 ease-out"
+                        style={{ width: `${Math.max(8, Math.min(100, videoPrepareProgress.percent))}%` }}
+                      />
+                    </div>
+                    {videoPrepareProgress.detail && (
+                      <p className="mt-2 text-xs leading-5 text-ink/58">{videoPrepareProgress.detail}</p>
+                    )}
+                  </div>
+                )}
 
                 {videoDraft && (
                   <div className="mt-3 grid gap-3">
@@ -970,6 +909,20 @@ export default function PhotobookPage({ profile, classmates, onJoinNeeded, onPub
                         <Video size={12} />
                         {formatVideoDuration(videoDraft.duration)} · {formatVideoSize(videoDraft.size)}
                       </span>
+                    </div>
+
+                    <div className="grid gap-2 rounded-xl bg-white/70 p-3 text-xs leading-5 text-ink/62 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.08)]">
+                      <div className="flex items-center justify-between gap-3">
+                        <strong className="text-ink">Dung lượng</strong>
+                        <span>
+                          {formatVideoSize(videoDraft.size)}
+                          {videoDraft.compressed ? ` từ ${formatVideoSize(videoDraft.originalSize)}` : ''}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <strong className="text-ink">Trạng thái</strong>
+                        <span>{videoDraft.compressed ? 'Đã nén để tải mượt' : 'Đủ nhẹ, giữ chất lượng gốc'}</span>
+                      </div>
                     </div>
 
                     <label className="block">

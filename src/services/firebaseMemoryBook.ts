@@ -31,6 +31,7 @@ import type {
   GuestbookEntry,
   MemoryComment,
   MemoryItem,
+  NotificationActivity,
   PublishMemoryDraft,
   RememberNote,
   RememberNoteDraft,
@@ -265,6 +266,7 @@ const memoryFromDoc = (
   visibleToNameKeys: Array.isArray(data.visibleToNameKeys) ? data.visibleToNameKeys.map(String).slice(0, 80) : [],
   visibleToNames: Array.isArray(data.visibleToNames) ? data.visibleToNames.map(String).slice(0, 80) : [],
   createdAt: timestampToIso(data.createdAt),
+  updatedAt: data.updatedAt ? timestampToIso(data.updatedAt) : undefined,
   reactions: Number(data.reactions || 0),
   likedBy: Array.isArray(data.likedBy) ? data.likedBy.map(String).slice(0, 500) : [],
   rotation: Number(data.rotation || 0),
@@ -274,6 +276,7 @@ const memoryFromDoc = (
 const memoryCommentFromDoc = (id: string, data: DocumentData): MemoryComment => ({
   id,
   memoryId: String(data.memoryId || ''),
+  memoryUid: data.memoryUid ? String(data.memoryUid) : undefined,
   uid: String(data.uid || ''),
   name: String(data.name || 'Bạn cùng lớp'),
   nameKey: String(data.nameKey || ''),
@@ -673,6 +676,70 @@ export const subscribeSentRememberNotes = (
   return () => window.clearInterval(interval);
 };
 
+export const subscribeNotificationActivity = (
+  profile: UserProfile,
+  onNext: (activity: NotificationActivity) => void,
+  onError: (error: Error) => void,
+) => {
+  const ownPublicMemoriesQuery = query(collection(db, MEMORIES_COLLECTION), where('uid', '==', profile.uid), limit(80));
+  const ownPrivateMemoriesQuery = query(collection(db, PRIVATE_MEMORIES_COLLECTION), where('uid', '==', profile.uid), limit(80));
+  const recentCommentsQuery = query(collection(db, MEMORY_COMMENTS_COLLECTION), orderBy('createdAt', 'desc'), limit(160));
+  const receivedNotesQuery = query(collection(db, REMEMBER_NOTES_COLLECTION), where('toNameKey', '==', profile.nameKey), limit(80));
+  const sentNotesQuery = query(collection(db, REMEMBER_NOTES_COLLECTION), where('fromUid', '==', profile.uid), limit(80));
+  const voteCategoriesQuery = query(collection(db, VOTE_CATEGORIES_COLLECTION), where('hidden', '==', false), limit(40));
+
+  const sortNewestFirst = <T extends { createdAt: string }>(items: T[]) =>
+    items.sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+
+  const load = async () => {
+    try {
+      const [
+        ownPublicSnapshot,
+        ownPrivateSnapshot,
+        commentsSnapshot,
+        receivedNotesSnapshot,
+        sentNotesSnapshot,
+        voteCategoriesSnapshot,
+      ] = await Promise.all([
+        withFirebaseRetry(() => getDocs(ownPublicMemoriesQuery)),
+        withFirebaseRetry(() => getDocs(ownPrivateMemoriesQuery)),
+        withFirebaseRetry(() => getDocs(recentCommentsQuery)),
+        withFirebaseRetry(() => getDocs(receivedNotesQuery)),
+        withFirebaseRetry(() => getDocs(sentNotesQuery)),
+        withFirebaseRetry(() => getDocs(voteCategoriesQuery)),
+      ]);
+
+      const ownMemories = sortNewestFirst([
+        ...ownPublicSnapshot.docs.map((item) => memoryFromDoc(item.id, item.data(), MEMORIES_COLLECTION)),
+        ...ownPrivateSnapshot.docs.map((item) => memoryFromDoc(item.id, item.data(), PRIVATE_MEMORIES_COLLECTION)),
+      ]).filter((item) => item.imageUrl);
+      const ownMemoryIds = new Set(ownMemories.map((item) => item.id));
+
+      onNext({
+        ownMemories,
+        ownMemoryComments: sortNewestFirst(
+          commentsSnapshot.docs
+            .map((item) => memoryCommentFromDoc(item.id, item.data()))
+            .filter((comment) => comment.memoryUid === profile.uid || ownMemoryIds.has(comment.memoryId)),
+        ),
+        receivedNotes: sortNewestFirst(receivedNotesSnapshot.docs.map((item) => rememberNoteFromDoc(item.id, item.data()))),
+        sentNotes: sortNewestFirst(sentNotesSnapshot.docs.map((item) => rememberNoteFromDoc(item.id, item.data()))),
+        voteCategories: sortNewestFirst(
+          voteCategoriesSnapshot.docs
+            .map((item) => voteCategoryFromDoc(item.id, item.data()))
+            .filter((item) => item.title && !item.hidden),
+        ),
+      });
+    } catch (error) {
+      onError(friendlyFirebaseError(error));
+    }
+  };
+
+  void load();
+  const interval = createVisiblePolling(load);
+  return () => window.clearInterval(interval);
+};
+
 export const publishMemoryToFirebase = async (profile: UserProfile, draft: PublishMemoryDraft) => {
   const id = makeId('memory');
   const visibility = draft.visibility === 'private' || draft.visibility === 'tagged' ? draft.visibility : 'public';
@@ -794,6 +861,7 @@ export const addMemoryComment = async (profile: UserProfile, memory: MemoryItem,
   return {
     id: docRef.id,
     memoryId: memory.id,
+    memoryUid: memory.uid || '',
     uid: profile.uid,
     name: profile.name,
     nameKey: profile.nameKey,

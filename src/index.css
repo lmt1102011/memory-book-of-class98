@@ -186,6 +186,46 @@
     box-shadow: 0 12px 26px rgba(53, 41, 31, 0.16);
   }
 
+  .nav-notification-dot {
+    position: absolute;
+    right: -0.25rem;
+    top: -0.35rem;
+    display: inline-flex;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #e96f8c;
+    padding: 0 0.3rem;
+    color: white;
+    font-size: 0.62rem;
+    font-weight: 900;
+    box-shadow: 0 0 0 2px #fbf3e7;
+  }
+
+  .header-notification-badge {
+    position: absolute;
+    right: -0.2rem;
+    top: -0.2rem;
+    display: inline-flex;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #e96f8c;
+    padding: 0 0.3rem;
+    color: white;
+    font-size: 0.62rem;
+    font-weight: 900;
+    box-shadow: 0 0 0 2px #fbf3e7;
+  }
+
+  .notification-panel {
+    overscroll-behavior: contain;
+  }
+
   .input-field {
     width: 100%;
     min-width: 0;

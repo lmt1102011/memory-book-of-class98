@@ -1,4 +1,14 @@
-export type AppRoute = 'landing' | 'join' | 'home' | 'letters' | 'remember' | 'diary' | 'photobook' | 'people' | 'votes';
+export type AppRoute =
+  | 'landing'
+  | 'join'
+  | 'home'
+  | 'letters'
+  | 'remember'
+  | 'diary'
+  | 'photobook'
+  | 'people'
+  | 'votes'
+  | 'mine';
 
 export type PhotoCount = 1 | 2 | 4 | 6;
 
@@ -62,6 +72,7 @@ export interface MemoryItem {
   visibleToNameKeys?: string[];
   visibleToNames?: string[];
   createdAt: string;
+  updatedAt?: string;
   reactions: number;
   likedBy: string[];
   rotation: number;
@@ -71,6 +82,7 @@ export interface MemoryItem {
 export interface MemoryComment {
   id: string;
   memoryId: string;
+  memoryUid?: string;
   uid?: string;
   name: string;
   nameKey?: string;
@@ -227,4 +239,25 @@ export interface VoteCategoryDraft {
   description: string;
   tone: VoteCategoryTone;
   icon: string;
+}
+
+export type NotificationKind = 'message' | 'reaction' | 'comment' | 'like' | 'vote';
+
+export interface NotificationItem {
+  id: string;
+  kind: NotificationKind;
+  route: AppRoute;
+  title: string;
+  body: string;
+  createdAt: string;
+  unread: boolean;
+  accent: 'pink' | 'blue' | 'cream' | 'chalk';
+}
+
+export interface NotificationActivity {
+  ownMemories: MemoryItem[];
+  ownMemoryComments: MemoryComment[];
+  receivedNotes: RememberNote[];
+  sentNotes: RememberNote[];
+  voteCategories: VoteCategory[];
 }

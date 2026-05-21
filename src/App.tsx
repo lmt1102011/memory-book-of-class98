@@ -1,9 +1,10 @@
 import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion';
-import { BadgeCheck, Camera, Heart, Home, Lock, Menu, MessageCircle, Sparkles, UserRound, X } from 'lucide-react';
+import { BadgeCheck, Bell, Camera, Heart, Home, Images, Lock, Menu, MessageCircle, Sparkles, UserRound, X } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AppStatusToast from './components/AppStatusToast';
 import BootSplash from './components/BootSplash';
 import LoadingScreen from './components/LoadingScreen';
+import NotificationCenter from './components/NotificationCenter';
 import { useMobilePerformanceMode } from './hooks/useMobilePerformanceMode';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion';
@@ -14,6 +15,8 @@ import type {
   GuestbookEntry,
   MemoryComment,
   MemoryItem,
+  NotificationActivity,
+  NotificationItem,
   PublishMemoryDraft,
   RememberNote,
   RememberNoteDraft,
@@ -34,10 +37,11 @@ const DiaryPage = lazy(() => import('./pages/DiaryPage'));
 const PhotobookPage = lazy(() => import('./pages/PhotobookPage'));
 const PeoplePage = lazy(() => import('./pages/PeoplePage'));
 const VotesPage = lazy(() => import('./pages/VotesPage'));
+const MyMemoriesPage = lazy(() => import('./pages/MyMemoriesPage'));
 
 const routeFromHash = (): AppRoute => {
   const route = window.location.hash.replace('#/', '') as AppRoute;
-  return ['landing', 'join', 'home', 'letters', 'remember', 'diary', 'photobook', 'people', 'votes'].includes(route)
+  return ['landing', 'join', 'home', 'letters', 'remember', 'diary', 'photobook', 'people', 'votes', 'mine'].includes(route)
     ? route
     : 'landing';
 };
@@ -48,12 +52,13 @@ const navItems: Array<{ route: AppRoute; label: string; icon: typeof Home }> = [
   { route: 'landing', label: 'Intro', icon: Sparkles },
   { route: 'remember', label: 'Secret Message', icon: Heart },
   { route: 'home', label: 'Ký ức', icon: Home },
+  { route: 'mine', label: 'Của tôi', icon: Images },
   { route: 'letters', label: 'Thư lớp', icon: MessageCircle },
   { route: 'diary', label: 'Nhật ký', icon: Lock },
   { route: 'photobook', label: 'Đăng ảnh', icon: Camera },
 ];
 
-const navOrder: AppRoute[] = ['landing', 'remember', 'home', 'people', 'votes', 'letters', 'diary', 'photobook'];
+const navOrder: AppRoute[] = ['landing', 'remember', 'home', 'mine', 'people', 'votes', 'letters', 'diary', 'photobook'];
 const orderedNavItems = [...navItems].sort((left, right) => navOrder.indexOf(left.route) - navOrder.indexOf(right.route));
 
 const rememberReactionLabels: Record<RememberReactionId, string> = {
@@ -86,6 +91,16 @@ export default function App() {
   const [sentRememberNotes, setSentRememberNotes] = useState<RememberNote[]>([]);
   const [sentRememberNotesLoading, setSentRememberNotesLoading] = useState(false);
   const [secretDiaries, setSecretDiaries] = useState<SecretDiaryEntry[]>([]);
+  const [notificationActivity, setNotificationActivity] = useState<NotificationActivity>({
+    ownMemories: [],
+    ownMemoryComments: [],
+    receivedNotes: [],
+    sentNotes: [],
+    voteCategories: [],
+  });
+  const [notificationActivityLoading, setNotificationActivityLoading] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsSeenAt, setNotificationsSeenAt] = useState(() => new Date(0).toISOString());
   const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [bootSplashDone, setBootSplashDone] = useState(false);
@@ -113,6 +128,7 @@ export default function App() {
       void import('./pages/RememberPage');
       void import('./pages/PeoplePage');
       void import('./pages/VotesPage');
+      void import('./pages/MyMemoriesPage');
       void import('./pages/LettersPage');
       void import('./pages/DiaryPage');
       void import('./pages/JoinPage');
@@ -146,6 +162,61 @@ export default function App() {
       stopKeepOnline?.();
     };
   }, []);
+
+  useEffect(() => {
+    if (!profile) {
+      setNotificationsSeenAt(new Date(0).toISOString());
+      setNotificationActivity({
+        ownMemories: [],
+        ownMemoryComments: [],
+        receivedNotes: [],
+        sentNotes: [],
+        voteCategories: [],
+      });
+      return;
+    }
+
+    setNotificationsSeenAt(
+      window.localStorage.getItem(`memory98-notifications-seen:${profile.uid}`) || new Date(0).toISOString(),
+    );
+  }, [profile]);
+
+  useEffect(() => {
+    if (!profile || !bootSplashDone) return undefined;
+
+    let unsubscribe: (() => void) | undefined;
+    let isActive = true;
+    setNotificationActivityLoading(true);
+
+    void import('./services/firebaseMemoryBook')
+      .then((service) => {
+        if (!isActive) return;
+
+        unsubscribe = service.subscribeNotificationActivity(
+          profile,
+          (activity) => {
+            if (!isActive) return;
+            setNotificationActivity(activity);
+            setNotificationActivityLoading(false);
+          },
+          (error) => {
+            if (!isActive) return;
+            setNotificationActivityLoading(false);
+            setFirebaseNotice(error.message);
+          },
+        );
+      })
+      .catch((caught) => {
+        if (!isActive) return;
+        setNotificationActivityLoading(false);
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể mở trung tâm thông báo lúc này.');
+      });
+
+    return () => {
+      isActive = false;
+      unsubscribe?.();
+    };
+  }, [bootSplashDone, profile]);
 
   useEffect(() => {
     if (route === 'landing' || route === 'join') return undefined;
@@ -424,6 +495,168 @@ export default function App() {
     return grouped;
   }, [remoteComments]);
 
+  const ownCommentsByMemory = useMemo(() => {
+    const grouped: Record<string, MemoryComment[]> = {};
+    notificationActivity.ownMemoryComments.forEach((comment) => {
+      if (!grouped[comment.memoryId]) grouped[comment.memoryId] = [];
+      grouped[comment.memoryId].push(comment);
+    });
+    return grouped;
+  }, [notificationActivity.ownMemoryComments]);
+
+  const notificationItems = useMemo<NotificationItem[]>(() => {
+    if (!profile) return [];
+
+    const seenAt = new Date(notificationsSeenAt).getTime();
+    const makeUnread = (createdAt: string) => new Date(createdAt).getTime() > seenAt;
+    const items: NotificationItem[] = [];
+
+    notificationActivity.receivedNotes
+      .filter((note) => note.fromUid !== profile.uid)
+      .slice(0, 24)
+      .forEach((note) => {
+        items.push({
+          id: `message-${note.id}`,
+          kind: 'message',
+          route: 'remember',
+          title: note.anonymous ? 'Secret Message mới' : `${note.fromName} gửi Secret Message`,
+          body: note.message,
+          createdAt: note.createdAt,
+          unread: makeUnread(note.createdAt),
+          accent: 'pink',
+        });
+      });
+
+    notificationActivity.sentNotes
+      .filter((note) => note.reactionId && note.reactedAt)
+      .slice(0, 24)
+      .forEach((note) => {
+        const createdAt = note.reactedAt || note.createdAt;
+        items.push({
+          id: `reaction-${note.id}-${note.reactionId}`,
+          kind: 'reaction',
+          route: 'remember',
+          title: `${note.toName} đã phản hồi`,
+          body: `Người nhận đã thả: ${note.reactionLabel || rememberReactionLabels[note.reactionId!]}`,
+          createdAt,
+          unread: makeUnread(createdAt),
+          accent: 'blue',
+        });
+      });
+
+    const ownMemoryById = new Map(notificationActivity.ownMemories.map((memory) => [memory.id, memory]));
+    notificationActivity.ownMemoryComments
+      .filter((comment) => comment.uid !== profile.uid)
+      .slice(0, 32)
+      .forEach((comment) => {
+        const memory = ownMemoryById.get(comment.memoryId);
+        items.push({
+          id: `comment-${comment.id}`,
+          kind: 'comment',
+          route: 'mine',
+          title: `${comment.name} bình luận`,
+          body: memory?.caption ? `${comment.message} · ${memory.caption}` : comment.message,
+          createdAt: comment.createdAt,
+          unread: makeUnread(comment.createdAt),
+          accent: 'cream',
+        });
+      });
+
+    notificationActivity.ownMemories
+      .filter((memory) => memory.likedBy.some((uid) => uid !== profile.uid))
+      .slice(0, 28)
+      .forEach((memory) => {
+        const otherLikes = memory.likedBy.filter((uid) => uid !== profile.uid).length;
+        const createdAt = memory.updatedAt || memory.createdAt;
+        items.push({
+          id: `like-${memory.storageCollection || 'memories98'}-${memory.id}-${otherLikes}`,
+          kind: 'like',
+          route: 'mine',
+          title: `${otherLikes} tim mới trên ${memory.mediaType === 'video' ? 'video' : 'ảnh'} của bạn`,
+          body: memory.caption || 'Một kỷ niệm của bạn vừa được lớp tương tác.',
+          createdAt,
+          unread: makeUnread(createdAt),
+          accent: 'pink',
+        });
+      });
+
+    notificationActivity.voteCategories
+      .filter((category) => category.uid !== profile.uid)
+      .slice(0, 16)
+      .forEach((category) => {
+        items.push({
+          id: `vote-${category.id}`,
+          kind: 'vote',
+          route: 'votes',
+          title: 'Có hạng mục bình chọn mới',
+          body: category.title,
+          createdAt: category.createdAt,
+          unread: makeUnread(category.createdAt),
+          accent: 'chalk',
+        });
+      });
+
+    return items
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+      .slice(0, 60);
+  }, [notificationActivity, notificationsSeenAt, profile]);
+
+  const unreadNotificationCount = useMemo(
+    () => notificationItems.filter((item) => item.unread).length,
+    [notificationItems],
+  );
+
+  useEffect(() => {
+    const badgeNavigator = navigator as Navigator & {
+      setAppBadge?: (contents?: number) => Promise<void>;
+      clearAppBadge?: () => Promise<void>;
+    };
+
+    if (!badgeNavigator.setAppBadge || !badgeNavigator.clearAppBadge) return;
+
+    if (unreadNotificationCount > 0) {
+      void badgeNavigator.setAppBadge(unreadNotificationCount).catch(() => undefined);
+      return;
+    }
+
+    void badgeNavigator.clearAppBadge().catch(() => undefined);
+  }, [unreadNotificationCount]);
+
+  const markNotificationsRead = useCallback(() => {
+    if (!profile) return;
+    const now = new Date().toISOString();
+    window.localStorage.setItem(`memory98-notifications-seen:${profile.uid}`, now);
+    setNotificationsSeenAt(now);
+  }, [profile]);
+
+  const handleOpenNotification = useCallback(
+    (item: NotificationItem) => {
+      markNotificationsRead();
+      setNotificationsOpen(false);
+      navigate(item.route);
+    },
+    [markNotificationsRead, navigate],
+  );
+
+  const navBadgeCount = useCallback(
+    (itemRoute: AppRoute) => {
+      if (itemRoute === 'remember') {
+        return notificationItems.filter((item) => item.unread && (item.kind === 'message' || item.kind === 'reaction')).length;
+      }
+
+      if (itemRoute === 'mine') {
+        return notificationItems.filter((item) => item.unread && (item.kind === 'comment' || item.kind === 'like')).length;
+      }
+
+      if (itemRoute === 'votes') {
+        return notificationItems.filter((item) => item.unread && item.kind === 'vote').length;
+      }
+
+      return 0;
+    },
+    [notificationItems],
+  );
+
   const handleYouthProfileUpdate = useCallback(
     async (draft: YouthProfileDraft) => {
       if (!profile) {
@@ -463,6 +696,10 @@ export default function App() {
       const service = await import('./services/firebaseMemoryBook');
       const category = await service.addVoteCategory(profile, draft);
       setVoteCategories((items) => [category, ...items.filter((item) => item.id !== category.id)]);
+      setNotificationActivity((activity) => ({
+        ...activity,
+        voteCategories: [category, ...activity.voteCategories.filter((item) => item.id !== category.id)],
+      }));
       setFirebaseNotice('');
     },
     [navigate, profile],
@@ -476,6 +713,10 @@ export default function App() {
       }
 
       setVoteCategories((items) => items.filter((item) => item.id !== category.id));
+      setNotificationActivity((activity) => ({
+        ...activity,
+        voteCategories: activity.voteCategories.filter((item) => item.id !== category.id),
+      }));
 
       try {
         const service = await import('./services/firebaseMemoryBook');
@@ -483,6 +724,10 @@ export default function App() {
         setFirebaseNotice('');
       } catch (caught) {
         setVoteCategories((items) => [category, ...items.filter((item) => item.id !== category.id)]);
+        setNotificationActivity((activity) => ({
+          ...activity,
+          voteCategories: [category, ...activity.voteCategories.filter((item) => item.id !== category.id)],
+        }));
         setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể ẩn hạng mục bình chọn lúc này.');
       }
     },
@@ -567,9 +812,22 @@ export default function App() {
             ...item,
             reactions: item.reactions + 1,
             likedBy: [...item.likedBy, profile.uid],
+            updatedAt: new Date().toISOString(),
           };
         }),
       );
+      setNotificationActivity((activity) => ({
+        ...activity,
+        ownMemories: activity.ownMemories.map((item) => {
+          if (item.id !== memory.id || item.likedBy.includes(profile.uid)) return item;
+          return {
+            ...item,
+            reactions: item.reactions + 1,
+            likedBy: [...item.likedBy, profile.uid],
+            updatedAt: new Date().toISOString(),
+          };
+        }),
+      }));
 
       try {
         const service = await import('./services/firebaseMemoryBook');
@@ -586,6 +844,17 @@ export default function App() {
             };
           }),
         );
+        setNotificationActivity((activity) => ({
+          ...activity,
+          ownMemories: activity.ownMemories.map((item) => {
+            if (item.id !== memory.id || !item.likedBy.includes(profile.uid)) return item;
+            return {
+              ...item,
+              reactions: Math.max(0, item.reactions - 1),
+              likedBy: item.likedBy.filter((uid) => uid !== profile.uid),
+            };
+          }),
+        }));
         setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể thả tim lúc này.');
       } finally {
         pendingReactionIdsRef.current.delete(memory.id);
@@ -623,6 +892,11 @@ export default function App() {
         await service.deleteFirebaseMemory(profile, memory);
         setRemoteMemories((items) => items.filter((item) => item.id !== memory.id));
         setRemoteComments((items) => items.filter((item) => item.memoryId !== memory.id));
+        setNotificationActivity((activity) => ({
+          ...activity,
+          ownMemories: activity.ownMemories.filter((item) => item.id !== memory.id),
+          ownMemoryComments: activity.ownMemoryComments.filter((item) => item.memoryId !== memory.id),
+        }));
         setFirebaseNotice('');
       } catch (caught) {
         setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể xóa ảnh lúc này.');
@@ -644,6 +918,7 @@ export default function App() {
       const tempComment: MemoryComment = {
         id: `pending-${memory.id}-${Date.now()}`,
         memoryId: memory.id,
+        memoryUid: memory.uid,
         uid: profile.uid,
         name: profile.name,
         nameKey: profile.nameKey,
@@ -653,6 +928,12 @@ export default function App() {
       };
 
       setRemoteComments((items) => sortCommentsNewestFirst([tempComment, ...items]));
+      if (memory.uid === profile.uid) {
+        setNotificationActivity((activity) => ({
+          ...activity,
+          ownMemoryComments: sortCommentsNewestFirst([tempComment, ...activity.ownMemoryComments]),
+        }));
+      }
 
       try {
         const service = await import('./services/firebaseMemoryBook');
@@ -660,9 +941,21 @@ export default function App() {
         setRemoteComments((items) =>
           sortCommentsNewestFirst(items.map((item) => (item.id === tempComment.id ? savedComment : item))),
         );
+        if (memory.uid === profile.uid) {
+          setNotificationActivity((activity) => ({
+            ...activity,
+            ownMemoryComments: sortCommentsNewestFirst(
+              activity.ownMemoryComments.map((item) => (item.id === tempComment.id ? savedComment : item)),
+            ),
+          }));
+        }
         setFirebaseNotice('');
       } catch (caught) {
         setRemoteComments((items) => items.filter((item) => item.id !== tempComment.id));
+        setNotificationActivity((activity) => ({
+          ...activity,
+          ownMemoryComments: activity.ownMemoryComments.filter((item) => item.id !== tempComment.id),
+        }));
         setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể gửi bình luận lúc này.');
       }
     },
@@ -678,10 +971,18 @@ export default function App() {
 
       if (comment.pending) {
         setRemoteComments((items) => items.filter((item) => item.id !== comment.id));
+        setNotificationActivity((activity) => ({
+          ...activity,
+          ownMemoryComments: activity.ownMemoryComments.filter((item) => item.id !== comment.id),
+        }));
         return;
       }
 
       setRemoteComments((items) => items.filter((item) => item.id !== comment.id));
+      setNotificationActivity((activity) => ({
+        ...activity,
+        ownMemoryComments: activity.ownMemoryComments.filter((item) => item.id !== comment.id),
+      }));
 
       try {
         const service = await import('./services/firebaseMemoryBook');
@@ -689,6 +990,12 @@ export default function App() {
         setFirebaseNotice('');
       } catch (caught) {
         setRemoteComments((items) => sortCommentsNewestFirst([comment, ...items]));
+        if (comment.memoryUid === profile.uid) {
+          setNotificationActivity((activity) => ({
+            ...activity,
+            ownMemoryComments: sortCommentsNewestFirst([comment, ...activity.ownMemoryComments]),
+          }));
+        }
         setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể xóa bình luận lúc này.');
       }
     },
@@ -781,6 +1088,14 @@ export default function App() {
       const note = await service.addRememberNote(profile, draft);
 
       setSentRememberNotes((items) => [note, ...items.filter((item) => item.id !== note.id)]);
+      setNotificationActivity((activity) => ({
+        ...activity,
+        sentNotes: [note, ...activity.sentNotes.filter((item) => item.id !== note.id)],
+        receivedNotes:
+          note.toNameKey === profile.nameKey
+            ? [note, ...activity.receivedNotes.filter((item) => item.id !== note.id)]
+            : activity.receivedNotes,
+      }));
 
       if (note.toNameKey === profile.nameKey) {
         setRememberNotes((items) => [note, ...items.filter((item) => item.id !== note.id)]);
@@ -801,6 +1116,11 @@ export default function App() {
 
       setRememberNotes((items) => items.filter((item) => item.id !== note.id));
       setSentRememberNotes((items) => items.filter((item) => item.id !== note.id));
+      setNotificationActivity((activity) => ({
+        ...activity,
+        receivedNotes: activity.receivedNotes.filter((item) => item.id !== note.id),
+        sentNotes: activity.sentNotes.filter((item) => item.id !== note.id),
+      }));
 
       try {
         const service = await import('./services/firebaseMemoryBook');
@@ -809,6 +1129,11 @@ export default function App() {
       } catch (caught) {
         if (wasReceived) setRememberNotes((items) => [note, ...items.filter((item) => item.id !== note.id)]);
         if (wasSent) setSentRememberNotes((items) => [note, ...items.filter((item) => item.id !== note.id)]);
+        setNotificationActivity((activity) => ({
+          ...activity,
+          receivedNotes: wasReceived ? [note, ...activity.receivedNotes.filter((item) => item.id !== note.id)] : activity.receivedNotes,
+          sentNotes: wasSent ? [note, ...activity.sentNotes.filter((item) => item.id !== note.id)] : activity.sentNotes,
+        }));
         setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể xóa lời nhắn lúc này.');
       }
     },
@@ -823,6 +1148,11 @@ export default function App() {
       const ids = new Set(notes.map((note) => note.id));
       setRememberNotes((items) => items.map((item) => (ids.has(item.id) ? { ...item, viewedAt: item.viewedAt || now } : item)));
       setSentRememberNotes((items) => items.map((item) => (ids.has(item.id) ? { ...item, viewedAt: item.viewedAt || now } : item)));
+      setNotificationActivity((activity) => ({
+        ...activity,
+        receivedNotes: activity.receivedNotes.map((item) => (ids.has(item.id) ? { ...item, viewedAt: item.viewedAt || now } : item)),
+        sentNotes: activity.sentNotes.map((item) => (ids.has(item.id) ? { ...item, viewedAt: item.viewedAt || now } : item)),
+      }));
 
       try {
         const service = await import('./services/firebaseMemoryBook');
@@ -893,6 +1223,11 @@ export default function App() {
 
       setRememberNotes((items) => items.map(applyReaction));
       setSentRememberNotes((items) => items.map(applyReaction));
+      setNotificationActivity((activity) => ({
+        ...activity,
+        receivedNotes: activity.receivedNotes.map(applyReaction),
+        sentNotes: activity.sentNotes.map(applyReaction),
+      }));
 
       try {
         const service = await import('./services/firebaseMemoryBook');
@@ -901,6 +1236,11 @@ export default function App() {
       } catch (caught) {
         setRememberNotes((items) => items.map(rollbackReaction));
         setSentRememberNotes((items) => items.map(rollbackReaction));
+        setNotificationActivity((activity) => ({
+          ...activity,
+          receivedNotes: activity.receivedNotes.map(rollbackReaction),
+          sentNotes: activity.sentNotes.map(rollbackReaction),
+        }));
         setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể phản hồi Secret Message lúc này.');
       }
     },
@@ -1023,6 +1363,29 @@ export default function App() {
       );
     }
 
+    if (route === 'mine') {
+      return (
+        <Suspense fallback={<LoadingScreen label="Đang mở ảnh và video của tôi" />}>
+          <MyMemoriesPage
+            memories={notificationActivity.ownMemories}
+            commentsByMemory={ownCommentsByMemory}
+            firebaseNotice={firebaseNotice}
+            isLoading={notificationActivityLoading}
+            profile={profile}
+            pendingReactionIds={pendingReactionIds}
+            onJoin={() => navigate('join')}
+            onPhotobook={() => navigate('photobook')}
+            onOpenProfile={openPersonProfile}
+            onReact={handleReact}
+            onAddComment={handleMemoryCommentAdd}
+            onDeleteComment={handleMemoryCommentDelete}
+            onDeleteMemory={handleMemoryDelete}
+            onDownloadMemory={handleMemoryDownload}
+          />
+        </Suspense>
+      );
+    }
+
     return (
       <Suspense fallback={<LoadingScreen label="Đang sắp xếp scrapbook" />}>
         <HomePage
@@ -1075,19 +1438,40 @@ export default function App() {
               </button>
 
               <div className="hidden items-center gap-2 lg:flex">
-                {orderedNavItems.map(({ route: itemRoute, label, icon: Icon }) => (
-                  <button
-                    key={itemRoute}
-                    className={`nav-pill ${route === itemRoute ? 'nav-pill-active' : ''}`}
-                    onClick={() => navigate(itemRoute)}
-                  >
-                    <Icon size={16} />
-                    {label}
-                  </button>
-                ))}
+                {orderedNavItems.map(({ route: itemRoute, label, icon: Icon }) => {
+                  const badgeCount = navBadgeCount(itemRoute);
+
+                  return (
+                    <button
+                      key={itemRoute}
+                      className={`nav-pill relative ${route === itemRoute ? 'nav-pill-active' : ''}`}
+                      onClick={() => navigate(itemRoute)}
+                    >
+                      <Icon size={16} />
+                      {label}
+                      {badgeCount > 0 && (
+                        <span className="nav-notification-dot" aria-label={`${badgeCount} thông báo mới`}>
+                          {badgeCount > 9 ? '9+' : badgeCount}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  className="icon-button relative"
+                  onClick={() => setNotificationsOpen((open) => !open)}
+                  aria-label="Mở trung tâm thông báo"
+                >
+                  <Bell size={19} />
+                  {unreadNotificationCount > 0 && (
+                    <span className="header-notification-badge">
+                      {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                    </span>
+                  )}
+                </button>
                 <button className="primary-button hidden sm:inline-flex" onClick={() => navigate('photobook')}>
                   <Camera size={17} />
                   Đăng ảnh
@@ -1112,16 +1496,25 @@ export default function App() {
                   className="border-t border-white/50 bg-cream/95 px-4 py-3 shadow-paper lg:hidden"
                 >
                   <div className="grid gap-2">
-                    {orderedNavItems.map(({ route: itemRoute, label, icon: Icon }) => (
-                      <button
-                        key={itemRoute}
-                        className={`nav-pill justify-start ${route === itemRoute ? 'nav-pill-active' : ''}`}
-                        onClick={() => navigate(itemRoute)}
-                      >
-                        <Icon size={16} />
-                        {label}
-                      </button>
-                    ))}
+                    {orderedNavItems.map(({ route: itemRoute, label, icon: Icon }) => {
+                      const badgeCount = navBadgeCount(itemRoute);
+
+                      return (
+                        <button
+                          key={itemRoute}
+                          className={`nav-pill relative justify-start ${route === itemRoute ? 'nav-pill-active' : ''}`}
+                          onClick={() => navigate(itemRoute)}
+                        >
+                          <Icon size={16} />
+                          {label}
+                          {badgeCount > 0 && (
+                            <span className="ml-auto inline-flex min-w-6 justify-center rounded-full bg-roseDust px-1.5 py-0.5 text-[10px] font-black text-white">
+                              {badgeCount > 9 ? '9+' : badgeCount}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </m.div>
               )}
@@ -1143,6 +1536,16 @@ export default function App() {
             </m.div>
           </AnimatePresence>
         </main>
+        )}
+        {bootSplashDone && (
+          <NotificationCenter
+            open={notificationsOpen}
+            items={notificationItems}
+            unreadCount={unreadNotificationCount}
+            onClose={() => setNotificationsOpen(false)}
+            onMarkAllRead={markNotificationsRead}
+            onOpenItem={handleOpenNotification}
+          />
         )}
         {bootSplashDone && <AppStatusToast isOnline={isOnline} justRestored={justRestored} />}
       </div>

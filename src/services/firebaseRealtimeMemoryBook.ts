@@ -65,6 +65,7 @@ const memoryFromDoc = (
   visibleToNameKeys: Array.isArray(data.visibleToNameKeys) ? data.visibleToNameKeys.map(String).slice(0, 80) : [],
   visibleToNames: Array.isArray(data.visibleToNames) ? data.visibleToNames.map(String).slice(0, 80) : [],
   createdAt: timestampToIso(data.createdAt),
+  updatedAt: data.updatedAt ? timestampToIso(data.updatedAt) : undefined,
   reactions: Number(data.reactions || 0),
   likedBy: Array.isArray(data.likedBy) ? data.likedBy.map(String).slice(0, 500) : [],
   rotation: Number(data.rotation || 0),
@@ -74,6 +75,7 @@ const memoryFromDoc = (
 const memoryCommentFromDoc = (id: string, data: DocumentData): MemoryComment => ({
   id,
   memoryId: String(data.memoryId || ''),
+  memoryUid: data.memoryUid ? String(data.memoryUid) : undefined,
   uid: String(data.uid || ''),
   name: String(data.name || 'Bạn cùng lớp'),
   nameKey: String(data.nameKey || ''),

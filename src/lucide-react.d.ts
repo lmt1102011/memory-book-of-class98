@@ -12,6 +12,7 @@ declare module 'lucide-react' {
 
   export const ArrowLeft: LucideIcon;
   export const BadgeCheck: LucideIcon;
+  export const Bell: LucideIcon;
   export const BookOpen: LucideIcon;
   export const Camera: LucideIcon;
   export const CameraIcon: LucideIcon;
@@ -22,6 +23,8 @@ declare module 'lucide-react' {
   export const Filter: LucideIcon;
   export const Heart: LucideIcon;
   export const Home: LucideIcon;
+  export const Image: LucideIcon;
+  export const Images: LucideIcon;
   export const ImagePlus: LucideIcon;
   export const Layers: LucideIcon;
   export const Lock: LucideIcon;
@@ -35,6 +38,7 @@ declare module 'lucide-react' {
   export const Send: LucideIcon;
   export const Sparkles: LucideIcon;
   export const Trash2: LucideIcon;
+  export const Trophy: LucideIcon;
   export const Upload: LucideIcon;
   export const UserRound: LucideIcon;
   export const Users: LucideIcon;
