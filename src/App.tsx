@@ -1,5 +1,19 @@
 import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion';
-import { BadgeCheck, Bell, Heart, Home, Lock, Menu, MessageCircle, UserRound, X } from 'lucide-react';
+import {
+  BadgeCheck,
+  Bell,
+  Camera,
+  Heart,
+  Home,
+  Image as ImageIcon,
+  Lock,
+  Menu,
+  MessageCircle,
+  UserRound,
+  Users,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AppStatusToast from './components/AppStatusToast';
 import BootSplash from './components/BootSplash';
@@ -50,17 +64,29 @@ const routeFromHash = (): AppRoute => {
   return route;
 };
 
-const navItems: Array<{ route: AppRoute; label: string; icon: typeof Home }> = [
-  { route: 'home', label: 'Ký ức', icon: Home },
-  { route: 'people', label: 'Hồ sơ', icon: UserRound },
-  { route: 'remember', label: 'Secret', icon: Heart },
-  { route: 'letters', label: 'Thư lớp', icon: MessageCircle },
-  { route: 'votes', label: 'Bình chọn', icon: BadgeCheck },
-  { route: 'diary', label: 'Nhật ký', icon: Lock },
-];
+type NavGroupId = 'memories' | 'class' | 'messages' | 'me';
 
-const navOrder: AppRoute[] = ['home', 'people', 'remember', 'letters', 'votes', 'diary'];
-const orderedNavItems = [...navItems].sort((left, right) => navOrder.indexOf(left.route) - navOrder.indexOf(right.route));
+type NavMenuItem = {
+  id: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  isActive: boolean;
+  onSelect: () => void;
+  badgeCount?: number;
+};
+
+type NavMenuGroup = {
+  id: NavGroupId;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  isActive: boolean;
+  items: NavMenuItem[];
+  badgeCount?: number;
+};
+
+const formatBadgeCount = (count: number) => (count > 9 ? '9+' : String(count));
 
 const rememberReactionLabels: Record<RememberReactionId, string> = {
   'miss-you': 'Nhớ cậu',
@@ -105,6 +131,7 @@ export default function App() {
   const [notificationsSeenAt, setNotificationsSeenAt] = useState(() => new Date(0).toISOString());
   const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [openNavGroup, setOpenNavGroup] = useState<NavGroupId | null>(null);
   const [bootSplashDone, setBootSplashDone] = useState(false);
   const [routeFeedbackVisible, setRouteFeedbackVisible] = useState(false);
   const [pendingReactionIds, setPendingReactionIds] = useState<string[]>([]);
@@ -451,6 +478,7 @@ export default function App() {
 
       setFirebaseNotice('');
       setMenuOpen(false);
+      setOpenNavGroup(null);
       window.scrollTo({ top: 0, behavior: scrollBehavior });
 
       if (nextRoute === route) return;
@@ -496,18 +524,6 @@ export default function App() {
     setPeopleListResetKey((key) => key + 1);
     navigate('people');
   }, [navigate]);
-
-  const handleNavItemClick = useCallback(
-    (itemRoute: AppRoute) => {
-      if (itemRoute === 'people') {
-        openPeopleList();
-        return;
-      }
-
-      navigate(itemRoute);
-    },
-    [navigate, openPeopleList],
-  );
 
   const allMemories = useMemo(() => remoteMemories, [remoteMemories]);
   const allGuestbook = useMemo(() => remoteGuestbook, [remoteGuestbook]);
@@ -687,6 +703,172 @@ export default function App() {
     },
     [notificationItems],
   );
+
+  const navigationGroups = useMemo<NavMenuGroup[]>(() => {
+    const ownActivityCount = navBadgeCount('mine');
+    const messageCount = navBadgeCount('remember');
+    const voteCount = navBadgeCount('votes');
+    const isOwnProfileOpen = Boolean(profile && route === 'people' && focusedPersonKey === profile.nameKey);
+    const closeMenus = () => {
+      setMenuOpen(false);
+      setOpenNavGroup(null);
+    };
+
+    return [
+      {
+        id: 'memories',
+        label: 'Ký ức',
+        description: 'Ảnh, video và photobook của lớp',
+        icon: Home,
+        isActive: route === 'home' || route === 'photobook' || route === 'mine',
+        badgeCount: ownActivityCount,
+        items: [
+          {
+            id: 'home',
+            label: 'Ký ức lớp',
+            description: 'Xem ảnh/video mới nhất của lớp 9/8.',
+            icon: ImageIcon,
+            isActive: route === 'home',
+            onSelect: () => navigate('home'),
+          },
+          {
+            id: 'photobook',
+            label: 'Đăng ảnh/video',
+            description: 'Chụp photobook, upload ảnh hoặc video ngắn.',
+            icon: Camera,
+            isActive: route === 'photobook',
+            onSelect: () => navigate('photobook'),
+          },
+          {
+            id: 'mine',
+            label: 'Ảnh/video của tôi',
+            description: 'Quản lý những kỷ niệm mình đã đăng.',
+            icon: UserRound,
+            isActive: route === 'mine',
+            badgeCount: ownActivityCount,
+            onSelect: () => navigate('mine'),
+          },
+        ],
+      },
+      {
+        id: 'class',
+        label: 'Lớp 9/8',
+        description: 'Hồ sơ, album và bình chọn lớp',
+        icon: Users,
+        isActive: (route === 'people' && !isOwnProfileOpen) || route === 'votes',
+        badgeCount: voteCount,
+        items: [
+          {
+            id: 'people',
+            label: 'Hồ sơ lớp',
+            description: 'Tìm bạn bè, xem hồ sơ và album riêng.',
+            icon: Users,
+            isActive: route === 'people' && !isOwnProfileOpen,
+            onSelect: openPeopleList,
+          },
+          {
+            id: 'votes',
+            label: 'Bình chọn',
+            description: 'Tạo danh hiệu vui và vote cho bạn trong lớp.',
+            icon: BadgeCheck,
+            isActive: route === 'votes',
+            badgeCount: voteCount,
+            onSelect: () => navigate('votes'),
+          },
+        ],
+      },
+      {
+        id: 'messages',
+        label: 'Lời nhắn',
+        description: 'Thư lớp, Secret Message và nhật ký',
+        icon: MessageCircle,
+        isActive: route === 'letters' || route === 'remember' || route === 'diary',
+        badgeCount: messageCount,
+        items: [
+          {
+            id: 'letters',
+            label: 'Thư lớp',
+            description: 'Viết lời nhắn chung trên bảng thư 9/8.',
+            icon: MessageCircle,
+            isActive: route === 'letters',
+            onSelect: () => navigate('letters'),
+          },
+          {
+            id: 'remember',
+            label: 'Secret Message',
+            description: 'Gửi điều chưa kịp nói cho một người trong lớp.',
+            icon: Heart,
+            isActive: route === 'remember',
+            badgeCount: messageCount,
+            onSelect: () => navigate('remember'),
+          },
+          {
+            id: 'diary',
+            label: 'Nhật ký riêng',
+            description: 'Lưu những tiếc nuối chỉ mình bạn thấy.',
+            icon: Lock,
+            isActive: route === 'diary',
+            onSelect: () => navigate('diary'),
+          },
+        ],
+      },
+      {
+        id: 'me',
+        label: 'Tôi',
+        description: profile ? `${profile.name} - ${profile.className}` : 'Tài khoản và thông báo',
+        icon: UserRound,
+        isActive: isOwnProfileOpen || route === 'join' || notificationsOpen,
+        badgeCount: unreadNotificationCount,
+        items: [
+          {
+            id: 'profile',
+            label: profile ? 'Hồ sơ của tôi' : 'Đăng nhập / tạo tài khoản',
+            description: profile ? 'Xem hồ sơ, album và thông tin của mình.' : 'Vào lớp 9/8 để xem đầy đủ ký ức.',
+            icon: UserRound,
+            isActive: isOwnProfileOpen || (!profile && route === 'join'),
+            onSelect: () => {
+              if (profile) {
+                openPersonProfile(profile.nameKey);
+                return;
+              }
+
+              navigate('join');
+            },
+          },
+          {
+            id: 'notifications',
+            label: 'Thông báo',
+            description: 'Xem tim, bình luận, thư và bình chọn mới.',
+            icon: Bell,
+            isActive: notificationsOpen,
+            badgeCount: unreadNotificationCount,
+            onSelect: () => {
+              closeMenus();
+              setNotificationsOpen(true);
+            },
+          },
+          {
+            id: 'account',
+            label: 'Tài khoản',
+            description: profile ? 'Đổi người dùng bằng màn hình check-in.' : 'Nhập tên để tạo hoặc mở tài khoản.',
+            icon: Lock,
+            isActive: route === 'join',
+            onSelect: () => navigate('join'),
+          },
+        ],
+      },
+    ];
+  }, [
+    focusedPersonKey,
+    navBadgeCount,
+    navigate,
+    notificationsOpen,
+    openPeopleList,
+    openPersonProfile,
+    profile,
+    route,
+    unreadNotificationCount,
+  ]);
 
   const handleYouthProfileUpdate = useCallback(
     async (draft: YouthProfileDraft) => {
@@ -1476,23 +1658,93 @@ export default function App() {
               </button>
 
               <div className="hidden items-center gap-2 lg:flex">
-                {orderedNavItems.map(({ route: itemRoute, label, icon: Icon }) => {
-                  const badgeCount = navBadgeCount(itemRoute);
+                {navigationGroups.map((group) => {
+                  const Icon = group.icon;
+                  const isOpen = openNavGroup === group.id;
 
                   return (
-                    <button
-                      key={itemRoute}
-                      className={`nav-pill relative ${route === itemRoute ? 'nav-pill-active' : ''}`}
-                      onClick={() => handleNavItemClick(itemRoute)}
-                    >
-                      <Icon size={16} />
-                      {label}
-                      {badgeCount > 0 && (
-                        <span className="nav-notification-dot" aria-label={`${badgeCount} thông báo mới`}>
-                          {badgeCount > 9 ? '9+' : badgeCount}
-                        </span>
-                      )}
-                    </button>
+                    <div key={group.id} className="relative" onMouseLeave={() => setOpenNavGroup(null)}>
+                      <button
+                        className={`nav-pill relative h-11 ${group.isActive ? 'nav-pill-active' : 'bg-white/35'}`}
+                        onClick={() => setOpenNavGroup((current) => (current === group.id ? null : group.id))}
+                        aria-expanded={isOpen}
+                        aria-haspopup="menu"
+                      >
+                        <Icon size={16} />
+                        <span>{group.label}</span>
+                        <span
+                          className={`h-0 w-0 border-x-[4px] border-t-[5px] border-x-transparent border-t-current transition-transform duration-150 ${
+                            isOpen ? 'rotate-180' : ''
+                          }`}
+                          aria-hidden="true"
+                        />
+                        {(group.badgeCount || 0) > 0 && (
+                          <span className="nav-notification-dot" aria-label={`${group.badgeCount} thông báo mới`}>
+                            {formatBadgeCount(group.badgeCount || 0)}
+                          </span>
+                        )}
+                      </button>
+
+                      <AnimatePresence>
+                        {isOpen && (
+                          <m.div
+                            className="absolute right-0 top-[calc(100%+0.65rem)] z-50 w-80 overflow-hidden rounded-[1.25rem] border border-white/70 bg-paper/96 p-3 text-ink shadow-glass backdrop-blur-xl"
+                            role="menu"
+                            initial={reduceHeavyMotion ? false : { opacity: 0, y: 8, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={reduceHeavyMotion ? undefined : { opacity: 0, y: 6, scale: 0.98 }}
+                            transition={{ duration: reduceHeavyMotion ? 0 : 0.16, ease: 'easeOut' }}
+                          >
+                            <div className="mb-2 rounded-2xl bg-white/60 px-3 py-2">
+                              <p className="text-xs font-black uppercase tracking-[0.18em] text-coffee/60">{group.label}</p>
+                              <p className="mt-1 text-sm font-bold leading-5 text-coffee/82">{group.description}</p>
+                            </div>
+
+                            <div className="grid gap-1.5">
+                              {group.items.map((item) => {
+                                const ItemIcon = item.icon;
+
+                                return (
+                                  <button
+                                    key={item.id}
+                                    className={`flex w-full items-start gap-3 rounded-2xl p-3 text-left transition-colors ${
+                                      item.isActive ? 'bg-ink text-paper' : 'text-ink hover:bg-white/70'
+                                    }`}
+                                    onClick={item.onSelect}
+                                    role="menuitem"
+                                  >
+                                    <span
+                                      className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${
+                                        item.isActive ? 'bg-paper/18 text-paper' : 'bg-white text-coffee'
+                                      }`}
+                                    >
+                                      <ItemIcon size={17} />
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                      <span className="flex items-center gap-2 text-sm font-black">
+                                        {item.label}
+                                        {(item.badgeCount || 0) > 0 && (
+                                          <span
+                                            className={`inline-flex min-w-6 justify-center rounded-full px-1.5 py-0.5 text-[10px] font-black ${
+                                              item.isActive ? 'bg-paper text-ink' : 'bg-roseDust text-white'
+                                            }`}
+                                          >
+                                            {formatBadgeCount(item.badgeCount || 0)}
+                                          </span>
+                                        )}
+                                      </span>
+                                      <span className={`mt-1 block text-xs font-bold leading-5 ${item.isActive ? 'text-paper/78' : 'text-coffee/68'}`}>
+                                        {item.description}
+                                      </span>
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </m.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   );
                 })}
               </div>
@@ -1500,7 +1752,10 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <button
                   className="icon-button relative"
-                  onClick={() => setNotificationsOpen((open) => !open)}
+                  onClick={() => {
+                    setOpenNavGroup(null);
+                    setNotificationsOpen((open) => !open);
+                  }}
                   aria-label="Mở trung tâm thông báo"
                 >
                   <Bell size={19} />
@@ -1512,7 +1767,15 @@ export default function App() {
                 </button>
                 <button
                   className="icon-button"
-                  onClick={() => (profile ? openPersonProfile(profile.nameKey) : navigate('join'))}
+                  onClick={() => {
+                    setOpenNavGroup(null);
+                    if (profile) {
+                      openPersonProfile(profile.nameKey);
+                      return;
+                    }
+
+                    navigate('join');
+                  }}
                   aria-label={profile ? 'Xem hồ sơ của tôi' : 'Đăng nhập / tạo tài khoản'}
                   title={profile ? 'Hồ sơ của tôi' : 'Đăng nhập / tạo tài khoản'}
                 >
@@ -1535,26 +1798,84 @@ export default function App() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={reduceHeavyMotion ? undefined : { opacity: 0, y: -10 }}
                   transition={{ duration: reduceHeavyMotion ? 0 : 0.16 }}
-                  className="border-t border-white/50 bg-cream/95 px-4 py-3 shadow-paper lg:hidden"
+                  className="max-h-[calc(100svh-4rem)] overflow-y-auto border-t border-white/50 bg-cream/96 px-4 py-3 shadow-paper lg:hidden"
                 >
-                  <div className="grid gap-2">
-                    {orderedNavItems.map(({ route: itemRoute, label, icon: Icon }) => {
-                      const badgeCount = navBadgeCount(itemRoute);
+                  <div className="mx-auto grid max-w-2xl gap-3 pb-[max(0.65rem,env(safe-area-inset-bottom))]">
+                    <div className="rounded-[1.1rem] border border-white/70 bg-white/58 p-3 shadow-paper">
+                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-coffee/58">Menu Memory98</p>
+                      <p className="mt-1 text-sm font-bold leading-5 text-coffee/78">
+                        Chọn một nhóm lớn trước, rồi vào tính năng cần dùng. Mọi thứ được giữ gọn để dễ thao tác trên điện thoại.
+                      </p>
+                    </div>
+
+                    {navigationGroups.map((group) => {
+                      const Icon = group.icon;
 
                       return (
-                        <button
-                          key={itemRoute}
-                          className={`nav-pill relative justify-start ${route === itemRoute ? 'nav-pill-active' : ''}`}
-                          onClick={() => handleNavItemClick(itemRoute)}
+                        <section
+                          key={group.id}
+                          className={`rounded-[1.2rem] border p-3 shadow-paper ${
+                            group.isActive ? 'border-ink/20 bg-paper' : 'border-white/70 bg-white/62'
+                          }`}
                         >
-                          <Icon size={16} />
-                          {label}
-                          {badgeCount > 0 && (
-                            <span className="ml-auto inline-flex min-w-6 justify-center rounded-full bg-roseDust px-1.5 py-0.5 text-[10px] font-black text-white">
-                              {badgeCount > 9 ? '9+' : badgeCount}
+                          <div className="flex items-start gap-3">
+                            <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${group.isActive ? 'bg-ink text-paper' : 'bg-paper text-ink'}`}>
+                              <Icon size={18} />
                             </span>
-                          )}
-                        </button>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <h2 className="text-base font-black">{group.label}</h2>
+                                {(group.badgeCount || 0) > 0 && (
+                                  <span className="inline-flex min-w-6 justify-center rounded-full bg-roseDust px-1.5 py-0.5 text-[10px] font-black text-white">
+                                    {formatBadgeCount(group.badgeCount || 0)}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-1 text-xs font-bold leading-5 text-coffee/68">{group.description}</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            {group.items.map((item) => {
+                              const ItemIcon = item.icon;
+
+                              return (
+                                <button
+                                  key={item.id}
+                                  className={`flex min-h-[4.65rem] w-full items-start gap-3 rounded-2xl p-3 text-left transition-colors ${
+                                    item.isActive ? 'bg-ink text-paper' : 'bg-paper/82 text-ink hover:bg-paper'
+                                  }`}
+                                  onClick={item.onSelect}
+                                >
+                                  <span
+                                    className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${
+                                      item.isActive ? 'bg-paper/18 text-paper' : 'bg-white text-coffee'
+                                    }`}
+                                  >
+                                    <ItemIcon size={17} />
+                                  </span>
+                                  <span className="min-w-0 flex-1">
+                                    <span className="flex items-center gap-2 text-sm font-black leading-5">
+                                      {item.label}
+                                      {(item.badgeCount || 0) > 0 && (
+                                        <span
+                                          className={`inline-flex min-w-6 justify-center rounded-full px-1.5 py-0.5 text-[10px] font-black ${
+                                            item.isActive ? 'bg-paper text-ink' : 'bg-roseDust text-white'
+                                          }`}
+                                        >
+                                          {formatBadgeCount(item.badgeCount || 0)}
+                                        </span>
+                                      )}
+                                    </span>
+                                    <span className={`mt-1 block text-xs font-bold leading-5 ${item.isActive ? 'text-paper/78' : 'text-coffee/68'}`}>
+                                      {item.description}
+                                    </span>
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </section>
                       );
                     })}
                   </div>
