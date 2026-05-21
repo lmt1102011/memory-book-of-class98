@@ -1,5 +1,5 @@
 import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion';
-import { BadgeCheck, Bell, Camera, Heart, Home, Images, Lock, Menu, MessageCircle, Sparkles, UserRound, X } from 'lucide-react';
+import { BadgeCheck, Bell, Heart, Home, Lock, Menu, MessageCircle, UserRound, X } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AppStatusToast from './components/AppStatusToast';
 import BootSplash from './components/BootSplash';
@@ -47,18 +47,15 @@ const routeFromHash = (): AppRoute => {
 };
 
 const navItems: Array<{ route: AppRoute; label: string; icon: typeof Home }> = [
-  { route: 'people', label: 'Hồ sơ lớp', icon: UserRound },
-  { route: 'votes', label: 'Bình chọn', icon: BadgeCheck },
-  { route: 'landing', label: 'Intro', icon: Sparkles },
-  { route: 'remember', label: 'Secret Message', icon: Heart },
   { route: 'home', label: 'Ký ức', icon: Home },
-  { route: 'mine', label: 'Của tôi', icon: Images },
+  { route: 'people', label: 'Hồ sơ', icon: UserRound },
+  { route: 'remember', label: 'Secret', icon: Heart },
   { route: 'letters', label: 'Thư lớp', icon: MessageCircle },
+  { route: 'votes', label: 'Bình chọn', icon: BadgeCheck },
   { route: 'diary', label: 'Nhật ký', icon: Lock },
-  { route: 'photobook', label: 'Đăng ảnh', icon: Camera },
 ];
 
-const navOrder: AppRoute[] = ['landing', 'remember', 'home', 'mine', 'people', 'votes', 'letters', 'diary', 'photobook'];
+const navOrder: AppRoute[] = ['home', 'people', 'remember', 'letters', 'votes', 'diary'];
 const orderedNavItems = [...navItems].sort((left, right) => navOrder.indexOf(left.route) - navOrder.indexOf(right.route));
 
 const rememberReactionLabels: Record<RememberReactionId, string> = {
@@ -128,7 +125,6 @@ export default function App() {
       void import('./pages/RememberPage');
       void import('./pages/PeoplePage');
       void import('./pages/VotesPage');
-      void import('./pages/MyMemoriesPage');
       void import('./pages/LettersPage');
       void import('./pages/DiaryPage');
       void import('./pages/JoinPage');
@@ -633,9 +629,14 @@ export default function App() {
     (item: NotificationItem) => {
       markNotificationsRead();
       setNotificationsOpen(false);
+      if (item.route === 'mine' && profile) {
+        setFocusedPersonKey(profile.nameKey);
+        navigate('people');
+        return;
+      }
       navigate(item.route);
     },
-    [markNotificationsRead, navigate],
+    [markNotificationsRead, navigate, profile],
   );
 
   const navBadgeCount = useCallback(
@@ -644,7 +645,7 @@ export default function App() {
         return notificationItems.filter((item) => item.unread && (item.kind === 'message' || item.kind === 'reaction')).length;
       }
 
-      if (itemRoute === 'mine') {
+      if (itemRoute === 'people' || itemRoute === 'mine') {
         return notificationItems.filter((item) => item.unread && (item.kind === 'comment' || item.kind === 'like')).length;
       }
 
@@ -1316,14 +1317,19 @@ export default function App() {
           <PeoplePage
             classmates={classmates}
             memories={allMemories}
+            ownMemories={notificationActivity.ownMemories}
             commentsByMemory={commentsByMemory}
+            ownCommentsByMemory={ownCommentsByMemory}
             firebaseNotice={firebaseNotice}
             isLoading={classmatesLoading || memoriesLoading}
+            isOwnMemoriesLoading={notificationActivityLoading}
             profile={profile}
             focusedNameKey={focusedPersonKey}
             onJoin={() => navigate('join')}
             onPhotobook={() => navigate('photobook')}
             onUpdateProfile={handleYouthProfileUpdate}
+            onDeleteMemory={handleMemoryDelete}
+            onDownloadMemory={handleMemoryDownload}
           />
         </Suspense>
       );
@@ -1424,7 +1430,7 @@ export default function App() {
             <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
               <button
                 className="flex items-center gap-2 rounded-full px-2 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coffee"
-                onClick={() => navigate('landing')}
+                onClick={() => navigate('home')}
               >
                 <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-paper shadow-paper ring-1 ring-coffee/20">
                   <img src={logoSrc} alt="" className="h-9 w-9 object-contain" loading="eager" decoding="async" />
@@ -1472,9 +1478,13 @@ export default function App() {
                     </span>
                   )}
                 </button>
-                <button className="primary-button hidden sm:inline-flex" onClick={() => navigate('photobook')}>
-                  <Camera size={17} />
-                  Đăng ảnh
+                <button
+                  className="icon-button"
+                  onClick={() => (profile ? openPersonProfile(profile.nameKey) : navigate('join'))}
+                  aria-label={profile ? 'Xem hồ sơ của tôi' : 'Đăng nhập / tạo tài khoản'}
+                  title={profile ? 'Hồ sơ của tôi' : 'Đăng nhập / tạo tài khoản'}
+                >
+                  <UserRound size={19} />
                 </button>
                 <button
                   className="icon-button lg:hidden"

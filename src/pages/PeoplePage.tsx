@@ -1,20 +1,26 @@
-import { BadgeCheck, Camera, Heart, MessageCircle, Search, Send, Upload, UserRound } from 'lucide-react';
+import { BadgeCheck, Camera, Download, Heart, Images, MessageCircle, Search, Send, Trash2, Upload, UserRound, Video } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import ActionModal from '../components/ActionModal';
 import FirebaseNotice from '../components/FirebaseNotice';
 import type { ClassmateProfile, MemoryComment, MemoryItem, UserProfile, YouthProfileDraft } from '../types';
+import { formatUploadTime } from '../utils/date';
 
 interface PeoplePageProps {
   classmates: ClassmateProfile[];
   memories: MemoryItem[];
+  ownMemories: MemoryItem[];
   commentsByMemory: Record<string, MemoryComment[]>;
+  ownCommentsByMemory: Record<string, MemoryComment[]>;
   firebaseNotice: string;
   isLoading: boolean;
+  isOwnMemoriesLoading: boolean;
   profile: UserProfile | null;
   focusedNameKey: string;
   onJoin: () => void;
   onPhotobook: () => void;
   onUpdateProfile: (draft: YouthProfileDraft) => void | Promise<void>;
+  onDeleteMemory: (memory: MemoryItem) => void | Promise<void>;
+  onDownloadMemory: (memory: MemoryItem) => void | Promise<void>;
 }
 
 const defaultTags = ['ấm áp', 'hài hước', 'đáng nhớ'];
@@ -64,14 +70,19 @@ const memoryBelongsTo = (memory: MemoryItem, person: ClassmateProfile) => {
 export default function PeoplePage({
   classmates,
   memories,
+  ownMemories,
   commentsByMemory,
+  ownCommentsByMemory,
   firebaseNotice,
   isLoading,
+  isOwnMemoriesLoading,
   profile,
   focusedNameKey,
   onJoin,
   onPhotobook,
   onUpdateProfile,
+  onDeleteMemory,
+  onDownloadMemory,
 }: PeoplePageProps) {
   const uploadRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState('');
@@ -140,7 +151,20 @@ export default function PeoplePage({
     );
   }, [query, sortedClassmates]);
 
-  const selectedStats = selectedPerson ? statsByKey[getPersonKey(selectedPerson)] : undefined;
+  const selectedIsSelf = Boolean(profile && selectedPerson && selectedPerson.nameKey === profile.nameKey);
+  const selectedOwnStats = useMemo(
+    () => ({
+      memories: ownMemories,
+      hearts: ownMemories.reduce((sum, memory) => sum + memory.reactions, 0),
+      comments: ownMemories.reduce((sum, memory) => sum + (ownCommentsByMemory[memory.id]?.length || 0), 0),
+    }),
+    [ownCommentsByMemory, ownMemories],
+  );
+  const selectedStats = selectedPerson
+    ? selectedIsSelf
+      ? selectedOwnStats
+      : statsByKey[getPersonKey(selectedPerson)]
+    : undefined;
   const totalMemories = memories.length;
   const totalHearts = memories.reduce((sum, memory) => sum + memory.reactions, 0);
 
@@ -254,6 +278,14 @@ export default function PeoplePage({
                     <UserRound size={16} />
                     Sửa hồ sơ
                   </button>
+                  <button
+                    type="button"
+                    className="primary-button mt-3 w-full justify-center"
+                    onClick={() => setSelectedNameKey(profile.nameKey)}
+                  >
+                    <Images size={16} />
+                    Xem hồ sơ của tôi
+                  </button>
                 </div>
 
                 {(localError || localSuccess) && (
@@ -354,7 +386,15 @@ export default function PeoplePage({
         wide
         onClose={() => setSelectedNameKey('')}
       >
-        <PersonDetail person={selectedPerson} stats={selectedStats} onPhotobook={onPhotobook} />
+        <PersonDetail
+          person={selectedPerson}
+          stats={selectedStats}
+          isSelf={selectedIsSelf}
+          isOwnMemoriesLoading={isOwnMemoriesLoading}
+          onPhotobook={onPhotobook}
+          onDeleteMemory={onDeleteMemory}
+          onDownloadMemory={onDownloadMemory}
+        />
       </ActionModal>
 
       <ActionModal
@@ -508,14 +548,33 @@ function Avatar({ person, active = false }: { person: ClassmateProfile; active?:
   );
 }
 
+const safeFilePart = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48) || 'ky-uc';
+
+const getMemoryDownloadName = (memory: MemoryItem) => `ky-uc-98-${safeFilePart(memory.id)}.jpg`;
+
 function PersonDetail({
   person,
   stats,
+  isSelf = false,
+  isOwnMemoriesLoading = false,
   onPhotobook,
+  onDeleteMemory,
+  onDownloadMemory,
 }: {
   person: ClassmateProfile | null;
   stats?: { memories: MemoryItem[]; hearts: number; comments: number };
+  isSelf?: boolean;
+  isOwnMemoriesLoading?: boolean;
   onPhotobook: () => void;
+  onDeleteMemory: (memory: MemoryItem) => void | Promise<void>;
+  onDownloadMemory: (memory: MemoryItem) => void | Promise<void>;
 }) {
   if (!person) {
     return null;
@@ -552,37 +611,116 @@ function PersonDetail({
       </p>
 
       <div className="mt-5 grid grid-cols-3 gap-2 text-center">
-        <Stat value={personStats.memories.length} label="ảnh" />
+        <Stat value={personStats.memories.length} label={isSelf ? 'mục' : 'ảnh'} />
         <Stat value={personStats.hearts} label="tim" tone="bg-blush/30" />
         <Stat value={personStats.comments} label="bình luận" tone="bg-skySoft/30" />
       </div>
 
       <div className="mt-5">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h3 className="text-sm font-black uppercase text-coffee/70">Album riêng</h3>
+          <div className="min-w-0">
+            <h3 className="text-sm font-black uppercase text-coffee/70">
+              {isSelf ? 'Ảnh & video của tôi' : 'Album riêng'}
+            </h3>
+            {isSelf && (
+              <p className="mt-1 text-xs leading-5 text-ink/55">
+                Mục này thay cho tab Của tôi: xem nhanh, tải ảnh và xóa kỷ niệm đã đăng.
+              </p>
+            )}
+          </div>
           <button className="secondary-button min-h-10 px-3 text-xs" onClick={onPhotobook}>
             <Camera size={15} />
-            Đăng ảnh
+            Đăng ảnh/video
           </button>
         </div>
 
-        {personStats.memories.length ? (
-          <div className="grid grid-cols-3 gap-2">
-            {personStats.memories.slice(0, 9).map((memory) => (
-              <img
-                key={memory.id}
-                src={memory.imageUrl}
-                alt={`Ảnh của ${person.name}`}
-                className="aspect-square rounded-[0.65rem] object-cover shadow-sm"
-                loading="lazy"
-                decoding="async"
-              />
-            ))}
+        {isSelf && isOwnMemoriesLoading ? (
+          <div className="grid min-h-44 place-items-center rounded-[0.9rem] bg-paper/72 p-4 text-center">
+            <div>
+              <div className="memory-loading-spinner mx-auto mb-3 h-10 w-10 rounded-full border-4 border-coffee/15 border-t-coffee" />
+              <p className="text-sm font-bold text-ink/68">Đang tải ảnh và video của bạn...</p>
+            </div>
           </div>
+        ) : personStats.memories.length ? (
+          isSelf ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {personStats.memories.slice(0, 18).map((memory) => (
+                <div key={`${memory.storageCollection || 'memories98'}-${memory.id}`} className="rounded-[0.9rem] bg-paper/72 p-2 shadow-paper">
+                  <div className="relative aspect-square overflow-hidden rounded-[0.7rem] bg-ink/8">
+                    <img
+                      src={memory.imageUrl}
+                      alt={`Kỷ niệm của ${person.name}`}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    {memory.mediaType === 'video' && (
+                      <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-ink/76 px-2 py-1 text-[11px] font-black text-paper">
+                        <Video size={12} />
+                        Video
+                      </span>
+                    )}
+                    {memory.visibility && memory.visibility !== 'public' && (
+                      <span className="absolute bottom-2 left-2 rounded-full bg-paper/92 px-2 py-1 text-[10px] font-black text-coffee">
+                        {memory.visibility === 'private' ? 'Riêng tư' : 'Chọn người xem'}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2 line-clamp-2 text-xs font-bold leading-5 text-ink/72">
+                    {memory.caption || 'Một kỷ niệm đã đăng'}
+                  </p>
+                  <p className="mt-1 text-[11px] font-bold uppercase text-coffee/58">{formatUploadTime(memory.createdAt)}</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {memory.mediaType === 'video' ? (
+                      <button className="secondary-button min-h-9 justify-center px-2 text-xs" disabled>
+                        <Download size={14} />
+                        Video
+                      </button>
+                    ) : (
+                      <a
+                        className="secondary-button min-h-9 justify-center px-2 text-xs"
+                        href={memory.imageUrl}
+                        download={getMemoryDownloadName(memory)}
+                        onClick={() => void onDownloadMemory(memory)}
+                      >
+                        <Download size={14} />
+                        Tải
+                      </a>
+                    )}
+                    <button
+                      className="secondary-button min-h-9 justify-center border-blush/60 bg-blush/25 px-2 text-xs text-coffee"
+                      onClick={() => {
+                        if (!window.confirm('Xóa kỷ niệm này khỏi Memory98?')) return;
+                        void onDeleteMemory(memory);
+                      }}
+                    >
+                      <Trash2 size={14} />
+                      Xóa
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              {personStats.memories.slice(0, 9).map((memory) => (
+                <img
+                  key={memory.id}
+                  src={memory.imageUrl}
+                  alt={`Ảnh của ${person.name}`}
+                  className="aspect-square rounded-[0.65rem] object-cover shadow-sm"
+                  loading="lazy"
+                  decoding="async"
+                />
+              ))}
+            </div>
+          )
         ) : (
           <div className="rounded-[0.9rem] bg-paper/72 p-4 text-center">
             <BadgeCheck className="mx-auto text-coffee/70" size={24} />
-            <p className="mt-2 text-sm font-bold text-ink/68">Bạn này chưa đăng ảnh nào.</p>
+            <p className="mt-2 text-sm font-bold text-ink/68">
+              {isSelf ? 'Bạn chưa đăng ảnh hoặc video nào.' : 'Bạn này chưa đăng ảnh nào.'}
+            </p>
           </div>
         )}
       </div>
