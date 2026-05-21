@@ -1,15 +1,12 @@
-const CACHE_NAME = 'memory98-app-shell-v5';
+const CACHE_NAME = 'memory98-app-shell-v6';
 const APP_SHELL_PATHS = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './logo-web-class-98.svg',
-  './favicon.svg',
-  './memory98-icon-192.png',
-  './memory98-icon-512.png',
-  './memory98-maskable-192.png',
-  './memory98-maskable-512.png',
-  './memory98-apple-touch-icon.png',
+  './logo-web-class-98.png',
+  './logo-web-class-98-192.png',
+  './logo-web-class-98-maskable-192.png',
+  './logo-web-class-98-maskable-512.png',
 ];
 
 const scopedUrl = (path) => new URL(path, self.registration.scope).toString();

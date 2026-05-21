@@ -68,7 +68,7 @@ const rememberReactionLabels: Record<RememberReactionId, string> = {
   'good-luck': 'Chúc may mắn',
 };
 
-const logoSrc = `${import.meta.env.BASE_URL}logo-web-class-98.svg`;
+const logoSrc = `${import.meta.env.BASE_URL}logo-web-class-98.png?v=20260521`;
 
 const sortCommentsNewestFirst = (comments: MemoryComment[]) =>
   [...comments].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());

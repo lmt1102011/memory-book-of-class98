@@ -12,25 +12,25 @@
   "categories": ["photo", "social", "education"],
   "icons": [
     {
-      "src": "./memory98-icon-192.png",
+      "src": "./logo-web-class-98-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./memory98-icon-512.png",
+      "src": "./logo-web-class-98.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./memory98-maskable-192.png",
+      "src": "./logo-web-class-98-maskable-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "./memory98-maskable-512.png",
+      "src": "./logo-web-class-98-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

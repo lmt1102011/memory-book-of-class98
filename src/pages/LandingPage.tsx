@@ -38,7 +38,7 @@ const quotes = [
   'We were only students, and somehow that was everything.',
 ];
 
-const logoSrc = `${import.meta.env.BASE_URL}logo-web-class-98.svg`;
+const logoSrc = `${import.meta.env.BASE_URL}logo-web-class-98.png?v=20260521`;
 
 const tutorialImage = (index: number) => LANDING_SLIDES[index % LANDING_SLIDES.length].src.replace('w=1800', 'w=900');
 
