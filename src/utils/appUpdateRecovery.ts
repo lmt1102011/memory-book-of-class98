@@ -1,3 +1,5 @@
+import { isStandaloneMode } from '../pwaInstallPrompt';
+
 const CHUNK_RELOAD_KEY = 'memory98-chunk-reload-at';
 const CHUNK_RELOAD_COOLDOWN = 20_000;
 
@@ -28,7 +30,7 @@ const isChunkLoadError = (error: unknown) => {
 };
 
 export const showAppUpdateOverlay = (label = 'Đang cập nhật phiên bản mới nhất...') => {
-  if (typeof document === 'undefined') return;
+  if (typeof document === 'undefined' || !isStandaloneMode()) return;
 
   const existing = document.getElementById('memory98-update-overlay');
   if (existing) {
@@ -148,6 +150,8 @@ const reloadWithFreshUrl = () => {
 };
 
 const recoverFromChunkError = async () => {
+  if (!isStandaloneMode()) return;
+
   const lastReload = Number(window.sessionStorage.getItem(CHUNK_RELOAD_KEY) || 0);
   const now = Date.now();
   if (now - lastReload < CHUNK_RELOAD_COOLDOWN) return;

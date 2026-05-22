@@ -1,6 +1,7 @@
 import { showAppUpdateOverlay } from './utils/appUpdateRecovery';
+import { isStandaloneMode } from './pwaInstallPrompt';
 
-const SW_VERSION = '20260522-auto-update-2';
+const SW_VERSION = '20260522-auto-update-3';
 const UPDATE_CHECK_INTERVAL = 60_000;
 const UPDATE_RELOAD_DELAY = 850;
 
@@ -10,6 +11,7 @@ export const registerPwa = () => {
   const register = () => {
     const baseUrl = new URL(import.meta.env.BASE_URL || './', window.location.href);
     const swUrl = new URL(`sw.js?v=${SW_VERSION}`, baseUrl).toString();
+    const shouldAutoUpdate = isStandaloneMode();
     let shouldReloadForUpdate = false;
     let hasReloadedForUpdate = false;
     let lastUpdateCheck = 0;
@@ -46,6 +48,11 @@ export const registerPwa = () => {
     navigator.serviceWorker
       .register(swUrl, { scope: baseUrl.pathname, updateViaCache: 'none' })
       .then((registration) => {
+        if (!shouldAutoUpdate) {
+          void registration.update().catch(() => undefined);
+          return;
+        }
+
         activateWaitingWorker(registration);
         watchInstallingWorker(registration);
         checkForUpdate(registration, true);

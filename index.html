@@ -19,6 +19,19 @@
     <link rel="icon" type="image/png" sizes="192x192" href="./logo-web-class-98-192.png?v=20260522-pwa4" />
     <link rel="apple-touch-icon" href="./logo-web-class-98-192.png?v=20260522-pwa4" />
     <link rel="manifest" href="./manifest.webmanifest?v=20260522-pwa4" />
+    <script>
+      (() => {
+        const navigatorWithStandalone = window.navigator;
+        const displayModes = ['standalone', 'fullscreen', 'minimal-ui', 'window-controls-overlay'];
+        const isInstalledApp =
+          displayModes.some((mode) => window.matchMedia(`(display-mode: ${mode})`).matches) ||
+          navigatorWithStandalone.standalone === true;
+
+        if (isInstalledApp) {
+          document.documentElement.classList.add('memory98-standalone');
+        }
+      })();
+    </script>
     <style>
       html,
       body,
@@ -32,12 +45,16 @@
 
       .memory98-boot {
         min-height: 100svh;
-        display: grid;
+        display: none;
         place-items: center;
         padding: 24px;
         color: #4f3428;
         font-family: Poppins, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         text-align: center;
+      }
+
+      html.memory98-standalone .memory98-boot {
+        display: grid;
       }
 
       .memory98-boot-card {
