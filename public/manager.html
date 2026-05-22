@@ -402,6 +402,17 @@
           <button id="toggleRecapButton" class="secondary">Đang tải...</button>
         </section>
 
+        <section class="card setting-card">
+          <div>
+            <strong>Slideshow điện ảnh</strong>
+            <p class="muted">
+              Khi bật, trang Ký ức sẽ hiện khối slideshow thật nổi bật để học sinh xem ảnh lớp như một đoạn phim ngắn.
+            </p>
+            <p id="slideshowStatus" class="status"></p>
+          </div>
+          <button id="toggleSlideshowButton" class="secondary">Đang tải...</button>
+        </section>
+
         <section class="toolbar">
           <input id="managerSearch" placeholder="Tìm tên, nội dung, uid, hashtag..." />
           <button id="clearSearchButton" class="secondary">Xóa tìm</button>
@@ -523,6 +534,7 @@
       const DIARY_COLLECTION = 'secretMailboxPrivate98';
       const SITE_SETTINGS_COLLECTION = 'siteSettings98';
       const MEMORY_RECAP_SETTING_ID = 'memoryRecap';
+      const CINEMATIC_SLIDESHOW_SETTING_ID = 'cinematicSlideshow';
 
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
@@ -538,6 +550,7 @@
       const gateStatus = $('gateStatus');
       const memoryStatus = $('memoryStatus');
       const recapStatus = $('recapStatus');
+      const slideshowStatus = $('slideshowStatus');
 
       let accounts = [];
       let diaries = [];
@@ -546,6 +559,7 @@
       let classLetters = [];
       let rememberNotes = [];
       let memoryRecapSetting = { enabled: false };
+      let cinematicSlideshowSetting = { enabled: false };
       let activeTab = 'accounts';
       let managerPoll = 0;
       let isLoadingManagerData = false;
@@ -642,6 +656,12 @@
         recapStatus.textContent = memoryRecapSetting.enabled
           ? 'Đang bật: học sinh sẽ thấy recap nổi bật trên trang Ký ức.'
           : 'Đang tắt: recap sẽ được ẩn khỏi trang học sinh.';
+
+        $('toggleSlideshowButton').textContent = cinematicSlideshowSetting.enabled ? 'Tắt slideshow' : 'Bật slideshow';
+        $('toggleSlideshowButton').classList.toggle('danger', cinematicSlideshowSetting.enabled);
+        slideshowStatus.textContent = cinematicSlideshowSetting.enabled
+          ? 'Đang bật: trang Ký ức sẽ hiện khối slideshow điện ảnh.'
+          : 'Đang tắt: slideshow sẽ ẩn để feed gọn hơn.';
       };
 
       const showManager = () => {
@@ -877,6 +897,7 @@
             letterSnapshot,
             rememberSnapshot,
             recapSnapshot,
+            slideshowSnapshot,
           ] = await Promise.all([
             getDocs(query(collection(db, 'students98'), orderBy('name'))),
             getDocs(query(collection(db, DIARY_COLLECTION), orderBy('createdAt', 'desc'))),
@@ -886,6 +907,7 @@
             getDocs(query(collection(db, GUESTBOOK_COLLECTION), orderBy('createdAt', 'desc'))),
             getDocs(query(collection(db, REMEMBER_NOTES_COLLECTION), orderBy('createdAt', 'desc'))),
             getDoc(doc(db, SITE_SETTINGS_COLLECTION, MEMORY_RECAP_SETTING_ID)),
+            getDoc(doc(db, SITE_SETTINGS_COLLECTION, CINEMATIC_SLIDESHOW_SETTING_ID)),
           ]);
 
           accounts = accountSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
@@ -901,6 +923,7 @@
           });
           rememberNotes = rememberSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
           memoryRecapSetting = recapSnapshot.exists() ? { enabled: Boolean(recapSnapshot.data().enabled) } : { enabled: false };
+          cinematicSlideshowSetting = slideshowSnapshot.exists() ? { enabled: Boolean(slideshowSnapshot.data().enabled) } : { enabled: false };
           memories = [
             ...publicMemorySnapshot.docs.map((item) => ({ id: item.id, collectionName: PUBLIC_MEMORIES_COLLECTION, ...item.data() })),
             ...privateMemorySnapshot.docs.map((item) => ({ id: item.id, collectionName: PRIVATE_MEMORIES_COLLECTION, ...item.data() })),
@@ -978,6 +1001,29 @@
           recapStatus.textContent = error.message || 'Không thể cập nhật Memory Recap.';
         } finally {
           $('toggleRecapButton').disabled = false;
+        }
+      });
+      $('toggleSlideshowButton').addEventListener('click', async () => {
+        const nextEnabled = !cinematicSlideshowSetting.enabled;
+        $('toggleSlideshowButton').disabled = true;
+        slideshowStatus.textContent = nextEnabled ? 'Đang bật slideshow...' : 'Đang tắt slideshow...';
+        try {
+          await setDoc(
+            doc(db, SITE_SETTINGS_COLLECTION, CINEMATIC_SLIDESHOW_SETTING_ID),
+            {
+              enabled: nextEnabled,
+              managerKey: MANAGER_PASSWORD,
+              updatedAt: serverTimestamp(),
+              updatedBy: MANAGER_NAME_KEY,
+            },
+            { merge: true },
+          );
+          cinematicSlideshowSetting = { enabled: nextEnabled };
+          renderSettings();
+        } catch (error) {
+          slideshowStatus.textContent = error.message || 'Không thể cập nhật slideshow.';
+        } finally {
+          $('toggleSlideshowButton').disabled = false;
         }
       });
       $('managerSearch').addEventListener('input', renderCurrentTab);

@@ -231,6 +231,11 @@ export interface MemoryRecapSettings {
   updatedAt?: string;
 }
 
+export interface CinematicSlideshowSettings {
+  enabled: boolean;
+  updatedAt?: string;
+}
+
 export interface YouthProfileDraft {
   avatarDataUrl?: string;
   nickname: string;

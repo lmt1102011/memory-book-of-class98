@@ -20,8 +20,10 @@ type PosterCard =
     };
 
 const POSTER_WIDTH = 1800;
+const POSTER_HEIGHT = 2400;
 const OUTER_PAD = 76;
 const HEADER_HEIGHT = 310;
+const FOOTER_HEIGHT = 82;
 const GAP = 34;
 const CARD_RADIUS = 24;
 
@@ -147,6 +149,8 @@ const drawHeader = (
   photoCount: number,
   wishCount: number,
   contentWidth: number,
+  page: number,
+  totalPages: number,
 ) => {
   const gradient = ctx.createLinearGradient(OUTER_PAD, 58, POSTER_WIDTH - OUTER_PAD, HEADER_HEIGHT - 30);
   gradient.addColorStop(0, 'rgba(247,213,223,0.9)');
@@ -164,7 +168,7 @@ const drawHeader = (
   const chips = [
     `${photoCount} ảnh`,
     `${wishCount} lời chúc`,
-    new Date().toLocaleDateString('vi-VN'),
+    `Trang ${page}/${totalPages}`,
   ];
   chips.forEach((chip, index) => {
     const x = POSTER_WIDTH - OUTER_PAD - 620 + index * 198;
@@ -173,6 +177,36 @@ const drawHeader = (
     ctx.font = '900 22px Poppins, Arial, sans-serif';
     ctx.fillText(chip, x + 24, 153);
   });
+};
+
+const drawPageBackground = (ctx: CanvasRenderingContext2D) => {
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.fillStyle = '#fbf3e7';
+  ctx.fillRect(0, 0, POSTER_WIDTH, POSTER_HEIGHT);
+
+  const bg = ctx.createLinearGradient(0, 0, POSTER_WIDTH, POSTER_HEIGHT);
+  bg.addColorStop(0, '#fffaf1');
+  bg.addColorStop(0.48, '#f7e7ca');
+  bg.addColorStop(1, '#d8edf8');
+  ctx.globalAlpha = 0.64;
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, POSTER_WIDTH, POSTER_HEIGHT);
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = 'rgba(122,86,57,0.035)';
+  for (let y = 36; y < POSTER_HEIGHT; y += 56) ctx.fillRect(0, y, POSTER_WIDTH, 2);
+  ctx.fillStyle = 'rgba(255,250,241,0.28)';
+  for (let x = 28; x < POSTER_WIDTH; x += 56) ctx.fillRect(x, 0, 2, POSTER_HEIGHT);
+};
+
+const drawFooter = (ctx: CanvasRenderingContext2D, page: number, totalPages: number) => {
+  ctx.fillStyle = '#7a5639';
+  ctx.font = '800 22px Poppins, Arial, sans-serif';
+  ctx.fillText('Memory98 - School Memory Photobook', OUTER_PAD, POSTER_HEIGHT - 48);
+  ctx.textAlign = 'right';
+  ctx.fillText(`Trang ${page}/${totalPages}`, POSTER_WIDTH - OUTER_PAD, POSTER_HEIGHT - 48);
+  ctx.textAlign = 'left';
 };
 
 const drawPhotoCard = async (
@@ -266,7 +300,7 @@ const measureWishHeight = (
   return Math.max(178, 120 + lines.length * 34);
 };
 
-export const createClassMemoryPosterBlob = async ({ memories, guestbook }: ClassMemoryPosterOptions) => {
+export const createClassMemoryPosterBlobs = async ({ memories, guestbook }: ClassMemoryPosterOptions) => {
   const photos: PosterCard[] = memories
     .filter((memory) => memory.mediaType === 'image' && memory.imageUrl)
     .map((memory) => ({
@@ -291,8 +325,14 @@ export const createClassMemoryPosterBlob = async ({ memories, guestbook }: Class
   const contentWidth = POSTER_WIDTH - OUTER_PAD * 2;
   const columns = photos.length + wishes.length > 42 ? 5 : 4;
   const columnWidth = (contentWidth - GAP * (columns - 1)) / columns;
-  const columnHeights = Array.from({ length: columns }, () => HEADER_HEIGHT);
-  const placedCards: Array<{ card: PosterCard; x: number; y: number; width: number; height: number; seed: number }> = [];
+  const pageBottom = POSTER_HEIGHT - OUTER_PAD - FOOTER_HEIGHT;
+  type PlacedCard = { card: PosterCard; x: number; y: number; width: number; height: number; seed: number };
+  type PosterPage = { columnHeights: number[]; cards: PlacedCard[] };
+  const createPage = (): PosterPage => ({
+    columnHeights: Array.from({ length: columns }, () => HEADER_HEIGHT),
+    cards: [],
+  });
+  const pages: PosterPage[] = [createPage()];
 
   const measureCanvas = document.createElement('canvas');
   const measureCtx = measureCanvas.getContext('2d');
@@ -304,68 +344,69 @@ export const createClassMemoryPosterBlob = async ({ memories, guestbook }: Class
       card.kind === 'photo'
         ? Math.round(columnWidth * (seed % 3 === 0 ? 1.18 : seed % 3 === 1 ? 0.96 : 1.34))
         : measureWishHeight(measureCtx, card, columnWidth);
-    const column = columnHeights.indexOf(Math.min(...columnHeights));
-    const x = OUTER_PAD + column * (columnWidth + GAP);
-    const y = columnHeights[column] + ((seed % 5) - 2) * 5;
-
-    placedCards.push({ card, x, y, width: columnWidth, height, seed });
-    columnHeights[column] += height + GAP;
-  });
-
-  const posterHeight = Math.ceil(Math.max(...columnHeights) + OUTER_PAD);
-  const canvas = document.createElement('canvas');
-  canvas.width = POSTER_WIDTH;
-  canvas.height = posterHeight;
-  const ctx = canvas.getContext('2d', { alpha: false });
-  if (!ctx) throw new Error('Trình duyệt không hỗ trợ Canvas để tạo poster.');
-
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.fillStyle = '#fbf3e7';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  const bg = ctx.createLinearGradient(0, 0, POSTER_WIDTH, posterHeight);
-  bg.addColorStop(0, '#fffaf1');
-  bg.addColorStop(0.48, '#f7e7ca');
-  bg.addColorStop(1, '#d8edf8');
-  ctx.globalAlpha = 0.64;
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.globalAlpha = 1;
-
-  ctx.fillStyle = 'rgba(122,86,57,0.035)';
-  for (let y = 36; y < posterHeight; y += 56) ctx.fillRect(0, y, POSTER_WIDTH, 2);
-  ctx.fillStyle = 'rgba(255,250,241,0.28)';
-  for (let x = 28; x < POSTER_WIDTH; x += 56) ctx.fillRect(x, 0, 2, posterHeight);
-
-  drawHeader(ctx, photos.length, wishes.length, contentWidth);
-
-  for (let index = 0; index < placedCards.length; index += 1) {
-    const item = placedCards[index];
-    if (item.card.kind === 'photo') {
-      await drawPhotoCard(ctx, item.card, item.x, item.y, item.width, item.height, item.seed);
-    } else {
-      drawWishCard(ctx, item.card, item.x, item.y, item.width, item.height, item.seed);
+    let page = pages[pages.length - 1];
+    let column = page.columnHeights.indexOf(Math.min(...page.columnHeights));
+    if (page.columnHeights[column] + height > pageBottom && page.cards.length) {
+      page = createPage();
+      pages.push(page);
+      column = page.columnHeights.indexOf(Math.min(...page.columnHeights));
     }
 
-    if (index % 6 === 5) await nextFrame();
+    const x = OUTER_PAD + column * (columnWidth + GAP);
+    const y = page.columnHeights[column] + ((seed % 5) - 2) * 5;
+
+    page.cards.push({ card, x, y, width: columnWidth, height, seed });
+    page.columnHeights[column] += height + GAP;
+  });
+
+  const blobs: Blob[] = [];
+  for (let pageIndex = 0; pageIndex < pages.length; pageIndex += 1) {
+    const canvas = document.createElement('canvas');
+    canvas.width = POSTER_WIDTH;
+    canvas.height = POSTER_HEIGHT;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) throw new Error('Trình duyệt không hỗ trợ Canvas để tạo poster.');
+
+    drawPageBackground(ctx);
+    drawHeader(ctx, photos.length, wishes.length, contentWidth, pageIndex + 1, pages.length);
+
+    for (let index = 0; index < pages[pageIndex].cards.length; index += 1) {
+      const item = pages[pageIndex].cards[index];
+      if (item.card.kind === 'photo') {
+        await drawPhotoCard(ctx, item.card, item.x, item.y, item.width, item.height, item.seed);
+      } else {
+        drawWishCard(ctx, item.card, item.x, item.y, item.width, item.height, item.seed);
+      }
+
+      if (index % 6 === 5) await nextFrame();
+    }
+
+    drawFooter(ctx, pageIndex + 1, pages.length);
+    blobs.push(
+      await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error('Không thể tạo poster recap.'))),
+          'image/jpeg',
+          0.95,
+        );
+      }),
+    );
   }
 
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error('Không thể tạo poster recap.'))),
-      'image/jpeg',
-      0.95,
-    );
-  });
+  return blobs;
 };
 
 export const downloadClassMemoryPoster = async (options: ClassMemoryPosterOptions) => {
-  const blob = await createClassMemoryPosterBlob(options);
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `poster-anh-loi-chuc-lop-9-8-${safeFilePart(new Date().toISOString().slice(0, 10))}.jpg`;
-  link.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const blobs = await createClassMemoryPosterBlobs(options);
+  const datePart = safeFilePart(new Date().toISOString().slice(0, 10));
+
+  for (let index = 0; index < blobs.length; index += 1) {
+    const url = URL.createObjectURL(blobs[index]);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `poster-anh-loi-chuc-lop-9-8-trang-${String(index + 1).padStart(2, '0')}-${datePart}.jpg`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    await nextFrame();
+  }
 };

@@ -150,6 +150,7 @@ export default function App() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsSeenAt, setNotificationsSeenAt] = useState(() => new Date(0).toISOString());
   const [memoryRecapEnabled, setMemoryRecapEnabled] = useState(false);
+  const [cinematicSlideshowEnabled, setCinematicSlideshowEnabled] = useState(false);
   const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [openNavGroup, setOpenNavGroup] = useState<NavGroupId | null>(null);
@@ -338,13 +339,14 @@ export default function App() {
   useEffect(() => {
     if (!bootSplashDone) return undefined;
 
-    let unsubscribe: (() => void) | undefined;
+    let unsubscribeRecap: (() => void) | undefined;
+    let unsubscribeSlideshow: (() => void) | undefined;
     let isActive = true;
 
     void import('./services/firebaseMemoryBook')
       .then((service) => {
         if (!isActive) return;
-        unsubscribe = service.subscribeMemoryRecapSettings(
+        unsubscribeRecap = service.subscribeMemoryRecapSettings(
           (settings) => {
             if (!isActive) return;
             setMemoryRecapEnabled(settings.enabled);
@@ -354,14 +356,28 @@ export default function App() {
             setMemoryRecapEnabled(false);
           },
         );
+        unsubscribeSlideshow = service.subscribeCinematicSlideshowSettings(
+          (settings) => {
+            if (!isActive) return;
+            setCinematicSlideshowEnabled(settings.enabled);
+          },
+          () => {
+            if (!isActive) return;
+            setCinematicSlideshowEnabled(false);
+          },
+        );
       })
       .catch(() => {
-        if (isActive) setMemoryRecapEnabled(false);
+        if (isActive) {
+          setMemoryRecapEnabled(false);
+          setCinematicSlideshowEnabled(false);
+        }
       });
 
     return () => {
       isActive = false;
-      unsubscribe?.();
+      unsubscribeRecap?.();
+      unsubscribeSlideshow?.();
     };
   }, [bootSplashDone]);
 
@@ -1683,6 +1699,7 @@ export default function App() {
           firebaseNotice={firebaseNotice}
           isLoadingMemories={memoriesLoading}
           memoryRecapEnabled={memoryRecapEnabled}
+          cinematicSlideshowEnabled={cinematicSlideshowEnabled}
           profile={profile}
           pendingReactionIds={pendingReactionIds}
           onJoin={() => navigate('join')}

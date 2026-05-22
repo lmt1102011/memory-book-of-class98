@@ -39,6 +39,7 @@ interface HomePageProps {
   firebaseNotice: string;
   isLoadingMemories: boolean;
   memoryRecapEnabled: boolean;
+  cinematicSlideshowEnabled: boolean;
   profile: UserProfile | null;
   pendingReactionIds: string[];
   onJoin: () => void;
@@ -56,6 +57,7 @@ export default function HomePage({
   firebaseNotice,
   isLoadingMemories,
   memoryRecapEnabled,
+  cinematicSlideshowEnabled,
   profile,
   pendingReactionIds,
   onJoin,
@@ -85,6 +87,8 @@ export default function HomePage({
   const [selectedVideoError, setSelectedVideoError] = useState('');
   const [isRecapDownloading, setIsRecapDownloading] = useState(false);
   const [recapPosterError, setRecapPosterError] = useState('');
+  const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
+  const [slideIndex, setSlideIndex] = useState(0);
 
   const debouncedName = useDebounce(nameQuery);
   const debouncedKeyword = useDebounce(keywordQuery);
@@ -300,6 +304,60 @@ export default function HomePage({
     return Array.from(unique.values()).sort((left, right) => right.count - left.count).slice(0, 16);
   }, [memories]);
 
+  const slideshowMemories = useMemo(
+    () => memories.filter((memory) => memory.mediaType === 'image' && memory.imageUrl).slice(0, 36),
+    [memories],
+  );
+
+  const activeSlide = slideshowMemories[slideIndex % Math.max(1, slideshowMemories.length)];
+
+  const nextSlide = useCallback(() => {
+    setSlideIndex((index) => (slideshowMemories.length ? (index + 1) % slideshowMemories.length : 0));
+  }, [slideshowMemories.length]);
+
+  const previousSlide = useCallback(() => {
+    setSlideIndex((index) => (slideshowMemories.length ? (index - 1 + slideshowMemories.length) % slideshowMemories.length : 0));
+  }, [slideshowMemories.length]);
+
+  useEffect(() => {
+    if (!slideshowMemories.length) {
+      setIsSlideshowOpen(false);
+      setSlideIndex(0);
+      return;
+    }
+
+    setSlideIndex((index) => Math.min(index, slideshowMemories.length - 1));
+  }, [slideshowMemories.length]);
+
+  useEffect(() => {
+    if (!isSlideshowOpen || slideshowMemories.length <= 1) return undefined;
+
+    const timer = window.setInterval(nextSlide, 4200);
+    return () => window.clearInterval(timer);
+  }, [isSlideshowOpen, nextSlide, slideshowMemories.length]);
+
+  useEffect(() => {
+    if (!isSlideshowOpen) return undefined;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsSlideshowOpen(false);
+      if (event.key === 'ArrowRight') nextSlide();
+      if (event.key === 'ArrowLeft') previousSlide();
+    };
+
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isSlideshowOpen, nextSlide, previousSlide]);
+
   const memoryRecap = useMemo(() => {
     const imageMemories = memories.filter((memory) => memory.mediaType === 'image' && memory.imageUrl);
 
@@ -513,6 +571,69 @@ export default function HomePage({
         </section>
       )}
 
+      {cinematicSlideshowEnabled && slideshowMemories.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 pb-7 sm:px-6 lg:px-8">
+          <div className="relative overflow-hidden rounded-[1.7rem] border border-white/75 bg-ink text-paper shadow-[0_28px_80px_rgba(53,41,31,0.22)]">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(247,183,199,0.24),transparent_32%),radial-gradient(circle_at_82%_22%,rgba(169,205,232,0.24),transparent_34%)]" />
+            <div className="relative grid gap-0 lg:grid-cols-[minmax(0,1fr)_24rem]">
+              <div className="min-w-0 p-5 sm:p-7 lg:p-8">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-paper px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.08em] text-ink">
+                    Slideshow được manager bật
+                  </span>
+                  <span className="rounded-full bg-white/12 px-3 py-1.5 text-[11px] font-black uppercase text-paper/80">
+                    {slideshowMemories.length} ảnh
+                  </span>
+                </div>
+
+                <h2 className="mt-5 max-w-2xl font-display text-6xl leading-[0.86] text-paper sm:text-7xl">
+                  Rạp phim thanh xuân của lớp 9/8
+                </h2>
+                <p className="mt-4 max-w-2xl text-sm leading-7 text-paper/70 sm:text-base">
+                  Khi cả lớp muốn xem lại ảnh theo kiểu điện ảnh, mở slideshow để ảnh tự chạy nhẹ nhàng, rõ mặt, không thêm hiệu ứng nặng.
+                </p>
+
+                <button
+                  type="button"
+                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-paper px-5 py-3 text-sm font-black text-ink shadow-paper transition hover:-translate-y-0.5 sm:w-auto"
+                  onClick={() => {
+                    setSlideIndex(0);
+                    setIsSlideshowOpen(true);
+                  }}
+                >
+                  <Camera size={17} />
+                  Mở slideshow
+                </button>
+              </div>
+
+              <aside className="relative min-h-[17rem] overflow-hidden border-t border-white/10 bg-white/8 p-5 sm:p-7 lg:border-l lg:border-t-0">
+                <div className="relative mx-auto grid max-w-[20rem] grid-cols-3 gap-2">
+                  {slideshowMemories.slice(0, 6).map((memory, index) => (
+                    <div
+                      key={memory.id}
+                      className={`overflow-hidden rounded-[0.7rem] bg-paper/12 shadow-paper ${
+                        index === 0 ? 'col-span-2 row-span-2 aspect-[4/5]' : 'aspect-square'
+                      }`}
+                    >
+                      <img
+                        src={memory.imageUrl}
+                        alt={`Ảnh slideshow của ${memory.name}`}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <p className="mx-auto mt-4 max-w-[20rem] rounded-[1rem] bg-paper/10 px-4 py-3 text-center text-xs font-bold leading-5 text-paper/68">
+                  Bố cục được giữ gọn: một nút mở, ảnh tự chạy, có nút lùi/tiến và đóng.
+                </p>
+              </aside>
+            </div>
+          </div>
+        </section>
+      )}
+
       <section className="sticky top-16 z-30 border-y border-white/55 bg-cream/75 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-3 lg:grid-cols-[1fr_1fr_auto]">
           <label className="relative">
@@ -621,6 +742,87 @@ export default function HomePage({
           </div>
         )}
       </section>
+
+      {isSlideshowOpen && activeSlide && (
+        <div
+          className="fixed inset-0 z-[96] grid place-items-center overflow-hidden bg-ink/96 p-3 text-paper sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Slideshow thanh xuân 9/8"
+          onClick={() => setIsSlideshowOpen(false)}
+        >
+          <div
+            className="relative grid h-[calc(100svh-1.5rem)] w-full max-w-6xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[1.1rem] border border-white/12 bg-[#14100d] shadow-[0_28px_90px_rgba(0,0,0,0.34)] sm:h-[min(88svh,760px)] sm:rounded-[1.4rem]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-5">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-paper/48">Slideshow 9/8</p>
+                <strong className="block truncate text-sm text-paper">{activeSlide.name}</strong>
+              </div>
+              <button
+                type="button"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/10 text-paper transition hover:bg-white/18"
+                onClick={() => setIsSlideshowOpen(false)}
+                aria-label="Đóng slideshow"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="relative grid min-h-0 place-items-center overflow-hidden bg-black">
+              <img
+                key={activeSlide.id}
+                src={activeSlide.imageUrl}
+                alt={`Ảnh slideshow của ${activeSlide.name}`}
+                className="h-full max-h-full w-full object-contain"
+                decoding="async"
+                draggable={false}
+              />
+
+              {slideshowMemories.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    className="absolute left-2 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-paper/88 text-2xl font-black leading-none text-ink shadow-paper transition hover:bg-paper sm:left-4"
+                    onClick={previousSlide}
+                    aria-label="Ảnh trước"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-paper/88 text-2xl font-black leading-none text-ink shadow-paper transition hover:bg-paper sm:right-4"
+                    onClick={nextSlide}
+                    aria-label="Ảnh tiếp theo"
+                  >
+                    ›
+                  </button>
+                </>
+              )}
+            </div>
+
+            <div className="border-t border-white/10 bg-[#1e1712] px-4 py-3 sm:px-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div className="min-w-0">
+                  <p className="line-clamp-2 text-sm font-bold leading-6 text-paper/82">
+                    {activeSlide.caption || 'Một lát cắt nhỏ của thanh xuân lớp mình.'}
+                  </p>
+                  <p className="mt-1 text-xs font-bold uppercase text-paper/42">
+                    {slideIndex + 1}/{slideshowMemories.length} · Lớp {activeSlide.className}
+                  </p>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/12 sm:w-44">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-blush via-paper to-skySoft"
+                    style={{ width: `${((slideIndex + 1) / slideshowMemories.length) * 100}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedMemory && (
         <div

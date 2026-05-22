@@ -265,7 +265,7 @@ service cloud.firestore {
 
     match /siteSettings98/{settingId} {
       allow read: if true;
-      allow create, update: if settingId == 'memoryRecap'
+      allow create, update: if settingId in ['memoryRecap', 'cinematicSlideshow']
         && isManagerWrite()
         && request.resource.data.enabled is bool;
       allow delete: if false;

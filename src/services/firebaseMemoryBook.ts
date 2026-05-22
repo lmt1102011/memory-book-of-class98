@@ -28,6 +28,7 @@ import {
 import { auth, db } from '../firebase';
 import type {
   ClassmateProfile,
+  CinematicSlideshowSettings,
   GuestbookEntry,
   MemoryComment,
   MemoryItem,
@@ -61,6 +62,7 @@ const VOTE_CATEGORIES_COLLECTION = 'voteCategories98';
 const VOTES_SUBCOLLECTION = 'votes';
 const SITE_SETTINGS_COLLECTION = 'siteSettings98';
 const MEMORY_RECAP_SETTING_ID = 'memoryRecap';
+const CINEMATIC_SLIDESHOW_SETTING_ID = 'cinematicSlideshow';
 const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
 const FIREBASE_RETRY_DELAYS = [0, 450, 1000, 1800];
 const FIREBASE_TIMEOUT_MS = 12_000;
@@ -383,6 +385,11 @@ const memoryRecapSettingsFromData = (data?: DocumentData): MemoryRecapSettings =
   updatedAt: data?.updatedAt ? timestampToIso(data.updatedAt) : undefined,
 });
 
+const cinematicSlideshowSettingsFromData = (data?: DocumentData): CinematicSlideshowSettings => ({
+  enabled: Boolean(data?.enabled),
+  updatedAt: data?.updatedAt ? timestampToIso(data.updatedAt) : undefined,
+});
+
 export const checkStudentName = async (name: string) => {
   const nameKey = makeNameKey(name);
   if (!nameKey) throw new Error('Hãy nhập họ tên hợp lệ.');
@@ -680,6 +687,24 @@ export const subscribeMemoryRecapSettings = (
     try {
       const snapshot = await withFirebaseRetry(() => getDoc(settingRef));
       onNext(memoryRecapSettingsFromData(snapshot.exists() ? snapshot.data() : undefined));
+    } catch (error) {
+      onError(friendlyFirebaseError(error));
+    }
+  };
+  void load();
+  const interval = createVisiblePolling(load);
+  return () => window.clearInterval(interval);
+};
+
+export const subscribeCinematicSlideshowSettings = (
+  onNext: (settings: CinematicSlideshowSettings) => void,
+  onError: (error: Error) => void,
+) => {
+  const settingRef = doc(db, SITE_SETTINGS_COLLECTION, CINEMATIC_SLIDESHOW_SETTING_ID);
+  const load = async () => {
+    try {
+      const snapshot = await withFirebaseRetry(() => getDoc(settingRef));
+      onNext(cinematicSlideshowSettingsFromData(snapshot.exists() ? snapshot.data() : undefined));
     } catch (error) {
       onError(friendlyFirebaseError(error));
     }

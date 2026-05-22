@@ -32,22 +32,66 @@ interface VotesPageProps {
 }
 
 const toneOptions: Array<{ id: VoteCategoryTone; label: string; className: string }> = [
-  { id: 'pink', label: 'Hồng', className: 'from-blush/45 to-paper' },
-  { id: 'blue', label: 'Xanh', className: 'from-skySoft/45 to-paper' },
-  { id: 'cream', label: 'Giấy', className: 'from-[#f4dfbf]/70 to-paper' },
-  { id: 'chalk', label: 'Bảng', className: 'from-chalk/20 to-paper' },
+  { id: 'pink', label: 'Kẹo hồng', className: 'from-blush/45 to-paper' },
+  { id: 'blue', label: 'Trời xanh', className: 'from-skySoft/45 to-paper' },
+  { id: 'cream', label: 'Giấy cũ', className: 'from-[#f4dfbf]/70 to-paper' },
+  { id: 'chalk', label: 'Bảng phấn', className: 'from-chalk/20 to-paper' },
 ];
 
 const iconOptions: Array<{ id: string; label: string; Icon: LucideIcon }> = [
-  { id: 'sparkles', label: 'Kỷ niệm', Icon: Sparkles },
-  { id: 'heart', label: 'Ấm áp', Icon: Heart },
-  { id: 'camera', label: 'Ảnh lớp', Icon: Camera },
-  { id: 'book', label: 'Lưu bút', Icon: BookOpen },
-  { id: 'badge', label: 'Danh hiệu', Icon: BadgeCheck },
-  { id: 'message', label: 'Lời nhắn', Icon: MessageCircle },
+  { id: 'sparkles', label: 'Aura', Icon: Sparkles },
+  { id: 'heart', label: 'Ấm lòng', Icon: Heart },
+  { id: 'camera', label: 'Camera cơm', Icon: Camera },
+  { id: 'book', label: 'Sổ rén', Icon: BookOpen },
+  { id: 'badge', label: 'Cúp flex', Icon: BadgeCheck },
+  { id: 'message', label: 'Mõm xịn', Icon: MessageCircle },
 ];
 
 const defaultVoteIconId = iconOptions[0].id;
+
+const funnyVotePresets: Array<{
+  title: string;
+  description: string;
+  tone: VoteCategoryTone;
+  icon: string;
+}> = [
+  {
+    title: 'Thánh ngủ gật nhưng vẫn qua môn',
+    description: 'Dành cho người lim dim nhưng não vẫn online đúng lúc.',
+    tone: 'cream',
+    icon: 'book',
+  },
+  {
+    title: 'Cây hài cứu mood lớp',
+    description: 'Chỉ cần xuất hiện là không khí lớp bớt căng ngay.',
+    tone: 'pink',
+    icon: 'sparkles',
+  },
+  {
+    title: 'Camera chạy bằng cơm',
+    description: 'Người chuyên bắt khoảnh khắc đẹp, lầy và rất đúng thời điểm.',
+    tone: 'blue',
+    icon: 'camera',
+  },
+  {
+    title: 'Trùm xin vía điểm cao',
+    description: 'Không biết học kiểu gì nhưng điểm lúc nào cũng làm người khác muốn xin vía.',
+    tone: 'chalk',
+    icon: 'badge',
+  },
+  {
+    title: 'Thanh niên “tí làm” huyền thoại',
+    description: 'Deadline dí tới nơi vẫn bình tĩnh như đang trong giờ ra chơi.',
+    tone: 'cream',
+    icon: 'message',
+  },
+  {
+    title: 'Người được gọi tên định mệnh',
+    description: 'Giáo viên vừa mở sổ là cả lớp đã đoán được tên ai sắp vang lên.',
+    tone: 'pink',
+    icon: 'heart',
+  },
+];
 
 const getVoteIcon = (iconId: string) => iconOptions.find((option) => option.id === iconId)?.Icon || Sparkles;
 
@@ -101,6 +145,13 @@ export default function VotesPage({
     });
     return grouped;
   }, [votes]);
+
+  const applyPreset = (preset: (typeof funnyVotePresets)[number]) => {
+    setTitle(preset.title);
+    setDescription(preset.description);
+    setTone(preset.tone);
+    setIcon(preset.icon);
+  };
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -167,10 +218,10 @@ export default function VotesPage({
           <div>
             <p className="section-kicker">Bình chọn 9/8</p>
             <h1 className="max-w-4xl font-display text-5xl leading-[0.9] sm:text-8xl">
-              Bảng vinh danh vui của lớp mình.
+              Bảng vinh danh hơi lầy của lớp mình.
             </h1>
             <p className="mt-5 max-w-2xl text-sm leading-7 text-ink/66 sm:text-base">
-              Tạo hạng mục, vote cho một bạn, đổi vote nếu muốn. Mỗi hạng mục là một mảnh kỷ niệm nhỏ của lớp 9/8.
+              Tạo danh hiệu vui, vote cho một bạn, đổi vote nếu lỡ bấm nhầm. Mỗi hạng mục là một mảnh kỷ niệm vừa đáng yêu vừa hơi khó đỡ của lớp 9/8.
             </p>
           </div>
 
@@ -214,7 +265,7 @@ export default function VotesPage({
                 </button>
 
                 <div className="mt-4 rounded-[0.9rem] bg-paper/72 p-4 text-sm leading-6 text-ink/64">
-                  Bảng bình chọn đang hiển thị bên phải. Khi muốn thêm danh hiệu mới cho lớp, bấm nút tạo hạng mục ở trên.
+                  Bảng bình chọn nằm bên phải. Muốn thêm danh hiệu mới thì mở popup tạo hạng mục, chọn mẫu lầy hoặc tự viết tên riêng cho lớp.
                 </div>
                 {localError && <p className="mt-3 text-sm font-bold text-[#9d3b4b]">{localError}</p>}
               </>
@@ -264,7 +315,7 @@ export default function VotesPage({
                 <Sparkles className="mx-auto text-coffee" size={34} />
                 <h2 className="mt-3 font-display text-5xl">Chưa có hạng mục nào</h2>
                 <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-ink/60">
-                  Tạo hạng mục đầu tiên để lớp bắt đầu bình chọn những danh hiệu vui.
+                  Tạo hạng mục đầu tiên để lớp bắt đầu trao những danh hiệu vui mà nhìn lại vẫn bật cười.
                 </p>
               </div>
             </div>
@@ -286,9 +337,28 @@ export default function VotesPage({
               className="input-field"
               value={title}
               onChange={(event) => setTitle(event.target.value.slice(0, 80))}
-              placeholder="VD: Người ấm áp nhất lớp"
+              placeholder="VD: Thánh ngủ gật nhưng vẫn qua môn"
             />
           </label>
+
+          <div className="mt-3 rounded-[1rem] border border-coffee/10 bg-paper/78 p-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-xs font-black uppercase text-coffee/70">Gợi ý lầy lội</p>
+              <span className="text-[11px] font-bold text-ink/48">Bấm để điền nhanh</span>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {funnyVotePresets.map((preset) => (
+                <button
+                  key={preset.title}
+                  type="button"
+                  className="rounded-[0.85rem] bg-white/72 px-3 py-2 text-left text-xs font-black leading-5 text-ink shadow-sm transition hover:bg-white"
+                  onClick={() => applyPreset(preset)}
+                >
+                  {preset.title}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <label className="mt-3 block">
             <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Mô tả ngắn</span>
@@ -296,7 +366,7 @@ export default function VotesPage({
               className="input-field min-h-24 resize-none"
               value={description}
               onChange={(event) => setDescription(event.target.value.slice(0, 180))}
-              placeholder="Một dòng giải thích cho danh hiệu này..."
+              placeholder="Một dòng giải thích cho danh hiệu này, vui thôi nhưng vẫn dễ thương..."
             />
           </label>
 
