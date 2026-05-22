@@ -60,7 +60,7 @@ const VotesPage = lazy(() => import('./pages/VotesPage'));
 const MyMemoriesPage = lazy(() => import('./pages/MyMemoriesPage'));
 
 const appRoutes: AppRoute[] = ['landing', 'join', 'home', 'letters', 'future', 'remember', 'diary', 'photobook', 'people', 'votes', 'mine'];
-const MENU_HINT_STORAGE_VERSION = 'v2';
+const MENU_HINT_STORAGE_VERSION = 'v3';
 
 const menuHintStorageKey = (uid: string) => `memory98-menu-hint-seen:${MENU_HINT_STORAGE_VERSION}:${uid}`;
 
@@ -383,18 +383,15 @@ export default function App() {
   useEffect(() => {
     if (!menuHintVisible) return undefined;
 
-    const onDismiss = () => dismissMenuHint();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') dismissMenuHint();
     };
     const autoDismissTimer = window.setTimeout(dismissMenuHint, 2000);
 
-    window.addEventListener('pointerdown', onDismiss, { capture: true });
     window.addEventListener('keydown', onKeyDown);
 
     return () => {
       window.clearTimeout(autoDismissTimer);
-      window.removeEventListener('pointerdown', onDismiss, { capture: true });
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [dismissMenuHint, menuHintVisible]);
@@ -2278,7 +2275,7 @@ export default function App() {
                 </span>
                 <p>Khám phá thêm những tính năng mới mẻ</p>
                 <small>Chạm nút 3 gạch ở góc trên để mở menu.</small>
-                <span className="menu-hint-dismiss">Chạm vào màn hình để ẩn</span>
+                <span className="menu-hint-dismiss">Tự ẩn sau 2 giây</span>
               </div>
             </m.button>
           )}
