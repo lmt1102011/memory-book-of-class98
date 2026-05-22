@@ -383,6 +383,7 @@ export default function App() {
       setMemoriesLoading(false);
       setRemoteMemories([]);
       setRemoteComments([]);
+      setRemoteGuestbook([]);
       setFirebaseNotice('');
     }
 
@@ -511,11 +512,11 @@ export default function App() {
         });
     }
 
-    if (route === 'letters' || route === 'diary') {
+    if (route === 'letters' || route === 'diary' || (route === 'home' && profile)) {
       void import('./services/firebaseMemoryBook').then((service) => {
         if (!isActive) return;
 
-        if (route === 'letters') {
+        if (route === 'letters' || (route === 'home' && profile)) {
           unsubscribeGuestbook = service.subscribeGuestbook(
             (items) => {
               setRemoteGuestbook(items);
@@ -1678,6 +1679,7 @@ export default function App() {
       <Suspense fallback={<LoadingScreen label="Đang sắp xếp scrapbook" />}>
         <HomePage
           memories={allMemories}
+          guestbook={allGuestbook}
           commentsByMemory={commentsByMemory}
           firebaseNotice={firebaseNotice}
           isLoadingMemories={memoriesLoading}

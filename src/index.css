@@ -222,8 +222,21 @@
     box-shadow: 0 0 0 2px #fbf3e7;
   }
 
+  .notification-overlay {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
   .notification-panel {
+    max-height: min(90svh, 760px);
     overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    transform: translateZ(0);
+  }
+
+  @media (max-width: 639px) {
+    .notification-panel {
+      max-height: calc(100svh - env(safe-area-inset-top) - 0.75rem);
+    }
   }
 
   .app-header {

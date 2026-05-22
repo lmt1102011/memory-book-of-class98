@@ -571,7 +571,7 @@ export const subscribeGuestbook = (
   onNext: (entries: GuestbookEntry[]) => void,
   onError: (error: Error) => void,
 ) => {
-  const guestbookQuery = query(collection(db, GUESTBOOK_COLLECTION), orderBy('createdAt', 'desc'), limit(24));
+  const guestbookQuery = query(collection(db, GUESTBOOK_COLLECTION), orderBy('createdAt', 'desc'), limit(80));
   const load = async () => {
     try {
       const snapshot = await withFirebaseRetry(() => getDocs(guestbookQuery));
@@ -583,6 +583,42 @@ export const subscribeGuestbook = (
   void load();
   const interval = createVisiblePolling(load);
   return () => window.clearInterval(interval);
+};
+
+export const loadClassPosterData = async (profile: UserProfile) => {
+  const publicMemoriesQuery = query(collection(db, MEMORIES_COLLECTION), orderBy('createdAt', 'desc'));
+  const ownPrivateMemoriesQuery = query(collection(db, PRIVATE_MEMORIES_COLLECTION), where('uid', '==', profile.uid));
+  const taggedPrivateMemoriesQuery = query(
+    collection(db, PRIVATE_MEMORIES_COLLECTION),
+    where('visibleToUids', 'array-contains', profile.uid),
+  );
+  const guestbookQuery = query(collection(db, GUESTBOOK_COLLECTION), orderBy('createdAt', 'desc'));
+
+  const [publicSnapshot, ownPrivateSnapshot, taggedPrivateSnapshot, guestbookSnapshot] = await Promise.all([
+    withFirebaseRetry(() => getDocs(publicMemoriesQuery)),
+    withFirebaseRetry(() => getDocs(ownPrivateMemoriesQuery)),
+    withFirebaseRetry(() => getDocs(taggedPrivateMemoriesQuery)),
+    withFirebaseRetry(() => getDocs(guestbookQuery)),
+  ]);
+
+  const memoriesByKey = new Map<string, MemoryItem>();
+  publicSnapshot.docs.forEach((item) => {
+    const memory = memoryFromDoc(item.id, item.data(), MEMORIES_COLLECTION);
+    if (memory.imageUrl) memoriesByKey.set(`${MEMORIES_COLLECTION}:${item.id}`, memory);
+  });
+  [...ownPrivateSnapshot.docs, ...taggedPrivateSnapshot.docs].forEach((item) => {
+    const memory = memoryFromDoc(item.id, item.data(), PRIVATE_MEMORIES_COLLECTION);
+    if (memory.imageUrl) memoriesByKey.set(`${PRIVATE_MEMORIES_COLLECTION}:${item.id}`, memory);
+  });
+
+  return {
+    memories: Array.from(memoriesByKey.values()).sort(
+      (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+    ),
+    guestbook: guestbookSnapshot.docs
+      .map((item) => guestbookFromDoc(item.id, item.data()))
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()),
+  };
 };
 
 export const subscribeSecretDiaries = (

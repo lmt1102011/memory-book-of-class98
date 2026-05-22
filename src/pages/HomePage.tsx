@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
-import { Camera, Download, Filter, Heart, Lock, RotateCcw, Search, UserRound, Video, X } from 'lucide-react';
+import { Camera, Download, Filter, Heart, Lock, MessageCircle, RotateCcw, Search, UserRound, Video, X } from 'lucide-react';
 import FirebaseNotice from '../components/FirebaseNotice';
 import MemoryCard from '../components/MemoryCard';
 import { useDebounce } from '../hooks/useDebounce';
-import type { MemoryComment, MemoryItem, UserProfile } from '../types';
+import type { GuestbookEntry, MemoryComment, MemoryItem, UserProfile } from '../types';
 
 const EMPTY_COMMENTS: MemoryComment[] = [];
 
@@ -74,6 +74,7 @@ const wrapCanvasText = (
 
 interface HomePageProps {
   memories: MemoryItem[];
+  guestbook: GuestbookEntry[];
   commentsByMemory: Record<string, MemoryComment[]>;
   firebaseNotice: string;
   isLoadingMemories: boolean;
@@ -91,6 +92,7 @@ interface HomePageProps {
 
 export default function HomePage({
   memories,
+  guestbook,
   commentsByMemory,
   firebaseNotice,
   isLoadingMemories,
@@ -123,6 +125,7 @@ export default function HomePage({
   const [selectedVideoLoading, setSelectedVideoLoading] = useState(false);
   const [selectedVideoError, setSelectedVideoError] = useState('');
   const [isRecapDownloading, setIsRecapDownloading] = useState(false);
+  const [isWishesPosterDownloading, setIsWishesPosterDownloading] = useState(false);
 
   const debouncedName = useDebounce(nameQuery);
   const debouncedKeyword = useDebounce(keywordQuery);
@@ -384,6 +387,14 @@ export default function HomePage({
     };
   }, [commentsByMemory, memories]);
 
+  const classPosterStats = useMemo(() => {
+    const photoCount = memories.filter((memory) => memory.imageUrl).length;
+    const letterCount = guestbook.filter((entry) => entry.message.trim()).length;
+    const anonymousCount = guestbook.filter((entry) => entry.anonymous).length;
+
+    return { photoCount, letterCount, anonymousCount };
+  }, [guestbook, memories]);
+
   const handleDownloadRecap = useCallback(async () => {
     setIsRecapDownloading(true);
 
@@ -517,6 +528,30 @@ export default function HomePage({
       setIsRecapDownloading(false);
     }
   }, [memoryRecap]);
+
+  const handleDownloadClassWishesPoster = useCallback(async () => {
+    setIsWishesPosterDownloading(true);
+
+    try {
+      let posterMemories = memories;
+      let posterGuestbook = guestbook;
+      if (profile) {
+        try {
+          const service = await import('../services/firebaseMemoryBook');
+          const posterData = await service.loadClassPosterData(profile);
+          posterMemories = posterData.memories.length ? posterData.memories : posterMemories;
+          posterGuestbook = posterData.guestbook.length ? posterData.guestbook : posterGuestbook;
+        } catch {
+          // If the full poster fetch is blocked, still create the poster from the data already loaded in the feed.
+        }
+      }
+
+      const { downloadClassWishesPoster } = await import('../utils/classWishesPoster');
+      await downloadClassWishesPoster({ memories: posterMemories, guestbook: posterGuestbook });
+    } finally {
+      setIsWishesPosterDownloading(false);
+    }
+  }, [guestbook, memories, profile]);
 
   const filteredMemories = useMemo(() => {
     const name = debouncedName.trim().toLowerCase();
@@ -681,15 +716,32 @@ export default function HomePage({
                   />
                 </div>
 
-                <button
-                  type="button"
-                  className="primary-button mt-5 w-full justify-center sm:w-auto"
-                  onClick={() => void handleDownloadRecap()}
-                  disabled={isRecapDownloading}
-                >
-                  <Download size={17} />
-                  {isRecapDownloading ? 'Đang tạo poster...' : 'Tải poster recap'}
-                </button>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    className="primary-button w-full justify-center"
+                    onClick={() => void handleDownloadRecap()}
+                    disabled={isRecapDownloading || isWishesPosterDownloading}
+                  >
+                    <Download size={17} />
+                    {isRecapDownloading ? 'Đang tạo poster...' : 'Tải poster recap'}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button w-full justify-center bg-white/76"
+                    onClick={() => void handleDownloadClassWishesPoster()}
+                    disabled={isRecapDownloading || isWishesPosterDownloading || (!classPosterStats.photoCount && !classPosterStats.letterCount)}
+                  >
+                    <MessageCircle size={17} />
+                    {isWishesPosterDownloading ? 'Đang ghép poster...' : 'Poster lời chúc + ảnh'}
+                  </button>
+                </div>
+
+                <div className="mt-4 grid gap-2 rounded-[1rem] border border-coffee/8 bg-white/58 p-3 sm:grid-cols-3">
+                  <RecapMiniMetric value={classPosterStats.photoCount} label="ảnh trong poster" />
+                  <RecapMiniMetric value={classPosterStats.letterCount} label="lời chúc" />
+                  <RecapMiniMetric value={classPosterStats.anonymousCount} label="ẩn danh" />
+                </div>
               </div>
 
               <aside className="relative border-t border-coffee/10 bg-[#f7e7ca]/45 p-5 sm:p-7 lg:border-l lg:border-t-0">
@@ -719,7 +771,7 @@ export default function HomePage({
                   </div>
 
                   <p className="mt-5 rounded-[1rem] bg-paper/72 px-4 py-3 text-center text-xs font-bold leading-5 text-ink/62">
-                    Poster tải về sẽ dùng ảnh nổi bật nhất làm điểm nhấn và giữ đúng tinh thần scrapbook của lớp.
+                    Poster lời chúc sẽ ghép toàn bộ ảnh đang có trong feed cùng các mảnh thư lớp thành một bản scrapbook để tải về.
                   </p>
                 </div>
               </aside>
@@ -1051,6 +1103,15 @@ function RecapStat({ value, label, featured = false }: { value: number; label: s
     >
       <strong className="block font-display text-4xl leading-none">{value}</strong>
       <span className="mt-1 block text-[11px] font-black uppercase text-coffee/62">{label}</span>
+    </div>
+  );
+}
+
+function RecapMiniMetric({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="rounded-[0.8rem] bg-paper/72 px-3 py-3 text-center">
+      <strong className="block font-display text-3xl leading-none text-ink">{value}</strong>
+      <span className="mt-1 block text-[10px] font-black uppercase text-coffee/62">{label}</span>
     </div>
   );
 }
