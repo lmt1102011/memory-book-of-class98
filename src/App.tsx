@@ -23,7 +23,7 @@ import { useMobilePerformanceMode } from './hooks/useMobilePerformanceMode';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion';
 import LandingPage from './pages/LandingPage';
-import { shouldSkipIntroOnInstalledLaunch } from './pwaInstallPrompt';
+import { detectInstalledMemoryApp, shouldSkipIntroOnInstalledLaunch } from './pwaInstallPrompt';
 import type {
   AppRoute,
   ClassmateProfile,
@@ -54,32 +54,14 @@ const PeoplePage = lazy(() => import('./pages/PeoplePage'));
 const VotesPage = lazy(() => import('./pages/VotesPage'));
 const MyMemoriesPage = lazy(() => import('./pages/MyMemoriesPage'));
 
-const BROWSER_ROUTE_SESSION_KEY = 'memory98-browser-route-session';
-
-const hasBrowserRouteSession = () => {
-  try {
-    return window.sessionStorage.getItem(BROWSER_ROUTE_SESSION_KEY) === 'active';
-  } catch {
-    return false;
-  }
-};
-
-const markBrowserRouteSession = () => {
-  try {
-    window.sessionStorage.setItem(BROWSER_ROUTE_SESSION_KEY, 'active');
-  } catch {
-    // Session storage can be blocked in private browsers; routing still works in memory.
-  }
-};
-
-const routeFromHash = (): AppRoute => {
+const routeFromHash = (respectBrowserHash = false): AppRoute => {
   const route = window.location.hash.replace('#/', '') as AppRoute;
   const isKnownRoute = ['landing', 'join', 'home', 'letters', 'remember', 'diary', 'photobook', 'people', 'votes', 'mine'].includes(route);
   const skipIntro = shouldSkipIntroOnInstalledLaunch();
 
   if (!isKnownRoute) return skipIntro ? 'home' : 'landing';
   if (route === 'landing' && skipIntro) return 'home';
-  if (!skipIntro && route !== 'landing' && !hasBrowserRouteSession()) return 'landing';
+  if (!skipIntro && route !== 'landing' && !respectBrowserHash) return 'landing';
 
   return route;
 };
@@ -165,7 +147,7 @@ export default function App() {
   const reduceHeavyMotion = prefersReducedMotion || mobilePerformanceMode;
 
   useEffect(() => {
-    const onPopState = () => setRoute(routeFromHash());
+    const onPopState = () => setRoute(routeFromHash(true));
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
@@ -175,6 +157,22 @@ export default function App() {
 
     setRoute('home');
     window.history.replaceState(null, '', '#/home');
+  }, [route]);
+
+  useEffect(() => {
+    if (route !== 'landing' || shouldSkipIntroOnInstalledLaunch()) return undefined;
+
+    let isActive = true;
+    void detectInstalledMemoryApp().then((isInstalled) => {
+      if (!isActive || !isInstalled) return;
+
+      setRoute('home');
+      window.history.replaceState(null, '', '#/home');
+    });
+
+    return () => {
+      isActive = false;
+    };
   }, [route]);
 
   useEffect(() => {
@@ -521,7 +519,6 @@ export default function App() {
     (nextRoute: AppRoute) => {
       const scrollBehavior: ScrollBehavior = reduceHeavyMotion ? 'auto' : 'smooth';
 
-      markBrowserRouteSession();
       setFirebaseNotice('');
       setMenuOpen(false);
       setOpenNavGroup(null);
@@ -1666,7 +1663,7 @@ export default function App() {
         </AnimatePresence>
 
         {bootSplashDone && route !== 'landing' && (
-          <header className="fixed left-0 right-0 top-0 z-40 border-b border-coffee/10 bg-[#fbf3e7] shadow-[0_8px_28px_rgba(53,41,31,0.08)]">
+          <header className="fixed left-0 right-0 top-0 z-[70] border-b border-coffee/10 bg-[#fbf3e7] shadow-[0_8px_28px_rgba(53,41,31,0.08)]">
             <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
               <button
                 className="flex items-center gap-2 rounded-full px-2 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coffee"
@@ -1832,7 +1829,7 @@ export default function App() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={reduceHeavyMotion ? undefined : { opacity: 0, y: -10 }}
                   transition={{ duration: reduceHeavyMotion ? 0 : 0.16 }}
-                  className="max-h-[calc(100svh-4rem)] overflow-y-auto border-t border-coffee/15 bg-[#fbf3e7] px-4 py-3 shadow-[0_18px_42px_rgba(53,41,31,0.18)] lg:hidden"
+                  className="fixed inset-x-0 bottom-0 top-16 z-[75] overflow-y-auto border-t border-coffee/15 bg-[#fbf3e7] px-4 py-3 shadow-[0_18px_42px_rgba(53,41,31,0.18)] lg:hidden"
                 >
                   <div className="mx-auto grid max-w-2xl gap-3 pb-[max(0.65rem,env(safe-area-inset-bottom))]">
                     <div className="rounded-[1.1rem] border border-coffee/12 bg-[#fffaf1] p-3 shadow-paper">

@@ -14,6 +14,14 @@ export interface BeforeInstallPromptEvent extends Event {
 }
 
 type PromptListener = (prompt: BeforeInstallPromptEvent | null) => void;
+type InstalledRelatedApp = {
+  id?: string;
+  platform?: string;
+  url?: string;
+};
+type NavigatorWithRelatedApps = Navigator & {
+  getInstalledRelatedApps?: () => Promise<InstalledRelatedApp[]>;
+};
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 let isCaptureStarted = false;
@@ -59,6 +67,24 @@ export const shouldSkipIntroOnInstalledLaunch = () => {
   if (typeof window === 'undefined') return false;
 
   return isStandaloneMode();
+};
+
+export const detectInstalledMemoryApp = async () => {
+  if (typeof window === 'undefined') return false;
+  if (isStandaloneMode()) return true;
+
+  const navigatorWithRelatedApps = window.navigator as NavigatorWithRelatedApps;
+  if (!navigatorWithRelatedApps.getInstalledRelatedApps) return false;
+
+  try {
+    const apps = await navigatorWithRelatedApps.getInstalledRelatedApps();
+    return apps.some((app) => {
+      const source = `${app.platform || ''} ${app.id || ''} ${app.url || ''}`.toLowerCase();
+      return source.includes('webapp') || source.includes('memory98') || source.includes('memory-book-of-class98');
+    });
+  } catch {
+    return false;
+  }
 };
 
 export const detectInstallPlatform = (): InstallPlatform => {
