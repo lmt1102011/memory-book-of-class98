@@ -352,6 +352,7 @@ service cloud.firestore {
     function validStudentCreate(nameKey) {
       return request.auth != null
         && request.resource.data.uid == request.auth.uid
+        && request.auth.token.email == nameKey + '@memorybook-of-class98.firebaseapp.com'
         && request.resource.data.nameKey == nameKey
         && request.resource.data.className == '9/8'
         && (
@@ -362,6 +363,11 @@ service cloud.firestore {
           !request.resource.data.keys().hasAny(['deleted'])
           || request.resource.data.deleted == false
         );
+    }
+
+    function authMatchesStudentNameKey(nameKey) {
+      return request.auth != null
+        && request.auth.token.email == nameKey + '@memorybook-of-class98.firebaseapp.com';
     }
 
     function studentIsDisabled() {
@@ -407,13 +413,16 @@ service cloud.firestore {
         ]);
     }
 
-    function validStudentDeletedRestore() {
+    function validStudentDeletedRestore(nameKey) {
       return request.auth != null
-        && resource.data.uid == request.auth.uid
+        && (
+          resource.data.uid == request.auth.uid
+          || authMatchesStudentNameKey(nameKey)
+        )
         && !studentIsDisabled()
         && studentIsDeleted()
-        && request.resource.data.uid == resource.data.uid
-        && request.resource.data.nameKey == resource.data.nameKey
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.nameKey == nameKey
         && request.resource.data.className == '9/8'
         && request.resource.data.disabled == false
         && request.resource.data.deleted == false
@@ -431,9 +440,12 @@ service cloud.firestore {
 
     function validStudentSelfRepair(nameKey) {
       return request.auth != null
-        && resource.data.uid == request.auth.uid
+        && (
+          resource.data.uid == request.auth.uid
+          || authMatchesStudentNameKey(nameKey)
+        )
         && !studentIsDisabled()
-        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.uid == request.auth.uid
         && request.resource.data.nameKey == nameKey
         && request.resource.data.className == '9/8'
         && request.resource.data.disabled == false
@@ -474,7 +486,7 @@ service cloud.firestore {
       allow read: if true;
       allow create: if validStudentCreate(nameKey);
       allow update: if validStudentOwnerUpdate(nameKey)
-        || validStudentDeletedRestore()
+        || validStudentDeletedRestore(nameKey)
         || validStudentSelfRepair(nameKey)
         || isManagerWrite();
       allow delete: if isManagerMarkedResource();
