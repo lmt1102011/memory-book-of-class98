@@ -25,6 +25,21 @@ interface PeoplePageProps {
   onClearFocusedProfile: () => void;
 }
 
+type PersonStats = {
+  memories: MemoryItem[];
+  hearts: number;
+  comments: number;
+  videos: number;
+};
+
+type YouthBadge = {
+  id: string;
+  label: string;
+  description: string;
+  icon: 'images' | 'heart' | 'message' | 'video' | 'profile' | 'album';
+  className: string;
+};
+
 const defaultTags = ['ấm áp', 'hài hước', 'đáng nhớ'];
 
 const loadImage = (src: string) =>
@@ -67,6 +82,90 @@ const memoryBelongsTo = (memory: MemoryItem, person: ClassmateProfile) => {
   if (memory.nameKey && person.nameKey) return memory.nameKey === person.nameKey;
   if (memory.uid && person.uid) return memory.uid === person.uid;
   return memory.name.trim().toLowerCase() === person.name.trim().toLowerCase();
+};
+
+const emptyPersonStats: PersonStats = {
+  memories: [],
+  hearts: 0,
+  comments: 0,
+  videos: 0,
+};
+
+const getYouthBadges = (
+  person: ClassmateProfile,
+  stats: PersonStats,
+  classMax: { memories: number; hearts: number; comments: number },
+) => {
+  const badges: YouthBadge[] = [];
+  const hasCompleteProfile = Boolean(
+    person.avatarDataUrl &&
+      person.nickname?.trim() &&
+      person.quote?.trim() &&
+      person.classMessage?.trim() &&
+      person.personalityTags.length >= 3,
+  );
+
+  if (stats.memories.length > 0 && stats.memories.length === classMax.memories) {
+    badges.push({
+      id: 'memory-keeper',
+      label: 'Người giữ ký ức',
+      description: `${stats.memories.length} ảnh/video đã góp vào album lớp.`,
+      icon: 'images',
+      className: 'border-skySoft/45 bg-skySoft/22 text-chalk',
+    });
+  }
+
+  if (stats.hearts > 0 && stats.hearts === classMax.hearts) {
+    badges.push({
+      id: 'most-loved',
+      label: 'Được yêu thương nhất',
+      description: `${stats.hearts} lượt tim từ những kỷ niệm đã đăng.`,
+      icon: 'heart',
+      className: 'border-blush/55 bg-blush/28 text-coffee',
+    });
+  }
+
+  if (stats.comments > 0 && stats.comments === classMax.comments) {
+    badges.push({
+      id: 'story-spark',
+      label: 'Gợi nhiều lời nhắn',
+      description: `${stats.comments} bình luận quanh album của bạn này.`,
+      icon: 'message',
+      className: 'border-coffee/18 bg-[#f4dfbf]/55 text-coffee',
+    });
+  }
+
+  if (stats.videos > 0) {
+    badges.push({
+      id: 'video-moment',
+      label: 'Có video thanh xuân',
+      description: `${stats.videos} video ngắn lưu lại khoảnh khắc lớp 9/8.`,
+      icon: 'video',
+      className: 'border-ink/10 bg-ink/10 text-ink',
+    });
+  }
+
+  if (stats.memories.length >= 3) {
+    badges.push({
+      id: 'album-builder',
+      label: 'Album có hồn',
+      description: 'Album riêng đã đủ đầy để xem lại như một trang kỷ yếu nhỏ.',
+      icon: 'album',
+      className: 'border-white/70 bg-paper/80 text-coffee',
+    });
+  }
+
+  if (hasCompleteProfile) {
+    badges.push({
+      id: 'profile-polished',
+      label: 'Hồ sơ chỉn chu',
+      description: 'Đã có ảnh đại diện, biệt danh, câu nói riêng và lời gửi lớp.',
+      icon: 'profile',
+      className: 'border-chalk/20 bg-chalk/10 text-chalk',
+    });
+  }
+
+  return badges.slice(0, 5);
 };
 
 export default function PeoplePage({
@@ -134,7 +233,7 @@ export default function PeoplePage({
   }, [selfProfile]);
 
   const statsByKey = useMemo(() => {
-    const stats: Record<string, { memories: MemoryItem[]; hearts: number; comments: number }> = {};
+    const stats: Record<string, PersonStats> = {};
 
     sortedClassmates.forEach((person) => {
       const personMemories = memories.filter((memory) => memoryBelongsTo(memory, person));
@@ -142,11 +241,30 @@ export default function PeoplePage({
         memories: personMemories,
         hearts: personMemories.reduce((sum, memory) => sum + memory.reactions, 0),
         comments: personMemories.reduce((sum, memory) => sum + (commentsByMemory[memory.id]?.length || 0), 0),
+        videos: personMemories.filter((memory) => memory.mediaType === 'video').length,
       };
     });
 
     return stats;
   }, [commentsByMemory, memories, sortedClassmates]);
+
+  const badgeClassMax = useMemo(() => {
+    const stats = Object.values(statsByKey);
+    return {
+      memories: Math.max(0, ...stats.map((item) => item.memories.length)),
+      hearts: Math.max(0, ...stats.map((item) => item.hearts)),
+      comments: Math.max(0, ...stats.map((item) => item.comments)),
+    };
+  }, [statsByKey]);
+
+  const badgesByKey = useMemo(() => {
+    const badges: Record<string, YouthBadge[]> = {};
+    sortedClassmates.forEach((person) => {
+      const key = getPersonKey(person);
+      badges[key] = getYouthBadges(person, statsByKey[key] || emptyPersonStats, badgeClassMax);
+    });
+    return badges;
+  }, [badgeClassMax, sortedClassmates, statsByKey]);
 
   const filteredClassmates = useMemo(() => {
     const classmatesWithoutSelf = sortedClassmates.filter((person) => person.nameKey !== profile?.nameKey);
@@ -166,6 +284,7 @@ export default function PeoplePage({
       memories: ownMemories,
       hearts: ownMemories.reduce((sum, memory) => sum + memory.reactions, 0),
       comments: ownMemories.reduce((sum, memory) => sum + (ownCommentsByMemory[memory.id]?.length || 0), 0),
+      videos: ownMemories.filter((memory) => memory.mediaType === 'video').length,
     }),
     [ownCommentsByMemory, ownMemories],
   );
@@ -174,6 +293,8 @@ export default function PeoplePage({
       ? selectedOwnStats
       : statsByKey[getPersonKey(selectedPerson)]
     : undefined;
+  const selectedBadges = selectedPerson ? badgesByKey[getPersonKey(selectedPerson)] || [] : [];
+  const selfBadges = selfProfile ? badgesByKey[getPersonKey(selfProfile)] || [] : [];
   const totalMemories = memories.length;
   const totalHearts = memories.reduce((sum, memory) => sum + memory.reactions, 0);
 
@@ -279,6 +400,13 @@ export default function PeoplePage({
                       <p className="mt-1 truncate text-xs font-bold text-coffee/68">{nickname || 'Chưa có biệt danh'}</p>
                     </div>
                   </div>
+                  {selfBadges.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {selfBadges.slice(0, 2).map((badge) => (
+                        <YouthBadgePill key={badge.id} badge={badge} compact />
+                      ))}
+                    </div>
+                  )}
                   <button
                     type="button"
                     className="secondary-button mt-4 w-full justify-center"
@@ -330,28 +458,39 @@ export default function PeoplePage({
           ) : (
             <div className="grid gap-5">
               <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-                {filteredClassmates.map((person) => (
-                  <article
-                    key={getPersonKey(person)}
-                    className="min-w-0 rounded-[1rem] border border-white/65 bg-white/54 p-4 text-left text-ink shadow-paper transition hover:bg-white/72"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Avatar person={person} />
-                      <div className="min-w-0">
-                        <h3 className="truncate text-base font-black">{person.name}</h3>
-                        <p className="truncate text-xs font-bold text-coffee/70">{person.nickname || 'Bạn lớp 9/8'}</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="secondary-button mt-4 min-h-10 w-full justify-center text-xs"
-                      onClick={() => setSelectedNameKey(person.nameKey)}
+                {filteredClassmates.map((person) => {
+                  const personBadges = badgesByKey[getPersonKey(person)] || [];
+
+                  return (
+                    <article
+                      key={getPersonKey(person)}
+                      className="min-w-0 rounded-[1rem] border border-white/65 bg-white/54 p-4 text-left text-ink shadow-paper transition hover:bg-white/72"
                     >
-                      <UserRound size={15} />
-                      Xem hồ sơ
-                    </button>
-                  </article>
-                ))}
+                      <div className="flex items-center gap-3">
+                        <Avatar person={person} />
+                        <div className="min-w-0">
+                          <h3 className="truncate text-base font-black">{person.name}</h3>
+                          <p className="truncate text-xs font-bold text-coffee/70">{person.nickname || 'Bạn lớp 9/8'}</p>
+                        </div>
+                      </div>
+                      {personBadges.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {personBadges.slice(0, 2).map((badge) => (
+                            <YouthBadgePill key={badge.id} badge={badge} compact />
+                          ))}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        className="secondary-button mt-4 min-h-10 w-full justify-center text-xs"
+                        onClick={() => setSelectedNameKey(person.nameKey)}
+                      >
+                        <UserRound size={15} />
+                        Xem hồ sơ
+                      </button>
+                    </article>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -373,6 +512,7 @@ export default function PeoplePage({
           person={selectedPerson}
           stats={selectedStats}
           isSelf={selectedIsSelf}
+          badges={selectedBadges}
           isOwnMemoriesLoading={isOwnMemoriesLoading}
           onPhotobook={onPhotobook}
           onDeleteMemory={onDeleteMemory}
@@ -531,6 +671,42 @@ function Avatar({ person, active = false }: { person: ClassmateProfile; active?:
   );
 }
 
+function YouthBadgePill({ badge, compact = false }: { badge: YouthBadge; compact?: boolean }) {
+  const Icon =
+    badge.icon === 'heart'
+      ? Heart
+      : badge.icon === 'message'
+        ? MessageCircle
+        : badge.icon === 'video'
+          ? Video
+          : badge.icon === 'profile'
+            ? UserRound
+            : badge.icon === 'album'
+              ? BadgeCheck
+              : Images;
+
+  if (compact) {
+    return (
+      <span className={`inline-flex min-w-0 items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-black ${badge.className}`}>
+        <Icon size={12} className="shrink-0" />
+        <span className="truncate">{badge.label}</span>
+      </span>
+    );
+  }
+
+  return (
+    <div className={`flex min-w-0 items-start gap-2 rounded-[0.85rem] border px-3 py-2.5 ${badge.className}`}>
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/58">
+        <Icon size={15} />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs font-black uppercase leading-4">{badge.label}</p>
+        <p className="mt-1 text-xs leading-5 opacity-75">{badge.description}</p>
+      </div>
+    </div>
+  );
+}
+
 const safeFilePart = (value: string) =>
   value
     .normalize('NFD')
@@ -545,6 +721,7 @@ const getMemoryDownloadName = (memory: MemoryItem) => `ky-uc-98-${safeFilePart(m
 function PersonDetail({
   person,
   stats,
+  badges,
   isSelf = false,
   isOwnMemoriesLoading = false,
   onPhotobook,
@@ -552,7 +729,8 @@ function PersonDetail({
   onDownloadMemory,
 }: {
   person: ClassmateProfile | null;
-  stats?: { memories: MemoryItem[]; hearts: number; comments: number };
+  stats?: PersonStats;
+  badges: YouthBadge[];
   isSelf?: boolean;
   isOwnMemoriesLoading?: boolean;
   onPhotobook: () => void;
@@ -563,7 +741,7 @@ function PersonDetail({
     return null;
   }
 
-  const personStats = stats || { memories: [], hearts: 0, comments: 0 };
+  const personStats = stats || emptyPersonStats;
 
   return (
     <div className="rounded-[1rem] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.08)]">
@@ -587,6 +765,30 @@ function PersonDetail({
             {tag}
           </span>
         ))}
+      </div>
+
+      <div className="mt-5 rounded-[1rem] border border-coffee/10 bg-paper/58 p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-sm font-black uppercase text-coffee/72">Huy hiệu thanh xuân</h3>
+            <p className="mt-1 text-xs leading-5 text-ink/55">
+              Huy hiệu tự cập nhật theo ảnh/video, tim, bình luận và mức độ hoàn thiện hồ sơ.
+            </p>
+          </div>
+          <BadgeCheck className="shrink-0 text-coffee/62" size={20} />
+        </div>
+
+        {badges.length ? (
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {badges.map((badge) => (
+              <YouthBadgePill key={badge.id} badge={badge} />
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 rounded-[0.85rem] bg-white/58 px-3 py-3 text-sm font-bold text-ink/62">
+            Chưa có huy hiệu nào. Khi bạn này hoàn thiện hồ sơ hoặc đăng thêm kỷ niệm, huy hiệu sẽ xuất hiện ở đây.
+          </p>
+        )}
       </div>
 
       <p className="mt-4 text-sm leading-7 text-ink/68">
