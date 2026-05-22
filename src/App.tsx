@@ -186,14 +186,10 @@ export default function App() {
   const { isOnline, justRestored } = useNetworkStatus();
   const prefersReducedMotion = usePrefersReducedMotion();
   const reduceHeavyMotion = prefersReducedMotion || mobilePerformanceMode;
-  const ownFutureMessages = useMemo(
-    () => (profile ? timeCapsules.filter((entry) => entry.uid === profile.uid) : []),
-    [profile, timeCapsules],
-  );
   const futureUnlockTime = useMemo(() => new Date(timeCapsuleSettings.unlockAt).getTime(), [timeCapsuleSettings.unlockAt]);
   const futureMessagesUnlocked = Number.isFinite(futureUnlockTime) && Date.now() >= futureUnlockTime;
   const futurePopupStorageKey = profile
-    ? `memory98-future-popup:${profile.uid}:${timeCapsuleSettings.unlockAt}:${ownFutureMessages.length}:${ownFutureMessages[0]?.id || 'none'}`
+    ? `memory98-future-popup:${profile.uid}:${timeCapsuleSettings.unlockAt}:${timeCapsules.length}:${timeCapsules[0]?.id || 'none'}`
     : '';
 
   useEffect(() => {
@@ -460,7 +456,7 @@ export default function App() {
   }, [bootSplashDone, profile]);
 
   useEffect(() => {
-    if (!bootSplashDone || !profile || !futureMessagesUnlocked || !ownFutureMessages.length || !futurePopupStorageKey) {
+    if (!bootSplashDone || !profile || !futureMessagesUnlocked || !timeCapsules.length || !futurePopupStorageKey) {
       return undefined;
     }
     if (window.sessionStorage.getItem(futurePopupStorageKey)) return undefined;
@@ -468,7 +464,7 @@ export default function App() {
     window.sessionStorage.setItem(futurePopupStorageKey, '1');
     const timer = window.setTimeout(() => setFutureMessagePopupOpen(true), mobilePerformanceMode ? 250 : 650);
     return () => window.clearTimeout(timer);
-  }, [bootSplashDone, futureMessagesUnlocked, futurePopupStorageKey, mobilePerformanceMode, ownFutureMessages.length, profile?.uid]);
+  }, [bootSplashDone, futureMessagesUnlocked, futurePopupStorageKey, mobilePerformanceMode, profile?.uid, timeCapsules.length]);
 
   useEffect(() => {
     if (route === 'landing' || route === 'join') return undefined;
@@ -2150,10 +2146,10 @@ export default function App() {
         )}
         {bootSplashDone && (
           <AnimatePresence>
-            {futureMessagePopupOpen && futureMessagesUnlocked && ownFutureMessages.length > 0 && (
+            {futureMessagePopupOpen && futureMessagesUnlocked && timeCapsules.length > 0 && (
               <FutureMessagePopup
                 isOpen={futureMessagePopupOpen}
-                entries={ownFutureMessages}
+                entries={timeCapsules}
                 unlockAt={timeCapsuleSettings.unlockAt}
                 onClose={() => setFutureMessagePopupOpen(false)}
               />

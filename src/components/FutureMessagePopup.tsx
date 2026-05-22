@@ -94,7 +94,7 @@ export default function FutureMessagePopup({ isOpen, entries, unlockAt, onClose 
                 Đến lúc mở lời nhắn rồi
               </h2>
               <p className="mt-4 max-w-lg text-sm leading-7 text-ink/66 sm:text-base">
-                Bạn có {entries.length} lời nhắn từng gửi cho tương lai. Bấm mở phong bì để đọc lại những điều của chính mình.
+                Lớp mình có {entries.length} lời nhắn từng gửi cho tương lai. Bấm mở phong bì để đọc lại tất cả điều mọi người đã cất giữ.
               </p>
               <p className="mt-3 rounded-full bg-white/70 px-4 py-2 text-xs font-black uppercase text-coffee/62 shadow-paper">
                 Mở lúc {formatVietnamDate(unlockAt)}
@@ -110,9 +110,9 @@ export default function FutureMessagePopup({ isOpen, entries, unlockAt, onClose 
           <div className="grid max-h-[92svh] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
             <div className="border-b border-coffee/10 bg-[#2f2118] px-5 py-5 pr-16 text-paper sm:px-7">
               <p className="text-[11px] font-black uppercase tracking-[0.16em] text-paper/48">Gửi cho tương lai</p>
-              <h2 className="mt-1 font-display text-5xl leading-none sm:text-6xl">Những lời nhắn của bạn</h2>
+              <h2 className="mt-1 font-display text-5xl leading-none sm:text-6xl">Những lời nhắn của lớp</h2>
               <p className="mt-2 text-sm leading-6 text-paper/66">
-                Chỉ bạn đang đăng nhập mới thấy phần này trong app.
+                Tất cả lời nhắn được mở cùng lúc khi đến giờ.
               </p>
             </div>
 
@@ -127,7 +127,7 @@ export default function FutureMessagePopup({ isOpen, entries, unlockAt, onClose 
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-hand text-3xl font-bold leading-none text-coffee">
-                          Lời nhắn #{entries.length - index}
+                          {entry.name || `Lời nhắn #${entries.length - index}`}
                         </p>
                         <time className="mt-1 block text-[11px] font-black uppercase text-ink/42">
                           Đã gửi {formatVietnamDate(entry.createdAt)}

@@ -100,7 +100,7 @@ export default function FutureMessagesPage({
                   Một lá thư nhỏ gửi cho chính mình sau này
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-7 text-paper/72 sm:text-base">
-                  Viết lại điều bạn muốn nhắn với bản thân trong tương lai. Trước giờ mở, nơi này chỉ hiện số lời nhắn đã gửi; đến giờ, phong bì riêng sẽ hiện khi bạn vào app.
+                  Viết lại điều bạn muốn nhắn với bản thân trong tương lai. Trước giờ mở, nơi này chỉ hiện số lời nhắn đã gửi; đến giờ, phong bì lớp sẽ mở ra tất cả lời nhắn của mọi người.
                 </p>
 
                 <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -132,14 +132,14 @@ export default function FutureMessagesPage({
                     <Send size={17} />
                     Gửi cho tương lai
                   </button>
-                  {isUnlocked && ownMessages.length > 0 && (
+                  {isUnlocked && timeCapsules.length > 0 && (
                     <button
                       type="button"
                       className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white/12 px-5 py-3 text-sm font-black text-paper shadow-paper ring-1 ring-paper/18 transition hover:bg-white/18 sm:w-auto"
                       onClick={onOpenFutureMessages}
                     >
                       <Sparkles size={17} />
-                      Mở lời nhắn của tôi
+                      Mở phong bì lớp
                     </button>
                   )}
                 </div>
@@ -158,7 +158,7 @@ export default function FutureMessagesPage({
               </h2>
               <p className="mt-3 text-sm leading-7 text-ink/64">
                 {isUnlocked
-                  ? 'Khi bạn vào app, một phong bì sẽ hiện lên. Bấm mở để đọc lại những điều bạn từng gửi cho tương lai.'
+                  ? 'Khi bạn vào app, một phong bì sẽ hiện lên. Bấm mở để đọc tất cả lời nhắn mà lớp đã gửi cho tương lai.'
                   : 'Không hiện phong bì, không hiện nội dung trước giờ mở. Mọi thứ được cất lại để khoảnh khắc mở thư thật đáng nhớ.'}
               </p>
 
@@ -169,7 +169,7 @@ export default function FutureMessagesPage({
               </div>
 
               <p className="mt-4 rounded-[1rem] bg-paper/72 px-4 py-3 text-xs font-bold leading-5 text-ink/58">
-                Trước giờ mở chỉ hiện số lượng. Sau giờ mở, mỗi bạn chỉ đọc được popup lời nhắn của chính mình.
+                Trước giờ mở chỉ hiện số lượng. Sau giờ mở, phong bì sẽ mở toàn bộ lời nhắn của lớp.
               </p>
             </aside>
           </div>
