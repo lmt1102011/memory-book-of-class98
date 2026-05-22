@@ -27,12 +27,28 @@ const toneClass = {
   chalk: 'from-chalk/20 to-paper',
 };
 
-const commentReactionOptions: Array<{ id: CommentReactionId; label: string; icon: string; tone: string }> = [
-  { id: 'haha', label: 'Haha', icon: '😂', tone: 'bg-[#fff1bd] text-coffee' },
-  { id: 'love', label: 'Thương', icon: '💗', tone: 'bg-blush/55 text-roseDust' },
-  { id: 'miss', label: 'Nhớ', icon: '🥹', tone: 'bg-skySoft/40 text-chalk' },
-  { id: 'wow', label: 'Wow', icon: '😮', tone: 'bg-[#f4dfbf]/75 text-coffee' },
+const googleEmojiBaseUrl = 'https://cdn.jsdelivr.net/gh/googlefonts/noto-emoji@main/svg';
+
+const commentReactionOptions: Array<{ id: CommentReactionId; label: string; iconSrc: string; tone: string }> = [
+  { id: 'haha', label: 'Haha', iconSrc: `${googleEmojiBaseUrl}/emoji_u1f602.svg`, tone: 'bg-[#fff1bd] text-coffee' },
+  { id: 'love', label: 'Thương', iconSrc: `${googleEmojiBaseUrl}/emoji_u1f497.svg`, tone: 'bg-blush/55 text-roseDust' },
+  { id: 'miss', label: 'Nhớ', iconSrc: `${googleEmojiBaseUrl}/emoji_u1f979.svg`, tone: 'bg-skySoft/40 text-chalk' },
+  { id: 'wow', label: 'Wow', iconSrc: `${googleEmojiBaseUrl}/emoji_u1f62e.svg`, tone: 'bg-[#f4dfbf]/75 text-coffee' },
 ];
+
+function ReactionIcon({ src, className }: { src: string; className: string }) {
+  return (
+    <img
+      src={src}
+      alt=""
+      aria-hidden="true"
+      loading="lazy"
+      decoding="async"
+      draggable={false}
+      className={`shrink-0 select-none ${className}`}
+    />
+  );
+}
 
 function MemoryCard({
   memory,
@@ -246,10 +262,10 @@ function MemoryCard({
                         </button>
                       )}
                     </div>
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                        {reactionTotal > 0 ? (
-                          commentReactionOptions
+                    <div className={`mt-2 flex items-center gap-2 ${reactionTotal > 0 ? 'justify-between' : 'justify-end'}`}>
+                      {reactionTotal > 0 && (
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                          {commentReactionOptions
                             .filter((option) => (comment.reactionCounts?.[option.id] || 0) > 0)
                             .map((option) => (
                               <span
@@ -257,14 +273,12 @@ function MemoryCard({
                                 className={`inline-flex min-h-6 items-center gap-1 rounded-full px-2 text-[11px] font-black shadow-sm ${option.tone}`}
                                 title={`${option.label}: ${comment.reactionCounts?.[option.id] || 0}`}
                               >
-                                <span aria-hidden="true">{option.icon}</span>
+                                <ReactionIcon src={option.iconSrc} className="h-4 w-4" />
                                 <span>{comment.reactionCounts?.[option.id] || 0}</span>
                               </span>
-                            ))
-                        ) : (
-                          <span className="text-[11px] font-semibold text-ink/38">Chưa có cảm xúc</span>
-                        )}
-                      </div>
+                            ))}
+                        </div>
+                      )}
 
                       <div ref={openReactionMenuId === comment.id ? reactionMenuRef : undefined} className="relative shrink-0">
                         {openReactionMenuId === comment.id && !reactionButtonDisabled && (
@@ -281,7 +295,7 @@ function MemoryCard({
                                 aria-label={`${option.label} bình luận của ${comment.name}`}
                                 title={option.label}
                               >
-                                <span aria-hidden="true">{option.icon}</span>
+                                <ReactionIcon src={option.iconSrc} className="h-6 w-6" />
                               </button>
                             ))}
                           </div>
@@ -305,9 +319,7 @@ function MemoryCard({
                           title={ownReaction ? `Bạn đã thả ${activeReaction?.label || 'cảm xúc'}` : 'Thả cảm xúc'}
                         >
                           {activeReaction ? (
-                            <span className="text-sm" aria-hidden="true">
-                              {activeReaction.icon}
-                            </span>
+                            <ReactionIcon src={activeReaction.iconSrc} className="h-4 w-4" />
                           ) : (
                             <Heart size={14} fill={openReactionMenuId === comment.id ? 'currentColor' : 'none'} />
                           )}
