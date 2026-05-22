@@ -566,10 +566,6 @@ export default function PeoplePage({
                     {localError || localSuccess}
                   </p>
                 )}
-                <button type="button" className="secondary-button mt-3 w-full justify-center" onClick={openYearbook}>
-                  <BadgeCheck size={16} />
-                  Mở kỷ yếu lớp
-                </button>
               </>
             )}
           </div>
@@ -950,12 +946,14 @@ function YearbookReader({
 
   return (
     <div
-      className="overflow-hidden rounded-[1.2rem] border border-white/75 bg-gradient-to-br from-paper via-white to-[#f4dfbf]/45 p-2 shadow-paper"
-      onTouchStart={(event) => onTouchStart(event.touches[0]?.clientX || 0)}
-      onTouchEnd={(event) => onTouchEnd(event.changedTouches[0]?.clientX || 0)}
+      className="rounded-[1.2rem] border border-white/75 bg-gradient-to-br from-paper via-white to-[#f4dfbf]/45 p-2 shadow-paper"
     >
       <div className="overflow-hidden rounded-[1rem] border border-coffee/10 bg-white/72 md:grid md:grid-cols-[0.92fr_1.08fr]">
-        <section className="relative border-b border-coffee/10 bg-[#fff6e7] p-5 md:border-b-0 md:border-r sm:p-6">
+        <section
+          className="relative border-b border-coffee/10 bg-[#fff6e7] p-5 md:border-b-0 md:border-r sm:p-6"
+          onTouchStart={(event) => onTouchStart(event.touches[0]?.clientX || 0)}
+          onTouchEnd={(event) => onTouchEnd(event.changedTouches[0]?.clientX || 0)}
+        >
           <div className="flex items-center justify-between gap-3">
             <p className="rounded-full bg-ink px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-paper">
               Trang {index + 1}/{total}
@@ -1108,6 +1106,8 @@ function PersonDetail({
   onDeleteMemory: (memory: MemoryItem) => void | Promise<void>;
   onDownloadMemory: (memory: MemoryItem) => void | Promise<void>;
 }) {
+  const [showBadgeGoals, setShowBadgeGoals] = useState(false);
+
   if (!person) {
     return null;
   }
@@ -1115,28 +1115,55 @@ function PersonDetail({
   const personStats = stats || emptyPersonStats;
 
   return (
-    <div className="rounded-[1rem] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.08)]">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <Avatar person={person} />
-          <div className="min-w-0">
-            <h2 className="break-words font-display text-4xl leading-none">{person.name}</h2>
-            <p className="mt-1 text-sm font-bold text-coffee/70">{person.nickname || 'Bạn lớp 9/8'}</p>
+    <div className="rounded-[1.15rem] bg-white p-3 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.08)] sm:p-4">
+      <section className="overflow-hidden rounded-[1rem] border border-white/75 bg-gradient-to-br from-paper via-white to-blush/18 shadow-[0_14px_36px_rgba(84,57,35,0.10)]">
+        <div className="grid gap-0 md:grid-cols-[17rem_minmax(0,1fr)]">
+          <div className="relative bg-[#fff3df] p-4 text-center">
+            <span className="scrapbook-tape left-8 top-2 z-[2] -rotate-6" />
+            <div className="mx-auto w-full max-w-[13rem] rotate-[-1.5deg] rounded-[0.55rem] bg-white p-3 pb-7 shadow-paper">
+              <div className="aspect-[4/5] overflow-hidden rounded-[0.35rem] bg-paper text-coffee">
+                {person.avatarDataUrl ? (
+                  <img src={person.avatarDataUrl} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                ) : (
+                  <div className="grid h-full place-items-center">
+                    <UserRound size={42} />
+                  </div>
+                )}
+              </div>
+              <p className="mt-3 truncate font-hand text-2xl font-bold text-coffee">{person.nickname || 'Bạn lớp 9/8'}</p>
+            </div>
+          </div>
+
+          <div className="min-w-0 p-4 sm:p-5">
+            <p className="section-kicker">{isSelf ? 'Hồ sơ của tôi' : 'Hồ sơ lớp 9/8'}</p>
+            <h2 className="break-words font-display text-5xl leading-none text-ink sm:text-6xl">{person.name}</h2>
+            <p className="mt-2 text-sm font-bold text-coffee/70">Lớp {person.className || '9/8'}</p>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {(person.personalityTags.length ? person.personalityTags : ['9/8', 'memory']).map((tag) => (
+                <span key={tag} className="rounded-full bg-blush/30 px-2.5 py-1 text-xs font-bold text-coffee">
+                  {tag}
+                </span>
+              ))}
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              <div className="rounded-[1rem] bg-paper/72 px-4 py-4">
+                <p className="text-[11px] font-black uppercase text-coffee/62">Câu nói riêng</p>
+                <p className="mt-2 text-sm leading-7 text-ink/72">
+                  {person.quote || 'Chưa có câu nói riêng, nhưng thanh xuân vẫn đang ở đây.'}
+                </p>
+              </div>
+              <div className="rounded-[1rem] border border-coffee/8 bg-white/58 px-4 py-4">
+                <p className="text-[11px] font-black uppercase text-coffee/62">Lời gửi lớp 9/8</p>
+                <p className="mt-2 text-sm leading-7 text-ink/68">
+                  {person.classMessage || 'Một lời gửi lớp 9/8 đang chờ được viết.'}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-
-      <p className="mt-4 rounded-[0.9rem] bg-paper/72 px-3 py-3 text-sm leading-7 text-ink/72">
-        {person.quote || 'Chưa có câu nói riêng, nhưng thanh xuân vẫn đang ở đây.'}
-      </p>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        {(person.personalityTags.length ? person.personalityTags : ['9/8', 'memory']).map((tag) => (
-          <span key={tag} className="rounded-full bg-blush/30 px-2.5 py-1 text-xs font-bold text-coffee">
-            {tag}
-          </span>
-        ))}
-      </div>
+      </section>
 
       <div className="mt-5 overflow-hidden rounded-[1.15rem] border border-white/70 bg-gradient-to-br from-paper via-white to-skySoft/20 p-3 shadow-[0_14px_36px_rgba(84,57,35,0.10)]">
         <div className="flex items-start justify-between gap-3">
@@ -1161,12 +1188,20 @@ function PersonDetail({
           </p>
         )}
 
-        <BadgeProgressList goals={badgeGoals} />
+        {isSelf && badgeGoals.length > 0 && (
+          <>
+            <button
+              type="button"
+              className="secondary-button mt-4 w-full justify-center"
+              onClick={() => setShowBadgeGoals((open) => !open)}
+            >
+              <BadgeCheck size={16} />
+              {showBadgeGoals ? 'Ẩn tiến trình mở huy hiệu' : 'Xem tiến trình mở huy hiệu'}
+            </button>
+            {showBadgeGoals && <BadgeProgressList goals={badgeGoals} />}
+          </>
+        )}
       </div>
-
-      <p className="mt-4 text-sm leading-7 text-ink/68">
-        {person.classMessage || 'Một lời gửi lớp 9/8 đang chờ được viết.'}
-      </p>
 
       <div className="mt-5 grid grid-cols-3 gap-2 text-center">
         <Stat value={personStats.memories.length} label={isSelf ? 'mục' : 'ảnh'} />

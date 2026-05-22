@@ -254,6 +254,10 @@
 
   .app-safe-modal-panel {
     max-height: min(92svh, calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1.5rem)) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
   }
 
   .input-field {
