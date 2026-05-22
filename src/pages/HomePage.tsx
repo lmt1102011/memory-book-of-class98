@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
-import { Camera, Download, Filter, Heart, Lock, MessageCircle, RotateCcw, Search, UserRound, Video, X } from 'lucide-react';
+import { Camera, Download, Filter, Heart, Lock, RotateCcw, Search, UserRound, Video, X } from 'lucide-react';
 import FirebaseNotice from '../components/FirebaseNotice';
 import MemoryCard from '../components/MemoryCard';
 import { useDebounce } from '../hooks/useDebounce';
-import type { GuestbookEntry, MemoryComment, MemoryItem, UserProfile } from '../types';
+import type { MemoryComment, MemoryItem, UserProfile } from '../types';
 
 const EMPTY_COMMENTS: MemoryComment[] = [];
 
@@ -33,48 +33,8 @@ const formatVideoDuration = (seconds: number) => `${Math.max(1, Math.round(secon
 
 const clampZoom = (value: number) => Math.min(4, Math.max(1, value));
 
-const loadCanvasImage = (src: string) =>
-  new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = reject;
-    image.src = src;
-  });
-
-const wrapCanvasText = (
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  maxWidth: number,
-  lineHeight: number,
-  maxLines = 3,
-) => {
-  const words = text.split(/\s+/).filter(Boolean);
-  let line = '';
-  let lineCount = 0;
-
-  words.forEach((word, index) => {
-    if (lineCount >= maxLines) return;
-    const testLine = line ? `${line} ${word}` : word;
-    const isLast = index === words.length - 1;
-    if (ctx.measureText(testLine).width > maxWidth && line) {
-      ctx.fillText(lineCount === maxLines - 1 ? `${line}...` : line, x, y + lineCount * lineHeight);
-      line = word;
-      lineCount += 1;
-      return;
-    }
-    line = testLine;
-    if (isLast && lineCount < maxLines) {
-      ctx.fillText(line, x, y + lineCount * lineHeight);
-      lineCount += 1;
-    }
-  });
-};
-
 interface HomePageProps {
   memories: MemoryItem[];
-  guestbook: GuestbookEntry[];
   commentsByMemory: Record<string, MemoryComment[]>;
   firebaseNotice: string;
   isLoadingMemories: boolean;
@@ -92,7 +52,6 @@ interface HomePageProps {
 
 export default function HomePage({
   memories,
-  guestbook,
   commentsByMemory,
   firebaseNotice,
   isLoadingMemories,
@@ -125,7 +84,6 @@ export default function HomePage({
   const [selectedVideoLoading, setSelectedVideoLoading] = useState(false);
   const [selectedVideoError, setSelectedVideoError] = useState('');
   const [isRecapDownloading, setIsRecapDownloading] = useState(false);
-  const [isWishesPosterDownloading, setIsWishesPosterDownloading] = useState(false);
 
   const debouncedName = useDebounce(nameQuery);
   const debouncedKeyword = useDebounce(keywordQuery);
@@ -342,216 +300,36 @@ export default function HomePage({
   }, [memories]);
 
   const memoryRecap = useMemo(() => {
-    const totalComments = Object.values(commentsByMemory).reduce((total, comments) => total + comments.length, 0);
-    const totalHearts = memories.reduce((total, memory) => total + memory.reactions, 0);
-    const videos = memories.filter((memory) => memory.mediaType === 'video').length;
-    const photos = Math.max(0, memories.length - videos);
-    const contributorMap = new Map<string, { name: string; nameKey: string; memories: number; hearts: number }>();
-
-    memories.forEach((memory) => {
-      const key = memory.nameKey || memory.uid || memory.name.toLowerCase();
-      const current = contributorMap.get(key) || {
-        name: memory.name,
-        nameKey: memory.nameKey || key,
-        memories: 0,
-        hearts: 0,
-      };
-      current.memories += 1;
-      current.hearts += memory.reactions;
-      contributorMap.set(key, current);
-    });
-
-    const topContributor = Array.from(contributorMap.values()).sort(
-      (left, right) => right.memories - left.memories || right.hearts - left.hearts,
-    )[0];
-    const topLovedMemory = [...memories].sort(
-      (left, right) =>
-        right.reactions - left.reactions ||
-        (commentsByMemory[right.id]?.length || 0) - (commentsByMemory[left.id]?.length || 0),
-    )[0];
-    const topCommentedMemory = [...memories].sort(
-      (left, right) => (commentsByMemory[right.id]?.length || 0) - (commentsByMemory[left.id]?.length || 0),
-    )[0];
+    const imageMemories = memories.filter((memory) => memory.mediaType === 'image' && memory.imageUrl);
 
     return {
-      photos,
-      videos,
       totalMemories: memories.length,
-      totalComments,
-      totalHearts,
-      contributors: contributorMap.size,
-      topContributor,
-      topLovedMemory,
-      topCommentedMemory,
-      coverMemory: topLovedMemory || memories[0],
+      imageCount: imageMemories.length,
+      coverMemory: imageMemories[0] || memories[0],
     };
-  }, [commentsByMemory, memories]);
-
-  const classPosterStats = useMemo(() => {
-    const photoCount = memories.filter((memory) => memory.imageUrl).length;
-    const letterCount = guestbook.filter((entry) => entry.message.trim()).length;
-    const anonymousCount = guestbook.filter((entry) => entry.anonymous).length;
-
-    return { photoCount, letterCount, anonymousCount };
-  }, [guestbook, memories]);
+  }, [memories]);
 
   const handleDownloadRecap = useCallback(async () => {
     setIsRecapDownloading(true);
 
     try {
-      const canvas = document.createElement('canvas');
-      canvas.width = 1080;
-      canvas.height = 1350;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas is not supported.');
-
-      ctx.fillStyle = '#fbf3e7';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-      gradient.addColorStop(0, 'rgba(247,183,199,0.55)');
-      gradient.addColorStop(0.48, 'rgba(255,250,241,0.92)');
-      gradient.addColorStop(1, 'rgba(169,205,232,0.58)');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      if (memoryRecap.coverMemory?.imageUrl) {
-        try {
-          const image = await loadCanvasImage(memoryRecap.coverMemory.imageUrl);
-          const frameX = 620;
-          const frameY = 112;
-          const frameW = 340;
-          const frameH = 430;
-          const scale = Math.max(frameW / image.width, frameH / image.height);
-          const drawW = image.width * scale;
-          const drawH = image.height * scale;
-          ctx.save();
-          ctx.translate(frameX + frameW / 2, frameY + frameH / 2);
-          ctx.rotate(0.055);
-          ctx.fillStyle = '#fffaf1';
-          ctx.shadowColor = 'rgba(53,41,31,0.18)';
-          ctx.shadowBlur = 28;
-          ctx.shadowOffsetY = 18;
-          ctx.fillRect(-frameW / 2 - 22, -frameH / 2 - 22, frameW + 44, frameH + 70);
-          ctx.shadowColor = 'transparent';
-          ctx.drawImage(image, -drawW / 2, -drawH / 2, drawW, drawH);
-          ctx.restore();
-        } catch {
-          // Poster still downloads without a cover image.
-        }
-      }
-
-      ctx.fillStyle = '#35291f';
-      ctx.font = '900 76px Arial, sans-serif';
-      ctx.fillText('MEMORY98', 92, 160);
-      ctx.font = '700 28px Arial, sans-serif';
-      ctx.fillStyle = '#7a5639';
-      ctx.fillText('Recap thanh xuân lớp 9/8', 96, 205);
-
-      ctx.fillStyle = '#35291f';
-      ctx.font = '800 48px Arial, sans-serif';
-      wrapCanvasText(
-        ctx,
-        'Những khoảnh khắc mình đã cùng giữ lại',
-        96,
-        300,
-        470,
-        58,
-        3,
-      );
-
-      const stats = [
-        ['Kỷ niệm', memoryRecap.totalMemories],
-        ['Ảnh', memoryRecap.photos],
-        ['Video', memoryRecap.videos],
-        ['Tim', memoryRecap.totalHearts],
-        ['Bình luận', memoryRecap.totalComments],
-        ['Bạn góp mặt', memoryRecap.contributors],
-      ];
-
-      stats.forEach(([label, value], index) => {
-        const col = index % 3;
-        const row = Math.floor(index / 3);
-        const x = 96 + col * 296;
-        const y = 620 + row * 170;
-        ctx.fillStyle = 'rgba(255,250,241,0.78)';
-        ctx.fillRect(x, y, 242, 116);
-        ctx.fillStyle = '#35291f';
-        ctx.font = '900 50px Arial, sans-serif';
-        ctx.fillText(String(value), x + 24, y + 58);
-        ctx.fillStyle = '#7a5639';
-        ctx.font = '700 22px Arial, sans-serif';
-        ctx.fillText(String(label), x + 24, y + 91);
-      });
-
-      ctx.fillStyle = '#35291f';
-      ctx.font = '900 34px Arial, sans-serif';
-      ctx.fillText('Điểm sáng của lớp', 96, 1030);
-      ctx.font = '700 24px Arial, sans-serif';
-      ctx.fillStyle = '#7a5639';
-      wrapCanvasText(
-        ctx,
-        memoryRecap.topContributor
-          ? `Người giữ nhiều ký ức: ${memoryRecap.topContributor.name} (${memoryRecap.topContributor.memories} mục).`
-          : 'Chờ kỷ niệm đầu tiên được đăng lên.',
-        96,
-        1080,
-        860,
-        34,
-        2,
-      );
-      wrapCanvasText(
-        ctx,
-        memoryRecap.topLovedMemory
-          ? `Kỷ niệm được yêu thích nhất: ${memoryRecap.topLovedMemory.name} với ${memoryRecap.topLovedMemory.reactions} tim.`
-          : '',
-        96,
-        1160,
-        860,
-        34,
-        2,
-      );
-
-      ctx.fillStyle = '#35291f';
-      ctx.font = '800 24px Arial, sans-serif';
-      ctx.fillText('memory-book-of-class98.github.io', 96, 1270);
-
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((result) => (result ? resolve(result) : reject(new Error('Không thể tạo poster recap.'))), 'image/jpeg', 0.94);
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'memory98-recap-lop-9-8.jpg';
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } finally {
-      setIsRecapDownloading(false);
-    }
-  }, [memoryRecap]);
-
-  const handleDownloadClassWishesPoster = useCallback(async () => {
-    setIsWishesPosterDownloading(true);
-
-    try {
       let posterMemories = memories;
-      let posterGuestbook = guestbook;
       if (profile) {
         try {
           const service = await import('../services/firebaseMemoryBook');
-          const posterData = await service.loadClassPosterData(profile);
-          posterMemories = posterData.memories.length ? posterData.memories : posterMemories;
-          posterGuestbook = posterData.guestbook.length ? posterData.guestbook : posterGuestbook;
+          const fullMemories = await service.loadClassPosterMemories(profile);
+          posterMemories = fullMemories.length ? fullMemories : posterMemories;
         } catch {
-          // If the full poster fetch is blocked, still create the poster from the data already loaded in the feed.
+          // If Firebase blocks the full fetch, still create the poster from the feed currently loaded.
         }
       }
 
-      const { downloadClassWishesPoster } = await import('../utils/classWishesPoster');
-      await downloadClassWishesPoster({ memories: posterMemories, guestbook: posterGuestbook });
+      const { downloadClassPhotoPoster } = await import('../utils/classPhotoPoster');
+      await downloadClassPhotoPoster({ memories: posterMemories });
     } finally {
-      setIsWishesPosterDownloading(false);
+      setIsRecapDownloading(false);
     }
-  }, [guestbook, memories, profile]);
+  }, [memories, profile]);
 
   const filteredMemories = useMemo(() => {
     const name = debouncedName.trim().toLowerCase();
@@ -674,74 +452,24 @@ export default function HomePage({
                   Recap thanh xuân 9/8
                 </h2>
                 <p className="mt-4 max-w-2xl text-sm leading-7 text-ink/66 sm:text-base">
-                  Một poster tổng kết những gì lớp mình đã cùng giữ lại: ảnh, video, tim, bình luận và những gương mặt xuất hiện nhiều nhất.
+                  Recap được rút gọn để nhìn thật sạch: chỉ hiện tổng số kỷ niệm và một nút tải poster ảnh của lớp.
                 </p>
 
-                <div className="mt-6 grid grid-cols-3 gap-2 text-center sm:grid-cols-6">
-                  <RecapStat value={memoryRecap.totalMemories} label="kỷ niệm" featured />
-                  <RecapStat value={memoryRecap.photos} label="ảnh" />
-                  <RecapStat value={memoryRecap.videos} label="video" />
-                  <RecapStat value={memoryRecap.totalHearts} label="tim" featured />
-                  <RecapStat value={memoryRecap.totalComments} label="bình luận" />
-                  <RecapStat value={memoryRecap.contributors} label="góp mặt" />
+                <div className="mt-6 max-w-sm rounded-[1.25rem] border border-coffee/10 bg-white/70 p-5 text-center shadow-paper">
+                  <span className="text-xs font-black uppercase tracking-[0.18em] text-coffee/58">Tổng kỷ niệm</span>
+                  <strong className="mt-2 block font-display text-8xl leading-none text-ink">{memoryRecap.totalMemories}</strong>
+                  <span className="mt-1 block text-sm font-black uppercase text-coffee/66">kỷ niệm</span>
                 </div>
 
-                <div className="mt-5 grid gap-3 md:grid-cols-3">
-                  <RecapHighlight
-                    icon={<UserRound size={16} />}
-                    label="Giữ nhiều ký ức"
-                    value={
-                      memoryRecap.topContributor
-                        ? `${memoryRecap.topContributor.name} · ${memoryRecap.topContributor.memories} mục`
-                        : 'Đang chờ kỷ niệm đầu tiên'
-                    }
-                  />
-                  <RecapHighlight
-                    icon={<Heart size={16} fill="currentColor" />}
-                    label="Được yêu thích"
-                    value={
-                      memoryRecap.topLovedMemory
-                        ? `${memoryRecap.topLovedMemory.name} · ${memoryRecap.topLovedMemory.reactions} tim`
-                        : 'Chưa có lượt tim'
-                    }
-                  />
-                  <RecapHighlight
-                    icon={<Camera size={16} />}
-                    label="Nhiều bình luận"
-                    value={
-                      memoryRecap.topCommentedMemory && (commentsByMemory[memoryRecap.topCommentedMemory.id]?.length || 0) > 0
-                        ? `${memoryRecap.topCommentedMemory.name} · ${commentsByMemory[memoryRecap.topCommentedMemory.id]?.length || 0} bình luận`
-                        : 'Chưa có bình luận'
-                    }
-                  />
-                </div>
-
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    className="primary-button w-full justify-center"
-                    onClick={() => void handleDownloadRecap()}
-                    disabled={isRecapDownloading || isWishesPosterDownloading}
-                  >
-                    <Download size={17} />
-                    {isRecapDownloading ? 'Đang tạo poster...' : 'Tải poster recap'}
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary-button w-full justify-center bg-white/76"
-                    onClick={() => void handleDownloadClassWishesPoster()}
-                    disabled={isRecapDownloading || isWishesPosterDownloading || (!classPosterStats.photoCount && !classPosterStats.letterCount)}
-                  >
-                    <MessageCircle size={17} />
-                    {isWishesPosterDownloading ? 'Đang ghép poster...' : 'Poster lời chúc + ảnh'}
-                  </button>
-                </div>
-
-                <div className="mt-4 grid gap-2 rounded-[1rem] border border-coffee/8 bg-white/58 p-3 sm:grid-cols-3">
-                  <RecapMiniMetric value={classPosterStats.photoCount} label="ảnh trong poster" />
-                  <RecapMiniMetric value={classPosterStats.letterCount} label="lời chúc" />
-                  <RecapMiniMetric value={classPosterStats.anonymousCount} label="ẩn danh" />
-                </div>
+                <button
+                  type="button"
+                  className="primary-button mt-5 w-full justify-center sm:w-auto"
+                  onClick={() => void handleDownloadRecap()}
+                  disabled={isRecapDownloading || memoryRecap.imageCount === 0}
+                >
+                  <Download size={17} />
+                  {isRecapDownloading ? 'Đang tạo poster ảnh...' : 'Tải poster ảnh'}
+                </button>
               </div>
 
               <aside className="relative border-t border-coffee/10 bg-[#f7e7ca]/45 p-5 sm:p-7 lg:border-l lg:border-t-0">
@@ -771,7 +499,7 @@ export default function HomePage({
                   </div>
 
                   <p className="mt-5 rounded-[1rem] bg-paper/72 px-4 py-3 text-center text-xs font-bold leading-5 text-ink/62">
-                    Poster lời chúc sẽ ghép toàn bộ ảnh đang có trong feed cùng các mảnh thư lớp thành một bản scrapbook để tải về.
+                    Poster tải về chỉ gồm ảnh, không kèm chữ, caption hay thư lớp để nhìn gọn và dễ in hơn.
                   </p>
                 </div>
               </aside>
@@ -1088,42 +816,6 @@ export default function HomePage({
       )}
 
       <FirebaseNotice message={firebaseNotice} />
-    </div>
-  );
-}
-
-function RecapStat({ value, label, featured = false }: { value: number; label: string; featured?: boolean }) {
-  return (
-    <div
-      className={`rounded-[0.95rem] border px-3 py-4 ${
-        featured
-          ? 'border-blush/45 bg-blush/25 text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]'
-          : 'border-coffee/8 bg-white/62 text-ink'
-      }`}
-    >
-      <strong className="block font-display text-4xl leading-none">{value}</strong>
-      <span className="mt-1 block text-[11px] font-black uppercase text-coffee/62">{label}</span>
-    </div>
-  );
-}
-
-function RecapMiniMetric({ value, label }: { value: number; label: string }) {
-  return (
-    <div className="rounded-[0.8rem] bg-paper/72 px-3 py-3 text-center">
-      <strong className="block font-display text-3xl leading-none text-ink">{value}</strong>
-      <span className="mt-1 block text-[10px] font-black uppercase text-coffee/62">{label}</span>
-    </div>
-  );
-}
-
-function RecapHighlight({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return (
-    <div className="flex min-w-0 items-start gap-3 rounded-[1rem] border border-coffee/8 bg-white/58 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-paper text-coffee shadow-sm">{icon}</span>
-      <div className="min-w-0">
-        <p className="text-[11px] font-black uppercase text-coffee/62">{label}</p>
-        <p className="mt-1 break-words text-sm font-black text-ink">{value}</p>
-      </div>
     </div>
   );
 }

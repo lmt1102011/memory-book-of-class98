@@ -585,20 +585,18 @@ export const subscribeGuestbook = (
   return () => window.clearInterval(interval);
 };
 
-export const loadClassPosterData = async (profile: UserProfile) => {
+export const loadClassPosterMemories = async (profile: UserProfile) => {
   const publicMemoriesQuery = query(collection(db, MEMORIES_COLLECTION), orderBy('createdAt', 'desc'));
   const ownPrivateMemoriesQuery = query(collection(db, PRIVATE_MEMORIES_COLLECTION), where('uid', '==', profile.uid));
   const taggedPrivateMemoriesQuery = query(
     collection(db, PRIVATE_MEMORIES_COLLECTION),
     where('visibleToUids', 'array-contains', profile.uid),
   );
-  const guestbookQuery = query(collection(db, GUESTBOOK_COLLECTION), orderBy('createdAt', 'desc'));
 
-  const [publicSnapshot, ownPrivateSnapshot, taggedPrivateSnapshot, guestbookSnapshot] = await Promise.all([
+  const [publicSnapshot, ownPrivateSnapshot, taggedPrivateSnapshot] = await Promise.all([
     withFirebaseRetry(() => getDocs(publicMemoriesQuery)),
     withFirebaseRetry(() => getDocs(ownPrivateMemoriesQuery)),
     withFirebaseRetry(() => getDocs(taggedPrivateMemoriesQuery)),
-    withFirebaseRetry(() => getDocs(guestbookQuery)),
   ]);
 
   const memoriesByKey = new Map<string, MemoryItem>();
@@ -611,14 +609,9 @@ export const loadClassPosterData = async (profile: UserProfile) => {
     if (memory.imageUrl) memoriesByKey.set(`${PRIVATE_MEMORIES_COLLECTION}:${item.id}`, memory);
   });
 
-  return {
-    memories: Array.from(memoriesByKey.values()).sort(
-      (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
-    ),
-    guestbook: guestbookSnapshot.docs
-      .map((item) => guestbookFromDoc(item.id, item.data()))
-      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()),
-  };
+  return Array.from(memoriesByKey.values()).sort(
+    (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+  );
 };
 
 export const subscribeSecretDiaries = (
