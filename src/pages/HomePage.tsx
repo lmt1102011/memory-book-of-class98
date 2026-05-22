@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
 import { Camera, Download, Filter, Heart, Lock, RotateCcw, Search, Upload, UserRound, Video, X } from 'lucide-react';
+import ClassMessageBoard from '../components/ClassMessageBoard';
 import FirebaseNotice from '../components/FirebaseNotice';
 import MemoryCard from '../components/MemoryCard';
 import { useDebounce } from '../hooks/useDebounce';
-import type { CinematicSlideshowSettings, CommentReactionId, MemoryComment, MemoryItem, UserProfile } from '../types';
+import type {
+  CinematicSlideshowSettings,
+  CommentReactionId,
+  GuestbookEntry,
+  MemoryComment,
+  MemoryItem,
+  UserProfile,
+} from '../types';
 
 const EMPTY_COMMENTS: MemoryComment[] = [];
 
@@ -96,9 +104,11 @@ const slideshowMoodConfig: Record<
 interface HomePageProps {
   memories: MemoryItem[];
   commentsByMemory: Record<string, MemoryComment[]>;
+  guestbook: GuestbookEntry[];
   firebaseNotice: string;
   isLoadingMemories: boolean;
   memoryRecapEnabled: boolean;
+  classLettersEnabled: boolean;
   cinematicSlideshowSettings: CinematicSlideshowSettings;
   profile: UserProfile | null;
   pendingReactionIds: string[];
@@ -112,14 +122,19 @@ interface HomePageProps {
   onDeleteComment: (comment: MemoryComment) => void | Promise<void>;
   onDeleteMemory: (memory: MemoryItem) => void | Promise<void>;
   onDownloadMemory: (memory: MemoryItem) => void | Promise<void>;
+  onAddGuestbook: (message: string) => void | Promise<void>;
+  onDeleteGuestbook: (entry: GuestbookEntry) => void | Promise<void>;
+  onAddAnonymousMessage: (message: string) => void | Promise<void>;
 }
 
 export default function HomePage({
   memories,
   commentsByMemory,
+  guestbook,
   firebaseNotice,
   isLoadingMemories,
   memoryRecapEnabled,
+  classLettersEnabled,
   cinematicSlideshowSettings,
   profile,
   pendingReactionIds,
@@ -133,6 +148,9 @@ export default function HomePage({
   onDeleteComment,
   onDeleteMemory,
   onDownloadMemory,
+  onAddGuestbook,
+  onDeleteGuestbook,
+  onAddAnonymousMessage,
 }: HomePageProps) {
   const mediaStageRef = useRef<HTMLDivElement | null>(null);
   const zoomImageRef = useRef<HTMLImageElement | null>(null);
@@ -696,6 +714,17 @@ export default function HomePage({
           </div>
         </div>
       </section>
+
+      {classLettersEnabled && (
+        <ClassMessageBoard
+          guestbook={guestbook}
+          profile={profile}
+          onJoin={onJoin}
+          onAddGuestbook={onAddGuestbook}
+          onDeleteGuestbook={onDeleteGuestbook}
+          onAddAnonymousMessage={onAddAnonymousMessage}
+        />
+      )}
 
       {memoryRecapEnabled && (
         <section className="mx-auto max-w-7xl px-4 pb-7 sm:px-6 lg:px-8">

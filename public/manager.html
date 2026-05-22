@@ -470,6 +470,17 @@
 
         <section class="card setting-card">
           <div>
+            <strong>Thư lớp trong Ký ức</strong>
+            <p class="muted">
+              Khi bật, bảng thư lớp và nút viết thư sẽ hiện ngay trong trang Ký ức. Khi tắt, học sinh sẽ không thấy mục gửi thư cho lớp.
+            </p>
+            <p id="classLettersStatus" class="status"></p>
+          </div>
+          <button id="toggleClassLettersButton" class="secondary">Đang tải...</button>
+        </section>
+
+        <section class="card setting-card">
+          <div>
             <strong>Slideshow điện ảnh</strong>
             <p class="muted">
               Khi bật, trang Ký ức sẽ hiện slideshow nổi bật. Manager chọn mood, học sinh chỉ thấy một trải nghiệm đã chỉnh sẵn.
@@ -645,6 +656,7 @@
       const DIARY_COLLECTION = 'secretMailboxPrivate98';
       const SITE_SETTINGS_COLLECTION = 'siteSettings98';
       const MEMORY_RECAP_SETTING_ID = 'memoryRecap';
+      const CLASS_LETTERS_SETTING_ID = 'classLetters';
       const CINEMATIC_SLIDESHOW_SETTING_ID = 'cinematicSlideshow';
       const TIME_CAPSULE_SETTING_ID = 'timeCapsule';
 
@@ -665,6 +677,7 @@
       const rememberStatus = $('rememberStatus');
       const diaryStatus = $('diaryStatus');
       const recapStatus = $('recapStatus');
+      const classLettersStatus = $('classLettersStatus');
       const slideshowStatus = $('slideshowStatus');
       const timeCapsuleStatus = $('timeCapsuleStatus');
 
@@ -676,6 +689,7 @@
       let timeCapsules = [];
       let rememberNotes = [];
       let memoryRecapSetting = { enabled: false };
+      let classLettersSetting = { enabled: false };
       let cinematicSlideshowSetting = { enabled: false, mood: 'cinematic' };
       let timeCapsuleSetting = { unlockAt: '' };
       let activeTab = 'accounts';
@@ -964,6 +978,12 @@
         recapStatus.textContent = memoryRecapSetting.enabled
           ? 'Đang bật: học sinh sẽ thấy recap nổi bật trên trang Ký ức.'
           : 'Đang tắt: recap sẽ được ẩn khỏi trang học sinh.';
+
+        $('toggleClassLettersButton').textContent = classLettersSetting.enabled ? 'Tắt Thư lớp' : 'Bật Thư lớp';
+        $('toggleClassLettersButton').classList.toggle('danger', classLettersSetting.enabled);
+        classLettersStatus.textContent = classLettersSetting.enabled
+          ? 'Đang bật: bảng thư lớp sẽ hiện ngay trong trang Ký ức.'
+          : 'Đang tắt: học sinh sẽ không thấy mục gửi thư cho lớp.';
 
         $('slideshowMoodSelect').value = cinematicSlideshowSetting.mood || 'cinematic';
         $('toggleSlideshowButton').textContent = cinematicSlideshowSetting.enabled ? 'Tắt slideshow' : 'Bật slideshow';
@@ -1449,6 +1469,7 @@
             timeCapsuleSnapshot,
             rememberSnapshot,
             recapSnapshot,
+            classLettersSnapshot,
             slideshowSnapshot,
             timeCapsuleSettingSnapshot,
           ] = await Promise.all([
@@ -1461,6 +1482,7 @@
             getDocs(query(collection(db, TIME_CAPSULE_COLLECTION), orderBy('createdAt', 'desc'))),
             getDocs(query(collection(db, REMEMBER_NOTES_COLLECTION), orderBy('createdAt', 'desc'))),
             getDoc(doc(db, SITE_SETTINGS_COLLECTION, MEMORY_RECAP_SETTING_ID)),
+            getDoc(doc(db, SITE_SETTINGS_COLLECTION, CLASS_LETTERS_SETTING_ID)),
             getDoc(doc(db, SITE_SETTINGS_COLLECTION, CINEMATIC_SLIDESHOW_SETTING_ID)),
             getDoc(doc(db, SITE_SETTINGS_COLLECTION, TIME_CAPSULE_SETTING_ID)),
           ]);
@@ -1479,6 +1501,7 @@
           timeCapsules = timeCapsuleSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
           rememberNotes = rememberSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
           memoryRecapSetting = recapSnapshot.exists() ? { enabled: Boolean(recapSnapshot.data().enabled) } : { enabled: false };
+          classLettersSetting = classLettersSnapshot.exists() ? { enabled: Boolean(classLettersSnapshot.data().enabled) } : { enabled: false };
           cinematicSlideshowSetting = slideshowSnapshot.exists()
             ? { enabled: Boolean(slideshowSnapshot.data().enabled), mood: slideshowSnapshot.data().mood || 'cinematic' }
             : { enabled: false, mood: 'cinematic' };
@@ -1563,6 +1586,29 @@
           recapStatus.textContent = error.message || 'Không thể cập nhật Memory Recap.';
         } finally {
           $('toggleRecapButton').disabled = false;
+        }
+      });
+      $('toggleClassLettersButton').addEventListener('click', async () => {
+        const nextEnabled = !classLettersSetting.enabled;
+        $('toggleClassLettersButton').disabled = true;
+        classLettersStatus.textContent = nextEnabled ? 'Đang bật Thư lớp trong Ký ức...' : 'Đang tắt Thư lớp trong Ký ức...';
+        try {
+          await setDoc(
+            doc(db, SITE_SETTINGS_COLLECTION, CLASS_LETTERS_SETTING_ID),
+            {
+              enabled: nextEnabled,
+              managerKey: MANAGER_PASSWORD,
+              updatedAt: serverTimestamp(),
+              updatedBy: MANAGER_NAME_KEY,
+            },
+            { merge: true },
+          );
+          classLettersSetting = { enabled: nextEnabled };
+          renderSettings();
+        } catch (error) {
+          classLettersStatus.textContent = error.message || 'Không thể cập nhật Thư lớp trong Ký ức.';
+        } finally {
+          $('toggleClassLettersButton').disabled = false;
         }
       });
       $('toggleSlideshowButton').addEventListener('click', async () => {

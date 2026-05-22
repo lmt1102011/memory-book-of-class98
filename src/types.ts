@@ -251,6 +251,11 @@ export interface MemoryRecapSettings {
   updatedAt?: string;
 }
 
+export interface ClassLettersSettings {
+  enabled: boolean;
+  updatedAt?: string;
+}
+
 export interface CinematicSlideshowSettings {
   enabled: boolean;
   mood: 'cinematic' | 'scrapbook' | 'photobooth';

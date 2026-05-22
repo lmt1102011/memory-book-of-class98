@@ -52,7 +52,6 @@ import type {
 
 const JoinPage = lazy(() => import('./pages/JoinPage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
-const LettersPage = lazy(() => import('./pages/LettersPage'));
 const FutureMessagesPage = lazy(() => import('./pages/FutureMessagesPage'));
 const RememberPage = lazy(() => import('./pages/RememberPage'));
 const DiaryPage = lazy(() => import('./pages/DiaryPage'));
@@ -203,6 +202,7 @@ export default function App() {
   const [notificationReadIds, setNotificationReadIds] = useState<Set<string>>(() => new Set());
   const [futureMessagePopupOpen, setFutureMessagePopupOpen] = useState(false);
   const [memoryRecapEnabled, setMemoryRecapEnabled] = useState(false);
+  const [classLettersEnabled, setClassLettersEnabled] = useState(false);
   const [cinematicSlideshowSettings, setCinematicSlideshowSettings] = useState<CinematicSlideshowSettings>(
     defaultCinematicSlideshowSettings,
   );
@@ -295,7 +295,6 @@ export default function App() {
       void import('./pages/RememberPage');
       void import('./pages/PeoplePage');
       void import('./pages/VotesPage');
-      void import('./pages/LettersPage');
       void import('./pages/FutureMessagesPage');
       void import('./pages/DiaryPage');
       void import('./pages/JoinPage');
@@ -510,6 +509,7 @@ export default function App() {
     if (!bootSplashDone) return undefined;
 
     let unsubscribeRecap: (() => void) | undefined;
+    let unsubscribeClassLetters: (() => void) | undefined;
     let unsubscribeSlideshow: (() => void) | undefined;
     let unsubscribeTimeCapsuleSettings: (() => void) | undefined;
     let isActive = true;
@@ -537,6 +537,16 @@ export default function App() {
             setCinematicSlideshowSettings(defaultCinematicSlideshowSettings);
           },
         );
+        unsubscribeClassLetters = service.subscribeClassLettersSettings(
+          (settings) => {
+            if (!isActive) return;
+            setClassLettersEnabled(settings.enabled);
+          },
+          () => {
+            if (!isActive) return;
+            setClassLettersEnabled(false);
+          },
+        );
         unsubscribeTimeCapsuleSettings = service.subscribeTimeCapsuleSettings(
           (settings) => {
             if (!isActive) return;
@@ -551,6 +561,7 @@ export default function App() {
       .catch(() => {
         if (isActive) {
           setMemoryRecapEnabled(false);
+          setClassLettersEnabled(false);
           setCinematicSlideshowSettings(defaultCinematicSlideshowSettings);
           setTimeCapsuleSettings(makeDefaultTimeCapsuleSettings());
         }
@@ -559,6 +570,7 @@ export default function App() {
     return () => {
       isActive = false;
       unsubscribeRecap?.();
+      unsubscribeClassLetters?.();
       unsubscribeSlideshow?.();
       unsubscribeTimeCapsuleSettings?.();
     };
@@ -765,11 +777,16 @@ export default function App() {
         });
     }
 
-    if (route === 'letters' || route === 'diary') {
+    const shouldLoadGuestbook = Boolean(profile) && (route === 'letters' || (route === 'home' && classLettersEnabled));
+    if (!shouldLoadGuestbook) {
+      setRemoteGuestbook([]);
+    }
+
+    if (shouldLoadGuestbook || route === 'diary') {
       void import('./services/firebaseMemoryBook').then((service) => {
         if (!isActive) return;
 
-        if (route === 'letters') {
+        if (shouldLoadGuestbook) {
           unsubscribeGuestbook = service.subscribeGuestbook(
             (items) => {
               setRemoteGuestbook(items);
@@ -836,7 +853,7 @@ export default function App() {
       unsubscribeDiaries?.();
       unsubscribeVoteBoard?.();
     };
-  }, [accountBlock, profile, route]);
+  }, [accountBlock, classLettersEnabled, profile, route]);
 
   const navigate = useCallback(
     (nextRoute: AppRoute) => {
@@ -864,6 +881,10 @@ export default function App() {
     },
     [reduceHeavyMotion, route],
   );
+
+  useEffect(() => {
+    if (route === 'letters') navigate('home');
+  }, [navigate, route]);
 
   const resetAuthenticatedState = useCallback(() => {
     memoriesLoadedOnceRef.current = false;
@@ -1347,19 +1368,11 @@ export default function App() {
       {
         id: 'messages',
         label: 'Lời nhắn',
-        description: 'Thư lớp, Secret Message và nhật ký',
+        description: 'Secret Message, nhật ký và lời nhắn tương lai',
         icon: MessageCircle,
-        isActive: route === 'letters' || route === 'future' || route === 'remember' || route === 'diary',
+        isActive: route === 'future' || route === 'remember' || route === 'diary',
         badgeCount: messageCount,
         items: [
-          {
-            id: 'letters',
-            label: 'Thư lớp',
-            description: 'Viết lời nhắn chung trên bảng thư 9/8.',
-            icon: MessageCircle,
-            isActive: route === 'letters',
-            onSelect: () => navigate('letters'),
-          },
           {
             id: 'future',
             label: 'Gửi cho lớp trong tương lai',
@@ -2113,22 +2126,6 @@ export default function App() {
       );
     }
 
-    if (route === 'letters') {
-      return (
-        <Suspense fallback={<LoadingScreen label="Đang mở bảng thư lớp" />}>
-          <LettersPage
-            guestbook={allGuestbook}
-            firebaseNotice={firebaseNotice}
-            profile={profile}
-            onJoin={() => navigate('join')}
-            onAddGuestbook={handleGuestbookAdd}
-            onDeleteGuestbook={handleGuestbookDelete}
-            onAddAnonymousMessage={handleAnonymousMessageAdd}
-          />
-        </Suspense>
-      );
-    }
-
     if (route === 'future') {
       return (
         <Suspense fallback={<LoadingScreen label="Đang mở Gửi cho lớp trong tương lai" />}>
@@ -2256,9 +2253,11 @@ export default function App() {
         <HomePage
           memories={allMemories}
           commentsByMemory={commentsByMemory}
+          guestbook={allGuestbook}
           firebaseNotice={firebaseNotice}
           isLoadingMemories={memoriesLoading}
           memoryRecapEnabled={memoryRecapEnabled}
+          classLettersEnabled={classLettersEnabled}
           cinematicSlideshowSettings={cinematicSlideshowSettings}
           profile={profile}
           pendingReactionIds={pendingReactionIds}
@@ -2272,6 +2271,9 @@ export default function App() {
           onDeleteComment={handleMemoryCommentDelete}
           onDeleteMemory={handleMemoryDelete}
           onDownloadMemory={handleMemoryDownload}
+          onAddGuestbook={handleGuestbookAdd}
+          onDeleteGuestbook={handleGuestbookDelete}
+          onAddAnonymousMessage={handleAnonymousMessageAdd}
         />
       </Suspense>
     );
