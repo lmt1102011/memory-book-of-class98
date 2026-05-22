@@ -179,9 +179,34 @@
 
       .toolbar {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-columns: minmax(0, 1fr) minmax(190px, 0.35fr) auto;
         gap: 10px;
         margin-top: 12px;
+      }
+
+      .bulkbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 10px;
+        border-radius: 14px;
+        border: 1px solid rgba(122, 86, 57, 0.12);
+        background: rgba(255, 250, 241, 0.9);
+        padding: 10px;
+        box-shadow: 0 12px 30px rgba(84, 57, 35, 0.1);
+      }
+
+      .bulkbar strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .bulkbar-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
       }
 
       .setting-card {
@@ -248,6 +273,34 @@
         border-radius: 12px;
         background: rgba(255, 255, 255, 0.64);
         padding: 12px;
+      }
+
+      .item.selected {
+        background: rgba(169, 205, 232, 0.22);
+        box-shadow: inset 0 0 0 2px rgba(56, 91, 88, 0.22);
+      }
+
+      .select-box {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border-radius: 999px;
+        background: rgba(255, 250, 241, 0.86);
+        color: var(--coffee);
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 850;
+        padding: 6px 9px;
+        user-select: none;
+      }
+
+      .select-box input {
+        width: 16px;
+        min-width: 16px;
+        height: 16px;
+        margin: 0;
+        accent-color: var(--green);
+        box-shadow: none;
       }
 
       .row {
@@ -337,6 +390,17 @@
         .setting-card,
         .toolbar {
           grid-template-columns: 1fr;
+        }
+
+        .bulkbar {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .bulkbar-actions {
+          display: grid;
+          grid-template-columns: 1fr;
+          width: 100%;
         }
 
         .topbar {
@@ -434,7 +498,20 @@
 
         <section class="toolbar">
           <input id="managerSearch" placeholder="Tìm tên, nội dung, uid, hashtag..." />
+          <select id="managerFilter" aria-label="Bộ lọc manager"></select>
           <button id="clearSearchButton" class="secondary">Xóa tìm</button>
+        </section>
+
+        <section id="bulkBar" class="bulkbar hidden" aria-live="polite">
+          <div>
+            <strong id="bulkTitle">Chọn nhiều mục</strong>
+            <p id="bulkHint" class="muted">Chọn mục trong danh sách rồi xóa một lượt khi cần.</p>
+          </div>
+          <div class="bulkbar-actions">
+            <button id="selectVisibleButton" class="secondary">Chọn mục đang hiện</button>
+            <button id="clearSelectionButton" class="secondary">Bỏ chọn</button>
+            <button id="bulkDeleteButton" class="danger">Xóa mục đã chọn</button>
+          </div>
         </section>
 
         <nav class="tabs" aria-label="Manager sections">
@@ -478,6 +555,7 @@
           <section class="card">
             <h2>Thư lớp</h2>
             <p class="muted" style="margin-bottom: 12px">Thư ẩn danh vẫn hiện tên thật của người viết trong manager.</p>
+            <p id="letterStatus" class="status"></p>
             <div id="classLetters" class="list"></div>
           </section>
         </section>
@@ -496,6 +574,7 @@
           <section class="card">
             <h2>Secret Message</h2>
             <p class="muted" style="margin-bottom: 12px">Manager thấy người gửi thật, người nhận và nội dung của cả thư ẩn danh.</p>
+            <p id="rememberStatus" class="status"></p>
             <div id="rememberNotes" class="list"></div>
           </section>
         </section>
@@ -504,6 +583,7 @@
           <section class="card">
             <h2>Nhật ký bí mật</h2>
             <p class="muted" style="margin-bottom: 12px">Chỉ manager thấy tên người viết nhật ký.</p>
+            <p id="diaryStatus" class="status"></p>
             <div id="diaries" class="list"></div>
           </section>
         </section>
@@ -581,6 +661,9 @@
       const accountStatus = $('accountStatus');
       const gateStatus = $('gateStatus');
       const memoryStatus = $('memoryStatus');
+      const letterStatus = $('letterStatus');
+      const rememberStatus = $('rememberStatus');
+      const diaryStatus = $('diaryStatus');
       const recapStatus = $('recapStatus');
       const slideshowStatus = $('slideshowStatus');
       const timeCapsuleStatus = $('timeCapsuleStatus');
@@ -598,6 +681,8 @@
       let activeTab = 'accounts';
       let managerPoll = 0;
       let isLoadingManagerData = false;
+      let selectedItems = new Set();
+      let isBulkDeleting = false;
 
       const cleanDisplayName = (name) => name.trim().replace(/\s+/g, ' ');
       const makeNameKey = (name) =>
@@ -701,6 +786,161 @@
         return fields.some((field) => normalizeSearch(item[field]).includes(term));
       };
 
+      const filterOptionsByTab = {
+        accounts: [
+          ['all', 'Tất cả tài khoản'],
+          ['active', 'Đang mở'],
+          ['disabled', 'Đã khóa'],
+          ['deleted', 'Đã xóa'],
+        ],
+        memories: [
+          ['all', 'Tất cả ảnh/video'],
+          ['image', 'Chỉ ảnh'],
+          ['video', 'Chỉ video'],
+          ['public', 'Công khai'],
+          ['private', 'Riêng tư'],
+          ['tagged', 'Chọn người xem'],
+        ],
+        letters: [
+          ['all', 'Tất cả thư lớp'],
+          ['named', 'Có tên'],
+          ['anonymous', 'Ẩn danh'],
+        ],
+        future: [
+          ['all', 'Tất cả lời nhắn'],
+        ],
+        remember: [
+          ['all', 'Tất cả Secret Message'],
+          ['named', 'Có tên'],
+          ['anonymous', 'Ẩn danh'],
+          ['viewed', 'Đã xem'],
+          ['unviewed', 'Chưa xem'],
+          ['reacted', 'Đã phản hồi'],
+        ],
+        diaries: [
+          ['all', 'Tất cả nhật ký'],
+        ],
+        downloads: [
+          ['all', 'Tất cả lượt tải'],
+          ['image', 'Tải ảnh'],
+          ['video', 'Tải video'],
+        ],
+      };
+
+      const selectablePrefixByTab = {
+        accounts: 'account',
+        memories: 'memory',
+        letters: 'letter',
+        future: 'future',
+        remember: 'remember',
+        diaries: 'diary',
+      };
+
+      const selectionKey = (type, id) => `${type}:${id}`;
+      const isSelected = (key) => selectedItems.has(key);
+      const selectedKeysForTab = () => {
+        const prefix = selectablePrefixByTab[activeTab];
+        if (!prefix) return [];
+        return Array.from(selectedItems).filter((key) => key.startsWith(`${prefix}:`));
+      };
+
+      const filterValue = () => $('managerFilter')?.value || 'all';
+      const matchesActiveFilter = (item, type) => {
+        if (type !== activeTab) return true;
+        const filter = filterValue();
+        if (filter === 'all') return true;
+
+        if (type === 'accounts') {
+          if (filter === 'active') return !item.disabled && !item.deleted;
+          if (filter === 'disabled') return Boolean(item.disabled) && !item.deleted;
+          if (filter === 'deleted') return Boolean(item.deleted);
+        }
+
+        if (type === 'memories') {
+          if (filter === 'image') return item.mediaType !== 'video';
+          if (filter === 'video') return item.mediaType === 'video';
+          return (item.visibility || 'public') === filter;
+        }
+
+        if (type === 'letters') {
+          const anonymous = isAnonymousLetter(item);
+          if (filter === 'anonymous') return anonymous;
+          if (filter === 'named') return !anonymous;
+        }
+
+        if (type === 'remember') {
+          if (filter === 'anonymous') return Boolean(item.anonymous);
+          if (filter === 'named') return !item.anonymous;
+          if (filter === 'viewed') return Boolean(item.viewedAt);
+          if (filter === 'unviewed') return !item.viewedAt;
+          if (filter === 'reacted') return Boolean(item.reactionId || item.reactionLabel);
+        }
+
+        if (type === 'downloads') {
+          if (filter === 'image') return item.memoryMediaType !== 'video';
+          if (filter === 'video') return item.memoryMediaType === 'video';
+        }
+
+        return true;
+      };
+
+      const renderFilterOptions = () => {
+        const filter = $('managerFilter');
+        const options = filterOptionsByTab[activeTab] || [['all', 'Tất cả']];
+        const previousValue = filter.value;
+        filter.innerHTML = options.map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
+        filter.value = options.some(([value]) => value === previousValue) ? previousValue : 'all';
+      };
+
+      const checkboxHtml = (key, label = 'Chọn') => `
+        <label class="select-box">
+          <input type="checkbox" data-select-key="${escapeHtml(key)}" ${isSelected(key) ? 'checked' : ''} />
+          <span>${label}</span>
+        </label>
+      `;
+
+      const pruneSelection = () => {
+        const validKeys = new Set([
+          ...accounts.map((item) => selectionKey('account', item.id)),
+          ...memories.map((item) => selectionKey('memory', getMemoryKey(item))),
+          ...classLetters.map((item) => selectionKey('letter', item.id)),
+          ...timeCapsules.map((item) => selectionKey('future', item.id)),
+          ...rememberNotes.map((item) => selectionKey('remember', item.id)),
+          ...diaries.map((item) => selectionKey('diary', item.id)),
+        ]);
+        selectedItems = new Set(Array.from(selectedItems).filter((key) => validKeys.has(key)));
+      };
+
+      const updateBulkBar = () => {
+        const prefix = selectablePrefixByTab[activeTab];
+        const bar = $('bulkBar');
+        if (!prefix || activeTab === 'downloads') {
+          bar.classList.add('hidden');
+          return;
+        }
+
+        const selectedCount = selectedKeysForTab().length;
+        const labels = {
+          accounts: 'tài khoản',
+          memories: 'ảnh/video',
+          letters: 'thư lớp',
+          future: 'lời nhắn tương lai',
+          remember: 'Secret Message',
+          diaries: 'nhật ký',
+        };
+
+        bar.classList.remove('hidden');
+        $('bulkTitle').textContent = selectedCount
+          ? `Đã chọn ${selectedCount} ${labels[activeTab]}`
+          : `Chọn nhiều ${labels[activeTab]}`;
+        $('bulkHint').textContent = selectedCount
+          ? 'Kiểm tra kỹ trước khi xóa. Thao tác này áp dụng cho các mục đang được chọn trong tab hiện tại.'
+          : 'Dùng checkbox từng mục hoặc bấm chọn tất cả mục đang hiện.';
+        $('bulkDeleteButton').disabled = selectedCount === 0 || isBulkDeleting;
+        $('clearSelectionButton').disabled = selectedCount === 0 || isBulkDeleting;
+        $('selectVisibleButton').disabled = isBulkDeleting;
+      };
+
       const accountByUid = (uid) => accounts.find((account) => uid && account.uid === uid);
       const accountByNameKey = (nameKey) => accounts.find((account) => nameKey && account.id === nameKey);
       const resolveTrueName = ({ uid, nameKey, fallback }) =>
@@ -741,6 +981,8 @@
       const showManager = () => {
         gate.classList.add('hidden');
         managerApp.classList.remove('hidden');
+        renderFilterOptions();
+        updateBulkBar();
         startPolling();
       };
 
@@ -748,12 +990,13 @@
         activeTab = tab;
         document.querySelectorAll('.tab').forEach((button) => button.classList.toggle('active', button.dataset.tab === tab));
         document.querySelectorAll('.panel').forEach((panel) => panel.classList.toggle('active', panel.dataset.panel === tab));
+        renderFilterOptions();
         renderCurrentTab();
       };
 
       const renderAccounts = () => {
         const items = accounts
-          .filter((account) => matchesSearch(account, ['name', 'id', 'uid']))
+          .filter((account) => matchesSearch(account, ['name', 'id', 'uid']) && matchesActiveFilter(account, 'accounts'))
           .sort((left, right) => Number(Boolean(left.deleted)) - Number(Boolean(right.deleted)) || String(left.name || '').localeCompare(String(right.name || ''), 'vi'));
 
         $('accounts').innerHTML =
@@ -761,9 +1004,11 @@
             .map((account) => {
               const deleted = Boolean(account.deleted);
               const disabled = Boolean(account.disabled);
+              const selectKey = selectionKey('account', account.id);
               return `
-                <article class="item">
+                <article class="item ${isSelected(selectKey) ? 'selected' : ''}">
                   <div class="row">
+                    ${account.id === MANAGER_NAME_KEY ? '' : checkboxHtml(selectKey)}
                     <strong>${escapeHtml(account.name || account.id)}</strong>
                     ${deleted ? '<span class="pill pink">Đã xóa</span>' : disabled ? '<span class="pill pink">Đã khóa</span>' : '<span class="pill">Đang mở</span>'}
                   </div>
@@ -784,26 +1029,29 @@
               `;
             })
             .join('') || '<p class="muted">Không có tài khoản phù hợp.</p>';
+        updateBulkBar();
       };
 
       const renderMemories = () => {
-        const items = memories.filter((memory) => matchesSearch(memory, ['name', 'nameKey', 'uid', 'caption', 'className']));
+        const items = memories.filter((memory) => matchesSearch(memory, ['name', 'nameKey', 'uid', 'caption', 'className']) && matchesActiveFilter(memory, 'memories'));
         $('memories').innerHTML =
           items
             .map((memory) => {
               const key = getMemoryKey(memory);
+              const selectKey = selectionKey('memory', key);
               const isVideo = memory.mediaType === 'video';
               const visibility = memory.visibility || 'public';
               const viewerNames = Array.isArray(memory.visibleToNames) ? memory.visibleToNames.filter(Boolean) : [];
 
               return `
-                <article class="item memory-item">
+                <article class="item memory-item ${isSelected(selectKey) ? 'selected' : ''}">
                   <div class="memory-thumb-wrap">
                     <img class="memory-thumb" src="${escapeHtml(memory.imageUrl || '')}" alt="Kỷ niệm của ${escapeHtml(memory.name || 'học sinh')}" loading="lazy" decoding="async" />
                     <span class="memory-thumb-badge">${isVideo ? 'Video' : 'Ảnh'}</span>
                   </div>
                   <div>
                     <div class="row">
+                      ${checkboxHtml(selectKey)}
                       <strong>${escapeHtml(memory.name || 'Không rõ tên')}</strong>
                       <span class="pill">${formatDate(memory.createdAt)}</span>
                       <span class="pill ${visibility === 'public' ? '' : 'pink'}">${formatVisibility(visibility)}</span>
@@ -821,37 +1069,47 @@
               `;
             })
             .join('') || '<p class="muted">Không có kỷ niệm phù hợp.</p>';
+        updateBulkBar();
       };
 
       const renderLetters = () => {
-        const items = classLetters.filter((letter) => matchesSearch(letter, ['name', 'nameKey', 'uid', 'message', 'trueName']));
+        const items = classLetters.filter((letter) => matchesSearch(letter, ['name', 'nameKey', 'uid', 'message', 'trueName']) && matchesActiveFilter(letter, 'letters'));
         $('classLetters').innerHTML =
           items
             .map((letter) => {
               const anonymous = isAnonymousLetter(letter);
               const trueName = resolveTrueName({ uid: letter.uid, nameKey: letter.nameKey, fallback: letter.trueName || letter.name });
+              const selectKey = selectionKey('letter', letter.id);
               return `
-              <article class="item">
+              <article class="item ${isSelected(selectKey) ? 'selected' : ''}">
                 <div class="row">
+                  ${checkboxHtml(selectKey)}
                   <strong>${anonymous ? 'Ẩn danh trên bảng lớp' : escapeHtml(letter.name || trueName)}</strong>
                   <span class="pill">${formatDate(letter.createdAt)}</span>
                   ${anonymous ? '<span class="pill pink">Ẩn danh</span>' : '<span class="pill">Có tên</span>'}
                 </div>
                 <p class="muted">Người viết thật: <strong>${escapeHtml(trueName)}</strong> | key: ${escapeHtml(letter.nameKey || '')} | UID: ${escapeHtml(letter.uid || '')}</p>
                 <p class="message">${escapeHtml(letter.message || '')}</p>
+                <div class="row" style="margin-top: 10px">
+                  <button class="danger" data-letter-action="delete" data-id="${escapeHtml(letter.id)}">Xóa thư lớp</button>
+                </div>
               </article>
             `;
             })
             .join('') || '<p class="muted">Chưa có thư lớp nào.</p>';
+        updateBulkBar();
       };
 
       const renderFutureMessages = () => {
-        const capsuleItems = timeCapsules.filter((letter) => matchesSearch(letter, ['name', 'nameKey', 'uid', 'message']));
+        const capsuleItems = timeCapsules.filter((letter) => matchesSearch(letter, ['name', 'nameKey', 'uid', 'message']) && matchesActiveFilter(letter, 'future'));
         $('futureMessages').innerHTML =
           capsuleItems
-            .map((letter) => `
-            <article class="item">
+            .map((letter) => {
+              const selectKey = selectionKey('future', letter.id);
+              return `
+            <article class="item ${isSelected(selectKey) ? 'selected' : ''}">
               <div class="row">
+                ${checkboxHtml(selectKey)}
                 <strong>Gửi cho lớp trong tương lai: ${escapeHtml(letter.name || 'Không rõ tên')}</strong>
                 <span class="pill blue">${formatDate(letter.createdAt)}</span>
                 <span class="pill dark">Mở theo giờ VN: ${formatDate(timeCapsuleSetting.unlockAt)}</span>
@@ -862,17 +1120,22 @@
                 <button class="danger" data-capsule-action="delete" data-id="${escapeHtml(letter.id)}">Xóa lời nhắn</button>
               </div>
             </article>
-          `)
+          `;
+            })
             .join('') || '<p class="muted">Chưa có lời nhắn cho lớp trong tương lai nào.</p>';
+        updateBulkBar();
       };
 
       const renderRememberNotes = () => {
-        const items = rememberNotes.filter((note) => matchesSearch(note, ['fromName', 'fromNameKey', 'toName', 'toNameKey', 'message']));
+        const items = rememberNotes.filter((note) => matchesSearch(note, ['fromName', 'fromNameKey', 'toName', 'toNameKey', 'message']) && matchesActiveFilter(note, 'remember'));
         $('rememberNotes').innerHTML =
           items
-            .map((note) => `
-              <article class="item">
+            .map((note) => {
+              const selectKey = selectionKey('remember', note.id);
+              return `
+              <article class="item ${isSelected(selectKey) ? 'selected' : ''}">
                 <div class="row">
+                  ${checkboxHtml(selectKey)}
                   <strong>${escapeHtml(note.anonymous ? 'Ẩn danh gửi Secret Message' : note.fromName || 'Không rõ người gửi')}</strong>
                   <span class="pill">${formatDate(note.createdAt)}</span>
                   ${note.anonymous ? '<span class="pill pink">Ẩn danh với người nhận</span>' : '<span class="pill">Có tên</span>'}
@@ -882,30 +1145,43 @@
                 <p class="muted">Gửi cho: <strong>${escapeHtml(note.toName || 'Không rõ')}</strong> | key: ${escapeHtml(note.toNameKey || '')}</p>
                 ${note.reactionLabel ? `<p class="muted">Phản hồi: ${escapeHtml(note.reactionLabel)} | ${formatDate(note.reactedAt)}</p>` : ''}
                 <p class="message">${escapeHtml(note.message || '')}</p>
+                <div class="row" style="margin-top: 10px">
+                  <button class="danger" data-remember-action="delete" data-id="${escapeHtml(note.id)}">Xóa Secret Message</button>
+                </div>
               </article>
-            `)
+            `;
+            })
             .join('') || '<p class="muted">Chưa có Secret Message nào.</p>';
+        updateBulkBar();
       };
 
       const renderDiaries = () => {
-        const items = diaries.filter((diary) => matchesSearch(diary, ['name', 'nameKey', 'uid', 'message']));
+        const items = diaries.filter((diary) => matchesSearch(diary, ['name', 'nameKey', 'uid', 'message']) && matchesActiveFilter(diary, 'diaries'));
         $('diaries').innerHTML =
           items
-            .map((diary) => `
-              <article class="item">
+            .map((diary) => {
+              const selectKey = selectionKey('diary', diary.id);
+              return `
+              <article class="item ${isSelected(selectKey) ? 'selected' : ''}">
                 <div class="row">
+                  ${checkboxHtml(selectKey)}
                   <strong>${escapeHtml(diary.name || 'Không rõ tên')}</strong>
                   <span class="pill">${formatDate(diary.createdAt)}</span>
                 </div>
                 <p class="muted">UID: ${escapeHtml(diary.uid || '')} | key: ${escapeHtml(diary.nameKey || '')}</p>
                 <p class="message">${escapeHtml(diary.message || '')}</p>
+                <div class="row" style="margin-top: 10px">
+                  <button class="danger" data-diary-action="delete" data-id="${escapeHtml(diary.id)}">Xóa nhật ký</button>
+                </div>
               </article>
-            `)
+            `;
+            })
             .join('') || '<p class="muted">Chưa có nhật ký bí mật nào.</p>';
+        updateBulkBar();
       };
 
       const renderDownloads = () => {
-        const items = downloads.filter((item) => matchesSearch(item, ['name', 'nameKey', 'uid', 'memoryOwnerName', 'memoryCaption']));
+        const items = downloads.filter((item) => matchesSearch(item, ['name', 'nameKey', 'uid', 'memoryOwnerName', 'memoryCaption']) && matchesActiveFilter(item, 'downloads'));
         $('downloads').innerHTML =
           items
             .map((item) => {
@@ -934,6 +1210,7 @@
               `;
             })
             .join('') || '<p class="muted">Chưa có lượt tải nào.</p>';
+        updateBulkBar();
       };
 
       const renderCurrentTab = () => {
@@ -949,15 +1226,7 @@
       };
 
       const renderAll = () => {
-        updateStats();
-        renderSettings();
-        renderAccounts();
-        renderMemories();
-        renderLetters();
-        renderFutureMessages();
-        renderRememberNotes();
-        renderDiaries();
-        renderDownloads();
+        renderCurrentTab();
       };
 
       const deleteMemoryVideoChunks = async (memoryId) => {
@@ -972,6 +1241,194 @@
             await deleteDoc(chunkRef);
           }),
         );
+      };
+
+      const deleteMemoryRecord = async (memory) => {
+        const collectionName = memory.collectionName || PUBLIC_MEMORIES_COLLECTION;
+        await updateDoc(doc(db, collectionName, memory.id), {
+          managerKey: MANAGER_PASSWORD,
+          managerDeletedAt: serverTimestamp(),
+        });
+        if (memory.mediaType === 'video') await deleteMemoryVideoChunks(memory.id);
+        await deleteDoc(doc(db, collectionName, memory.id));
+      };
+
+      const softDeleteAccountRecord = async (account) => {
+        if (!account || account.id === MANAGER_NAME_KEY) return;
+        await updateDoc(doc(db, 'students98', account.id), {
+          disabled: true,
+          deleted: true,
+          deletedAt: serverTimestamp(),
+          managerKey: MANAGER_PASSWORD,
+          managerDeletedAt: serverTimestamp(),
+          managerUpdatedAt: serverTimestamp(),
+        });
+      };
+
+      const deleteClassLetterRecord = async (letter) => {
+        await updateDoc(doc(db, GUESTBOOK_COLLECTION, letter.id), {
+          managerKey: MANAGER_PASSWORD,
+          managerDeletedAt: serverTimestamp(),
+        });
+        await deleteDoc(doc(db, GUESTBOOK_COLLECTION, letter.id));
+      };
+
+      const deleteFutureMessageRecord = async (letter) => {
+        await updateDoc(doc(db, TIME_CAPSULE_COLLECTION, letter.id), {
+          managerKey: MANAGER_PASSWORD,
+          managerDeletedAt: serverTimestamp(),
+        });
+        await deleteDoc(doc(db, TIME_CAPSULE_COLLECTION, letter.id));
+      };
+
+      const deleteRememberNoteRecord = async (note) => {
+        await deleteDoc(doc(db, REMEMBER_NOTES_COLLECTION, note.id));
+      };
+
+      const deleteDiaryRecord = async (diary) => {
+        await updateDoc(doc(db, DIARY_COLLECTION, diary.id), {
+          managerKey: MANAGER_PASSWORD,
+          managerDeletedAt: serverTimestamp(),
+        });
+        await deleteDoc(doc(db, DIARY_COLLECTION, diary.id));
+      };
+
+      const statusForActiveTab = () => {
+        if (activeTab === 'accounts') return accountStatus;
+        if (activeTab === 'memories') return memoryStatus;
+        if (activeTab === 'letters') return letterStatus;
+        if (activeTab === 'future') return timeCapsuleStatus;
+        if (activeTab === 'remember') return rememberStatus;
+        if (activeTab === 'diaries') return diaryStatus;
+        return accountStatus;
+      };
+
+      const selectedRecordsForActiveTab = () => {
+        if (activeTab === 'accounts') {
+          return selectedKeysForTab()
+            .map((key) => accounts.find((account) => selectionKey('account', account.id) === key))
+            .filter(Boolean)
+            .filter((account) => account.id !== MANAGER_NAME_KEY);
+        }
+
+        if (activeTab === 'memories') {
+          return selectedKeysForTab()
+            .map((key) => memories.find((memory) => selectionKey('memory', getMemoryKey(memory)) === key))
+            .filter(Boolean);
+        }
+
+        if (activeTab === 'letters') {
+          return selectedKeysForTab()
+            .map((key) => classLetters.find((letter) => selectionKey('letter', letter.id) === key))
+            .filter(Boolean);
+        }
+
+        if (activeTab === 'future') {
+          return selectedKeysForTab()
+            .map((key) => timeCapsules.find((letter) => selectionKey('future', letter.id) === key))
+            .filter(Boolean);
+        }
+
+        if (activeTab === 'remember') {
+          return selectedKeysForTab()
+            .map((key) => rememberNotes.find((note) => selectionKey('remember', note.id) === key))
+            .filter(Boolean);
+        }
+
+        if (activeTab === 'diaries') {
+          return selectedKeysForTab()
+            .map((key) => diaries.find((diary) => selectionKey('diary', diary.id) === key))
+            .filter(Boolean);
+        }
+
+        return [];
+      };
+
+      const removeSelectedRecordsFromLocalState = (records) => {
+        if (activeTab === 'accounts') {
+          const ids = new Set(records.map((item) => item.id));
+          accounts = accounts.map((account) =>
+            ids.has(account.id)
+              ? {
+                  ...account,
+                  disabled: true,
+                  deleted: true,
+                  deletedAt: new Date().toISOString(),
+                  managerDeletedAt: new Date().toISOString(),
+                }
+              : account,
+          );
+        }
+
+        if (activeTab === 'memories') {
+          const keys = new Set(records.map(getMemoryKey));
+          memories = memories.filter((item) => !keys.has(getMemoryKey(item)));
+        }
+
+        if (activeTab === 'letters') {
+          const ids = new Set(records.map((item) => item.id));
+          classLetters = classLetters.filter((item) => !ids.has(item.id));
+        }
+
+        if (activeTab === 'future') {
+          const ids = new Set(records.map((item) => item.id));
+          timeCapsules = timeCapsules.filter((item) => !ids.has(item.id));
+        }
+
+        if (activeTab === 'remember') {
+          const ids = new Set(records.map((item) => item.id));
+          rememberNotes = rememberNotes.filter((item) => !ids.has(item.id));
+        }
+
+        if (activeTab === 'diaries') {
+          const ids = new Set(records.map((item) => item.id));
+          diaries = diaries.filter((item) => !ids.has(item.id));
+        }
+      };
+
+      const deleteRecordForActiveTab = async (record) => {
+        if (activeTab === 'accounts') return await softDeleteAccountRecord(record);
+        if (activeTab === 'memories') return await deleteMemoryRecord(record);
+        if (activeTab === 'letters') return await deleteClassLetterRecord(record);
+        if (activeTab === 'future') return await deleteFutureMessageRecord(record);
+        if (activeTab === 'remember') return await deleteRememberNoteRecord(record);
+        if (activeTab === 'diaries') return await deleteDiaryRecord(record);
+        return undefined;
+      };
+
+      const bulkDeleteSelected = async () => {
+        const records = selectedRecordsForActiveTab();
+        if (!records.length) return;
+
+        const labels = {
+          accounts: 'tài khoản',
+          memories: 'ảnh/video',
+          letters: 'thư lớp',
+          future: 'lời nhắn cho lớp trong tương lai',
+          remember: 'Secret Message',
+          diaries: 'nhật ký',
+        };
+
+        if (!window.confirm(`Xóa ${records.length} ${labels[activeTab] || 'mục'} đã chọn?`)) return;
+
+        const status = statusForActiveTab();
+        isBulkDeleting = true;
+        updateBulkBar();
+        status.textContent = `Đang xóa ${records.length} mục đã chọn...`;
+
+        try {
+          await Promise.all(records.map((record) => deleteRecordForActiveTab(record)));
+          removeSelectedRecordsFromLocalState(records);
+          selectedKeysForTab().forEach((key) => selectedItems.delete(key));
+          pruneSelection();
+          renderCurrentTab();
+          status.textContent = `Đã xóa ${records.length} mục đã chọn.`;
+        } catch (error) {
+          status.textContent = error.message || 'Không thể xóa nhiều mục lúc này.';
+        } finally {
+          isBulkDeleting = false;
+          updateBulkBar();
+        }
       };
 
       const refreshManagerData = async () => {
@@ -1042,6 +1499,7 @@
               return rightDate.getTime() - leftDate.getTime();
             });
 
+          pruneSelection();
           renderAll();
           accountStatus.textContent = `Đã tải dữ liệu lúc ${new Intl.DateTimeFormat('vi-VN', { timeStyle: 'medium' }).format(new Date())}.`;
         } catch (error) {
@@ -1186,10 +1644,39 @@
         }
       });
       $('managerSearch').addEventListener('input', renderCurrentTab);
+      $('managerFilter').addEventListener('change', renderCurrentTab);
       $('clearSearchButton').addEventListener('click', () => {
         $('managerSearch').value = '';
+        $('managerFilter').value = 'all';
         renderCurrentTab();
       });
+
+      managerApp.addEventListener('change', (event) => {
+        const checkbox = event.target.closest('input[data-select-key]');
+        if (!checkbox) return;
+
+        if (checkbox.checked) {
+          selectedItems.add(checkbox.dataset.selectKey);
+        } else {
+          selectedItems.delete(checkbox.dataset.selectKey);
+        }
+        renderCurrentTab();
+      });
+
+      $('selectVisibleButton').addEventListener('click', () => {
+        const activePanel = document.querySelector(`.panel[data-panel="${activeTab}"]`);
+        activePanel?.querySelectorAll('input[data-select-key]').forEach((input) => {
+          selectedItems.add(input.dataset.selectKey);
+        });
+        renderCurrentTab();
+      });
+
+      $('clearSelectionButton').addEventListener('click', () => {
+        selectedKeysForTab().forEach((key) => selectedItems.delete(key));
+        renderCurrentTab();
+      });
+
+      $('bulkDeleteButton').addEventListener('click', () => void bulkDeleteSelected());
 
       document.querySelectorAll('.tab').forEach((button) => {
         button.addEventListener('click', () => setActiveTab(button.dataset.tab));
@@ -1266,6 +1753,7 @@
           if (memory.mediaType === 'video') await deleteMemoryVideoChunks(memory.id);
           await deleteDoc(doc(db, collectionName, memory.id));
           memories = memories.filter((item) => getMemoryKey(item) !== key);
+          selectedItems.delete(selectionKey('memory', key));
           renderMemories();
           updateStats();
           memoryStatus.textContent = 'Đã xóa kỷ niệm khỏi feed lớp.';
@@ -1293,11 +1781,85 @@
           });
           await deleteDoc(doc(db, TIME_CAPSULE_COLLECTION, id));
           timeCapsules = timeCapsules.filter((item) => item.id !== id);
+          selectedItems.delete(selectionKey('future', id));
           renderFutureMessages();
           updateStats();
           timeCapsuleStatus.textContent = 'Đã xóa lời nhắn cho lớp trong tương lai.';
         } catch (error) {
           timeCapsuleStatus.textContent = error.message || 'Không thể xóa lời nhắn cho lớp trong tương lai lúc này.';
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      $('classLetters').addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-letter-action="delete"][data-id]');
+        if (!button) return;
+
+        const id = button.dataset.id;
+        const letter = classLetters.find((item) => item.id === id);
+        if (!id || !letter) return;
+        const trueName = resolveTrueName({ uid: letter.uid, nameKey: letter.nameKey, fallback: letter.trueName || letter.name });
+        if (!window.confirm(`Xóa thư lớp của ${trueName || 'học sinh này'}?`)) return;
+
+        button.disabled = true;
+        try {
+          await deleteClassLetterRecord(letter);
+          classLetters = classLetters.filter((item) => item.id !== id);
+          selectedItems.delete(selectionKey('letter', id));
+          renderLetters();
+          updateStats();
+          letterStatus.textContent = 'Đã xóa thư lớp.';
+        } catch (error) {
+          letterStatus.textContent = error.message || 'Không thể xóa thư lớp lúc này.';
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      $('rememberNotes').addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-remember-action="delete"][data-id]');
+        if (!button) return;
+
+        const id = button.dataset.id;
+        const note = rememberNotes.find((item) => item.id === id);
+        if (!id || !note) return;
+        if (!window.confirm(`Xóa Secret Message gửi cho ${note.toName || 'người nhận này'}?`)) return;
+
+        button.disabled = true;
+        try {
+          await deleteRememberNoteRecord(note);
+          rememberNotes = rememberNotes.filter((item) => item.id !== id);
+          selectedItems.delete(selectionKey('remember', id));
+          renderRememberNotes();
+          updateStats();
+          rememberStatus.textContent = 'Đã xóa Secret Message.';
+        } catch (error) {
+          rememberStatus.textContent = error.message || 'Không thể xóa Secret Message lúc này.';
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      $('diaries').addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-diary-action="delete"][data-id]');
+        if (!button) return;
+
+        const id = button.dataset.id;
+        const diary = diaries.find((item) => item.id === id);
+        if (!id || !diary) return;
+        if (!window.confirm(`Xóa nhật ký bí mật của ${diary.name || 'học sinh này'}?`)) return;
+
+        button.disabled = true;
+        try {
+          await deleteDiaryRecord(diary);
+          diaries = diaries.filter((item) => item.id !== id);
+          selectedItems.delete(selectionKey('diary', id));
+          renderDiaries();
+          updateStats();
+          diaryStatus.textContent = 'Đã xóa nhật ký bí mật.';
+        } catch (error) {
+          diaryStatus.textContent = error.message || 'Không thể xóa nhật ký lúc này.';
         } finally {
           button.disabled = false;
         }

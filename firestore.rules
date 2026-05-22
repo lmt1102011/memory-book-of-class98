@@ -306,8 +306,9 @@ service cloud.firestore {
         && request.resource.data.className == '9/8'
         && request.resource.data.message is string
         && request.resource.data.message.size() <= 160;
-      allow update: if false;
-      allow delete: if ownsResource();
+      allow update: if isManagerWrite()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['managerKey', 'managerDeletedAt']);
+      allow delete: if ownsResource() || isManagerMarkedResource();
     }
 
     match /timeCapsules98/{entryId} {
@@ -363,7 +364,7 @@ service cloud.firestore {
         && request.resource.data.message.size() <= 1200
         && request.resource.data.kind == 'secret-diary';
       allow update: if isManagerWrite();
-      allow delete: if ownsResource();
+      allow delete: if ownsResource() || isManagerMarkedResource();
     }
   }
 }
