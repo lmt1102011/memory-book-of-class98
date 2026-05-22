@@ -1,4 +1,4 @@
-const CACHE_NAME = 'memory98-app-shell-v11';
+const CACHE_NAME = 'memory98-app-shell-v12';
 const APP_SHELL_PATHS = [
   './',
   './index.html',
@@ -29,6 +29,12 @@ self.addEventListener('activate', (event) => {
       .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
       .then(() => self.clients.claim()),
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 const shouldHandleRequest = (request) => {
