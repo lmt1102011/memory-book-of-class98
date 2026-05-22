@@ -33,7 +33,7 @@ export default function ActionModal({ isOpen, title, description, icon, wide = f
 
   return (
     <div
-      className="app-safe-modal-overlay fixed inset-0 z-[95] grid place-items-center bg-ink/76 p-3 backdrop-blur-[2px] sm:p-6"
+      className="app-safe-modal-overlay app-modal-fast-overlay fixed inset-0 z-[95] grid place-items-center bg-ink/76 p-3 backdrop-blur-[2px] sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label={title}

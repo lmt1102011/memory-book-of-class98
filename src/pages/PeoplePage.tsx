@@ -65,6 +65,12 @@ const waitForFrame = () =>
     window.requestAnimationFrame(() => resolve());
   });
 
+const runWhenPageIsCalm = (callback: () => void) => {
+  window.requestAnimationFrame(() => {
+    window.setTimeout(callback, 80);
+  });
+};
+
 const canvasToDataUrl = (canvas: HTMLCanvasElement, type: string, quality: number) =>
   new Promise<string>((resolve, reject) => {
     canvas.toBlob(
@@ -114,11 +120,7 @@ const compressAvatar = async (file: File) => {
 
 const getPersonKey = (person: ClassmateProfile) => person.nameKey || person.uid || person.name.toLowerCase();
 
-const memoryBelongsTo = (memory: MemoryItem, person: ClassmateProfile) => {
-  if (memory.nameKey && person.nameKey) return memory.nameKey === person.nameKey;
-  if (memory.uid && person.uid) return memory.uid === person.uid;
-  return memory.name.trim().toLowerCase() === person.name.trim().toLowerCase();
-};
+const normalizeProfileName = (value: string) => value.trim().toLowerCase();
 
 const emptyPersonStats: PersonStats = {
   memories: [],
@@ -358,19 +360,55 @@ export default function PeoplePage({
 
   const statsByKey = useMemo(() => {
     const stats: Record<string, PersonStats> = {};
+    const peopleByNameKey = new Map<string, ClassmateProfile>();
+    const peopleByUid = new Map<string, ClassmateProfile>();
+    const peopleByName = new Map<string, ClassmateProfile>();
 
     sortedClassmates.forEach((person) => {
-      const personMemories = memories.filter((memory) => memoryBelongsTo(memory, person));
-      stats[getPersonKey(person)] = {
-        memories: personMemories,
-        hearts: personMemories.reduce((sum, memory) => sum + memory.reactions, 0),
-        comments: personMemories.reduce((sum, memory) => sum + (commentsByMemory[memory.id]?.length || 0), 0),
-        videos: personMemories.filter((memory) => memory.mediaType === 'video').length,
+      const key = getPersonKey(person);
+      stats[key] = {
+        memories: [],
+        hearts: 0,
+        comments: 0,
+        videos: 0,
       };
+      if (person.nameKey) peopleByNameKey.set(person.nameKey, person);
+      if (person.uid) peopleByUid.set(person.uid, person);
+      peopleByName.set(normalizeProfileName(person.name), person);
+    });
+
+    memories.forEach((memory) => {
+      const person =
+        (memory.nameKey ? peopleByNameKey.get(memory.nameKey) : undefined) ||
+        (memory.uid ? peopleByUid.get(memory.uid) : undefined) ||
+        peopleByName.get(normalizeProfileName(memory.name));
+
+      if (!person) return;
+
+      const key = getPersonKey(person);
+      const personStats = stats[key];
+      if (!personStats) return;
+
+      personStats.memories.push(memory);
+      personStats.hearts += memory.reactions;
+      personStats.comments += commentsByMemory[memory.id]?.length || 0;
+      if (memory.mediaType === 'video') personStats.videos += 1;
     });
 
     return stats;
   }, [commentsByMemory, memories, sortedClassmates]);
+
+  const totalHearts = useMemo(() => memories.reduce((sum, memory) => sum + memory.reactions, 0), [memories]);
+
+  const selectedOwnStats = useMemo(
+    () => ({
+      memories: ownMemories,
+      hearts: ownMemories.reduce((sum, memory) => sum + memory.reactions, 0),
+      comments: ownMemories.reduce((sum, memory) => sum + (ownCommentsByMemory[memory.id]?.length || 0), 0),
+      videos: ownMemories.filter((memory) => memory.mediaType === 'video').length,
+    }),
+    [ownCommentsByMemory, ownMemories],
+  );
 
   const badgeClassMax = useMemo(() => {
     const stats = Object.values(statsByKey);
@@ -412,15 +450,6 @@ export default function PeoplePage({
   }, [profile?.nameKey, query, sortedClassmates]);
 
   const selectedIsSelf = Boolean(profile && selectedPerson && selectedPerson.nameKey === profile.nameKey);
-  const selectedOwnStats = useMemo(
-    () => ({
-      memories: ownMemories,
-      hearts: ownMemories.reduce((sum, memory) => sum + memory.reactions, 0),
-      comments: ownMemories.reduce((sum, memory) => sum + (ownCommentsByMemory[memory.id]?.length || 0), 0),
-      videos: ownMemories.filter((memory) => memory.mediaType === 'video').length,
-    }),
-    [ownCommentsByMemory, ownMemories],
-  );
   const selectedStats = selectedPerson
     ? selectedIsSelf
       ? selectedOwnStats
@@ -430,7 +459,6 @@ export default function PeoplePage({
   const selectedBadgeGoals = selectedPerson ? badgeGoalsByKey[getPersonKey(selectedPerson)] || [] : [];
   const selfBadges = selfProfile ? badgesByKey[getPersonKey(selfProfile)] || [] : [];
   const totalMemories = memories.length;
-  const totalHearts = memories.reduce((sum, memory) => sum + memory.reactions, 0);
 
   const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -978,6 +1006,33 @@ function PersonDetail({
   onDownloadMemory: (memory: MemoryItem) => void | Promise<void>;
 }) {
   const [showBadgeGoals, setShowBadgeGoals] = useState(false);
+  const [canRenderAlbum, setCanRenderAlbum] = useState(isSelf);
+
+  const personKey = person ? getPersonKey(person) : '';
+
+  useEffect(() => {
+    setShowBadgeGoals(false);
+
+    if (!person) {
+      setCanRenderAlbum(false);
+      return undefined;
+    }
+
+    if (isSelf) {
+      setCanRenderAlbum(true);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setCanRenderAlbum(false);
+    runWhenPageIsCalm(() => {
+      if (!cancelled) setCanRenderAlbum(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSelf, personKey]);
 
   if (!person) {
     return null;
@@ -987,7 +1042,7 @@ function PersonDetail({
 
   return (
     <div className="rounded-[1.15rem] bg-white p-3 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.08)] sm:p-4">
-      <section className="overflow-hidden rounded-[1rem] border border-white/75 bg-gradient-to-br from-paper via-white to-blush/18 shadow-[0_14px_36px_rgba(84,57,35,0.10)]">
+      <section className="profile-modal-section overflow-hidden rounded-[1rem] border border-white/75 bg-gradient-to-br from-paper via-white to-blush/18 shadow-[0_14px_36px_rgba(84,57,35,0.10)]">
         <div className="grid gap-0 md:grid-cols-[17rem_minmax(0,1fr)]">
           <div className="relative bg-[#fff3df] p-4 text-center">
             <span className="scrapbook-tape left-8 top-2 z-[2] -rotate-6" />
@@ -1036,7 +1091,7 @@ function PersonDetail({
         </div>
       </section>
 
-      <div className="mt-5 overflow-hidden rounded-[1.15rem] border border-white/70 bg-gradient-to-br from-paper via-white to-skySoft/20 p-3 shadow-[0_14px_36px_rgba(84,57,35,0.10)]">
+      <div className="profile-modal-section mt-5 overflow-hidden rounded-[1.15rem] border border-white/70 bg-gradient-to-br from-paper via-white to-skySoft/20 p-3 shadow-[0_14px_36px_rgba(84,57,35,0.10)]">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="text-sm font-black uppercase text-coffee/72">Huy hiệu thanh xuân</h3>
@@ -1074,13 +1129,13 @@ function PersonDetail({
         )}
       </div>
 
-      <div className="mt-5 grid grid-cols-3 gap-2 text-center">
+      <div className="profile-modal-section mt-5 grid grid-cols-3 gap-2 text-center">
         <Stat value={personStats.memories.length} label={isSelf ? 'mục' : 'ảnh'} />
         <Stat value={personStats.hearts} label="tim" tone="bg-blush/30" />
         <Stat value={personStats.comments} label="bình luận" tone="bg-skySoft/30" />
       </div>
 
-      <div className="mt-5">
+      <div className="profile-modal-section mt-5">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h3 className="text-sm font-black uppercase text-coffee/70">
@@ -1100,7 +1155,14 @@ function PersonDetail({
           )}
         </div>
 
-        {isSelf && isOwnMemoriesLoading ? (
+        {!canRenderAlbum ? (
+          <div className="grid min-h-36 place-items-center rounded-[0.9rem] bg-paper/72 p-4 text-center">
+            <div>
+              <div className="memory-loading-spinner mx-auto mb-3 h-9 w-9 rounded-full border-4 border-coffee/15 border-t-coffee" />
+              <p className="text-sm font-bold text-ink/62">Đang mở album nhẹ nhàng hơn...</p>
+            </div>
+          </div>
+        ) : isSelf && isOwnMemoriesLoading ? (
           <div className="grid min-h-44 place-items-center rounded-[0.9rem] bg-paper/72 p-4 text-center">
             <div>
               <div className="memory-loading-spinner mx-auto mb-3 h-10 w-10 rounded-full border-4 border-coffee/15 border-t-coffee" />

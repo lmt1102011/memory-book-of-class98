@@ -273,6 +273,12 @@
     touch-action: pan-y;
   }
 
+  .profile-modal-section {
+    content-visibility: auto;
+    contain: layout paint;
+    contain-intrinsic-size: 1px 420px;
+  }
+
   .input-field {
     width: 100%;
     min-width: 0;
@@ -1761,6 +1767,11 @@
     .backdrop-blur-xl,
     .backdrop-blur-md,
     .backdrop-blur-sm {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+    }
+
+    .app-modal-fast-overlay {
       -webkit-backdrop-filter: none !important;
       backdrop-filter: none !important;
     }
