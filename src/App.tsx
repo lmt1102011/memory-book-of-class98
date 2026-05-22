@@ -185,6 +185,7 @@ export default function App() {
   );
   const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuHintVisible, setMenuHintVisible] = useState(false);
   const [openNavGroup, setOpenNavGroup] = useState<NavGroupId | null>(null);
   const [bootSplashDone, setBootSplashDone] = useState(false);
   const [routeFeedbackVisible, setRouteFeedbackVisible] = useState(false);
@@ -193,6 +194,7 @@ export default function App() {
   const pendingReactionIdsRef = useRef(new Set<string>());
   const routeFeedbackTimerRef = useRef(0);
   const notificationPopupTimerRef = useRef(0);
+  const menuHintTimerRef = useRef(0);
   const previousUnreadNotificationCountRef = useRef(0);
   const desktopNavRef = useRef<HTMLDivElement | null>(null);
   const installedBackGuardReadyRef = useRef(false);
@@ -323,6 +325,7 @@ export default function App() {
 
   useEffect(() => {
     if (!profile) {
+      setMenuHintVisible(false);
       setNotificationsSeenAt(new Date(0).toISOString());
       setNotificationReadIds(new Set());
       setNotificationActivity({
@@ -340,6 +343,56 @@ export default function App() {
     );
     setNotificationReadIds(readStoredNotificationIds(profile.uid));
   }, [profile]);
+
+  const dismissMenuHint = useCallback(() => {
+    setMenuHintVisible(false);
+    if (profile) {
+      window.localStorage.setItem(`memory98-menu-hint-seen:${profile.uid}`, '1');
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    window.clearTimeout(menuHintTimerRef.current);
+    setMenuHintVisible(false);
+
+    if (!profile || !bootSplashDone || route === 'landing' || route === 'join') return undefined;
+    if (menuOpen || notificationsOpen || futureMessagePopupOpen) return undefined;
+    if (!window.matchMedia('(max-width: 1023px)').matches) return undefined;
+    if (window.localStorage.getItem(`memory98-menu-hint-seen:${profile.uid}`)) return undefined;
+
+    menuHintTimerRef.current = window.setTimeout(() => {
+      setMenuHintVisible(true);
+    }, reduceHeavyMotion ? 480 : 900);
+
+    return () => {
+      window.clearTimeout(menuHintTimerRef.current);
+    };
+  }, [
+    bootSplashDone,
+    futureMessagePopupOpen,
+    menuOpen,
+    notificationsOpen,
+    profile,
+    reduceHeavyMotion,
+    route,
+  ]);
+
+  useEffect(() => {
+    if (!menuHintVisible) return undefined;
+
+    const onDismiss = () => dismissMenuHint();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') dismissMenuHint();
+    };
+
+    window.addEventListener('pointerdown', onDismiss, { capture: true });
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      window.removeEventListener('pointerdown', onDismiss, { capture: true });
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [dismissMenuHint, menuHintVisible]);
 
   useEffect(() => {
     if (!profile || !bootSplashDone) return undefined;
@@ -2198,6 +2251,26 @@ export default function App() {
             </AnimatePresence>
           </header>
         )}
+
+        <AnimatePresence>
+          {menuHintVisible && bootSplashDone && route !== 'landing' && !menuOpen && (
+            <m.div
+              className="menu-discovery-hint pointer-events-none fixed z-[90] lg:hidden"
+              initial={reduceHeavyMotion ? false : { opacity: 0, y: -8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={reduceHeavyMotion ? undefined : { opacity: 0, y: -6, scale: 0.98 }}
+              transition={{ duration: reduceHeavyMotion ? 0 : 0.18, ease: 'easeOut' }}
+              aria-hidden="true"
+            >
+              <span className="menu-hint-ring" />
+              <div className="menu-hint-card">
+                <span className="menu-hint-arrow" />
+                <p>Khám phá thêm những tính năng mới mẻ</p>
+                <small>Chạm nút 3 gạch ở trên để mở menu.</small>
+              </div>
+            </m.div>
+          )}
+        </AnimatePresence>
 
         {bootSplashDone && (
         <main className={route === 'landing' ? '' : 'app-main pt-16'}>
