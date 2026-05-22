@@ -91,6 +91,42 @@ const funnyVotePresets: Array<{
     tone: 'pink',
     icon: 'heart',
   },
+  {
+    title: 'Chủ tịch hội mượn bút',
+    description: 'Đi học nhẹ nhàng vì cả thế giới là hộp bút dự phòng.',
+    tone: 'blue',
+    icon: 'book',
+  },
+  {
+    title: 'Pháp sư “em chưa hiểu”',
+    description: 'Một câu hỏi cất lên là cứu cả lớp khỏi kiểm tra bài cũ thêm vài phút.',
+    tone: 'cream',
+    icon: 'message',
+  },
+  {
+    title: 'Máy phát wifi năng lượng vui',
+    description: 'Ngồi gần bạn này là tự nhiên mood lớp bắt sóng lại.',
+    tone: 'pink',
+    icon: 'sparkles',
+  },
+  {
+    title: 'Trùm đi học đúng giờ trong truyền thuyết',
+    description: 'Không phải lúc nào cũng xuất hiện, nhưng mỗi lần đúng giờ là cả lớp ghi nhận.',
+    tone: 'chalk',
+    icon: 'badge',
+  },
+  {
+    title: 'Bậc thầy né camera',
+    description: 'Ảnh lớp có đủ mọi người, riêng bạn này lúc nào cũng như nhân vật bí ẩn.',
+    tone: 'blue',
+    icon: 'camera',
+  },
+  {
+    title: 'Người chuyên làm lớp trưởng thở dài',
+    description: 'Không phá, chỉ là hơi sáng tạo quá mức quy định.',
+    tone: 'cream',
+    icon: 'heart',
+  },
 ];
 
 const getVoteIcon = (iconId: string) => iconOptions.find((option) => option.id === iconId)?.Icon || Sparkles;

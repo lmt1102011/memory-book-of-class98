@@ -36,7 +36,7 @@ type YouthBadge = {
   id: string;
   label: string;
   description: string;
-  icon: 'images' | 'heart' | 'message' | 'video' | 'profile' | 'album';
+  icon: 'images' | 'heart' | 'message' | 'video' | 'profile' | 'album' | 'camera' | 'badge';
   className: string;
 };
 
@@ -135,6 +135,9 @@ const getYouthBadges = (
   classMax: { memories: number; hearts: number; comments: number },
 ) => {
   const badges: YouthBadge[] = [];
+  const profileProgress = getProfileProgress(person);
+  const quoteLength = person.quote?.trim().length || 0;
+  const messageLength = person.classMessage?.trim().length || 0;
   const hasCompleteProfile = Boolean(
     person.avatarDataUrl &&
       person.nickname?.trim() &&
@@ -143,41 +146,81 @@ const getYouthBadges = (
       person.personalityTags.length >= 3,
   );
 
+  if (stats.memories.length >= 1) {
+    badges.push({
+      id: 'first-memory',
+      label: 'Tân binh nộp kỷ niệm',
+      description: 'Đã có kỷ niệm đầu tiên trong album, chính thức hết cảnh hồ sơ trống trơn.',
+      icon: 'camera',
+      className: 'border-white/70 bg-paper/82 text-coffee',
+    });
+  }
+
   if (stats.memories.length > 0 && stats.memories.length === classMax.memories) {
     badges.push({
       id: 'memory-keeper',
-      label: 'Người giữ ký ức',
-      description: `${stats.memories.length} ảnh/video đã góp vào album lớp.`,
+      label: 'Thủ kho ảnh dìm',
+      description: `${stats.memories.length} ảnh/video đã góp vào kho kỷ niệm lớp 9/8.`,
       icon: 'images',
       className: 'border-skySoft/45 bg-skySoft/22 text-chalk',
+    });
+  }
+
+  if (stats.memories.length >= 6) {
+    badges.push({
+      id: 'archive-boss',
+      label: 'Kho lưu trữ quốc dân',
+      description: 'Album riêng nhiều tư liệu tới mức xem một lúc là thấy cả thanh xuân tua lại.',
+      icon: 'album',
+      className: 'border-coffee/16 bg-[#f4dfbf]/58 text-coffee',
     });
   }
 
   if (stats.hearts > 0 && stats.hearts === classMax.hearts) {
     badges.push({
       id: 'most-loved',
-      label: 'Được yêu thương nhất',
-      description: `${stats.hearts} lượt tim từ những kỷ niệm đã đăng.`,
+      label: 'Nam châm thả tim',
+      description: `${stats.hearts} lượt tim, đăng gì cũng có người bấm thương thương.`,
       icon: 'heart',
       className: 'border-blush/55 bg-blush/28 text-coffee',
+    });
+  }
+
+  if (stats.hearts >= 10) {
+    badges.push({
+      id: 'heart-overload',
+      label: 'Tim nhiều hơn bài tập',
+      description: 'Lượng tim bắt đầu vượt ngưỡng bình tĩnh của một trang hồ sơ học trò.',
+      icon: 'heart',
+      className: 'border-roseDust/35 bg-roseDust/12 text-coffee',
     });
   }
 
   if (stats.comments > 0 && stats.comments === classMax.comments) {
     badges.push({
       id: 'story-spark',
-      label: 'Gợi nhiều lời nhắn',
-      description: `${stats.comments} bình luận quanh album của bạn này.`,
+      label: 'Máy kích hoạt comment',
+      description: `${stats.comments} bình luận quanh album, đúng kiểu đi đâu cũng có chuyện để kể.`,
       icon: 'message',
       className: 'border-coffee/18 bg-[#f4dfbf]/55 text-coffee',
+    });
+  }
+
+  if (stats.comments >= 5) {
+    badges.push({
+      id: 'comment-magnet',
+      label: 'Mở miệng là có chuyện',
+      description: 'Album khiến mọi người phải ghé vào để nói vài câu cho đã.',
+      icon: 'message',
+      className: 'border-chalk/18 bg-chalk/10 text-chalk',
     });
   }
 
   if (stats.videos > 0) {
     badges.push({
       id: 'video-moment',
-      label: 'Có video thanh xuân',
-      description: `${stats.videos} video ngắn lưu lại khoảnh khắc lớp 9/8.`,
+      label: 'Đạo diễn giờ ra chơi',
+      description: `${stats.videos} video ngắn lưu lại khoảnh khắc lớp 9/8 có chuyển động hẳn hoi.`,
       icon: 'video',
       className: 'border-ink/10 bg-ink/10 text-ink',
     });
@@ -186,24 +229,84 @@ const getYouthBadges = (
   if (stats.memories.length >= 3) {
     badges.push({
       id: 'album-builder',
-      label: 'Album có hồn',
-      description: 'Album riêng đã đủ đầy để xem lại như một trang scrapbook nhỏ.',
+      label: 'Chủ sạp kỷ niệm',
+      description: 'Album riêng đã đủ đầy để xem lại như một trang scrapbook nhỏ nhưng hơi nhiều cảm xúc.',
       icon: 'album',
       className: 'border-white/70 bg-paper/80 text-coffee',
+    });
+  }
+
+  if (person.avatarDataUrl) {
+    badges.push({
+      id: 'face-card',
+      label: 'Có mặt mũi đàng hoàng',
+      description: 'Đã có ảnh đại diện, nhìn phát biết ngay nhân vật chính là ai.',
+      icon: 'profile',
+      className: 'border-skySoft/35 bg-skySoft/18 text-chalk',
+    });
+  }
+
+  if (person.nickname?.trim()) {
+    badges.push({
+      id: 'nickname-certified',
+      label: 'Biệt danh có bảo hành',
+      description: 'Tên phụ đã được niêm yết, ai gọi sai tự chịu trách nhiệm.',
+      icon: 'profile',
+      className: 'border-coffee/12 bg-white/70 text-coffee',
+    });
+  }
+
+  if (quoteLength >= 18) {
+    badges.push({
+      id: 'quote-philosopher',
+      label: 'Triết gia giờ ra chơi',
+      description: 'Câu nói riêng nghe nhẹ nhàng nhưng có vẻ đã suy nghĩ hơi sâu.',
+      icon: 'message',
+      className: 'border-blush/42 bg-blush/20 text-coffee',
+    });
+  }
+
+  if (messageLength >= 80) {
+    badges.push({
+      id: 'yearbook-writer',
+      label: 'Nhà văn lưu bút',
+      description: 'Lời gửi lớp đủ dài để mai sau đọc lại có nguy cơ cay mắt.',
+      icon: 'message',
+      className: 'border-[#f4dfbf] bg-[#f4dfbf]/45 text-coffee',
+    });
+  }
+
+  if (person.personalityTags.length >= 3) {
+    badges.push({
+      id: 'tag-master',
+      label: 'Tính cách đóng mộc',
+      description: 'Ba tag tính cách đã lên sóng, hồ sơ nhìn có căn cước thanh xuân hơn hẳn.',
+      icon: 'badge',
+      className: 'border-chalk/16 bg-paper/70 text-chalk',
     });
   }
 
   if (hasCompleteProfile) {
     badges.push({
       id: 'profile-polished',
-      label: 'Hồ sơ chỉn chu',
-      description: 'Đã có ảnh đại diện, biệt danh, câu nói riêng và lời gửi lớp.',
+      label: 'Hồ sơ flex nhẹ',
+      description: 'Ảnh, biệt danh, câu nói riêng, lời gửi lớp và tag đều đã đủ bộ.',
       icon: 'profile',
       className: 'border-chalk/20 bg-chalk/10 text-chalk',
     });
   }
 
-  return badges.slice(0, 5);
+  if (profileProgress >= 4 && stats.memories.length >= 1) {
+    badges.push({
+      id: 'main-character',
+      label: 'Nhân vật có đất diễn',
+      description: 'Hồ sơ có thông tin, album có kỷ niệm, nhìn đúng kiểu có câu chuyện riêng.',
+      icon: 'album',
+      className: 'border-ink/10 bg-ink/8 text-ink',
+    });
+  }
+
+  return badges.slice(0, 10);
 };
 
 const getProfileProgress = (person: ClassmateProfile) =>
@@ -224,8 +327,8 @@ const getYouthBadgeGoals = (
   const goals: YouthBadgeGoal[] = [
     {
       id: 'first-memory',
-      label: 'Kỷ niệm đầu tiên',
-      description: 'Đăng ít nhất một ảnh hoặc video để album riêng bắt đầu có dấu ấn.',
+      label: 'Tân binh nộp kỷ niệm',
+      description: 'Đăng ít nhất một ảnh hoặc video để thoát cảnh hồ sơ nhìn hơi cô đơn.',
       current: Math.min(stats.memories.length, 1),
       target: 1,
       unit: 'mục',
@@ -233,16 +336,25 @@ const getYouthBadgeGoals = (
     },
     {
       id: 'album-builder',
-      label: 'Album có hồn',
-      description: 'Đăng đủ 3 kỷ niệm để hồ sơ nhìn như một trang scrapbook nhỏ.',
+      label: 'Chủ sạp kỷ niệm',
+      description: 'Đăng đủ 3 kỷ niệm để hồ sơ nhìn như có cả một sạp ký ức mini.',
       current: Math.min(stats.memories.length, 3),
       target: 3,
       unit: 'mục',
       done: stats.memories.length >= 3,
     },
     {
+      id: 'archive-boss',
+      label: 'Kho lưu trữ quốc dân',
+      description: 'Đăng 6 kỷ niệm để album riêng nhìn như nơi cả lớp gửi gắm tư liệu.',
+      current: Math.min(stats.memories.length, 6),
+      target: 6,
+      unit: 'mục',
+      done: stats.memories.length >= 6,
+    },
+    {
       id: 'profile-polished',
-      label: 'Hồ sơ chỉn chu',
+      label: 'Hồ sơ flex nhẹ',
       description: 'Hoàn thiện ảnh đại diện, biệt danh, câu nói riêng, lời gửi lớp và 3 tag.',
       current: profileProgress,
       target: 5,
@@ -251,8 +363,8 @@ const getYouthBadgeGoals = (
     },
     {
       id: 'video-moment',
-      label: 'Có video thanh xuân',
-      description: 'Đăng một video ngắn để album có thêm chuyển động và âm sắc đời học trò.',
+      label: 'Đạo diễn giờ ra chơi',
+      description: 'Đăng một video ngắn để album có thêm chuyển động như phim hậu trường lớp.',
       current: Math.min(stats.videos, 1),
       target: 1,
       unit: 'video',
@@ -263,8 +375,8 @@ const getYouthBadgeGoals = (
   if (classMax.hearts > 0) {
     goals.push({
       id: 'most-loved',
-      label: 'Được yêu thương nhất',
-      description: 'Cần thêm tim để chạm mốc kỷ niệm được yêu thích nhất lớp.',
+      label: 'Nam châm thả tim',
+      description: 'Cần thêm tim để chạm mốc được yêu thích nhất lớp.',
       current: Math.min(stats.hearts, classMax.hearts),
       target: classMax.hearts,
       unit: 'tim',
@@ -272,11 +384,21 @@ const getYouthBadgeGoals = (
     });
   }
 
+  goals.push({
+    id: 'heart-overload',
+    label: 'Tim nhiều hơn bài tập',
+    description: 'Cần 10 tim để mở danh hiệu nghe hơi quá nhưng rất đã.',
+    current: Math.min(stats.hearts, 10),
+    target: 10,
+    unit: 'tim',
+    done: stats.hearts >= 10,
+  });
+
   if (classMax.comments > 0) {
     goals.push({
       id: 'story-spark',
-      label: 'Gợi nhiều lời nhắn',
-      description: 'Cần thêm bình luận quanh album để mở huy hiệu tương tác.',
+      label: 'Máy kích hoạt comment',
+      description: 'Cần thêm bình luận quanh album để mở huy hiệu tương tác hơi náo nhiệt.',
       current: Math.min(stats.comments, classMax.comments),
       target: classMax.comments,
       unit: 'bình luận',
@@ -284,7 +406,17 @@ const getYouthBadgeGoals = (
     });
   }
 
-  return goals.sort((left, right) => Number(left.done) - Number(right.done)).slice(0, 5);
+  goals.push({
+    id: 'comment-magnet',
+    label: 'Mở miệng là có chuyện',
+    description: 'Cần 5 bình luận để chứng minh album này không hề im lặng.',
+    current: Math.min(stats.comments, 5),
+    target: 5,
+    unit: 'bình luận',
+    done: stats.comments >= 5,
+  });
+
+  return goals.sort((left, right) => Number(left.done) - Number(right.done)).slice(0, 8);
 };
 
 export default function PeoplePage({
@@ -903,7 +1035,11 @@ function YouthBadgePill({ badge, compact = false }: { badge: YouthBadge; compact
             ? UserRound
             : badge.icon === 'album'
               ? BadgeCheck
-              : Images;
+              : badge.icon === 'camera'
+                ? Camera
+                : badge.icon === 'badge'
+                  ? BadgeCheck
+                  : Images;
 
   if (compact) {
     return (
