@@ -55,44 +55,46 @@
 
       html.memory98-standalone .memory98-boot {
         display: grid;
+        opacity: 0;
+        animation: memory98-boot-show 0.18s ease 0.45s forwards;
       }
 
       .memory98-boot-card {
-        width: min(360px, 100%);
-        padding: 28px 22px 24px;
+        width: min(340px, 100%);
+        padding: 24px 20px 20px;
         border: 1px solid rgba(79, 52, 40, 0.12);
-        border-radius: 26px;
+        border-radius: 24px;
         background: rgba(255, 252, 246, 0.96);
-        box-shadow: 0 24px 70px rgba(79, 52, 40, 0.15);
+        box-shadow: 0 20px 54px rgba(79, 52, 40, 0.13);
       }
 
       .memory98-boot img {
-        width: 96px;
-        height: 96px;
+        width: 88px;
+        height: 88px;
         object-fit: contain;
-        border-radius: 28px;
+        border-radius: 26px;
         background: #fff7ee;
-        box-shadow: 0 12px 28px rgba(79, 52, 40, 0.14);
+        box-shadow: 0 10px 24px rgba(79, 52, 40, 0.13);
       }
 
       .memory98-boot strong {
         display: block;
-        margin-top: 18px;
-        font-size: 20px;
+        margin-top: 16px;
+        font-size: 19px;
         line-height: 1.35;
       }
 
       .memory98-boot span {
         display: block;
-        margin-top: 6px;
+        margin-top: 5px;
         color: rgba(79, 52, 40, 0.68);
         font-size: 13px;
-        line-height: 1.6;
+        line-height: 1.55;
       }
 
       .memory98-boot-bar {
-        height: 8px;
-        margin-top: 18px;
+        height: 7px;
+        margin-top: 16px;
         overflow: hidden;
         border-radius: 999px;
         background: rgba(79, 52, 40, 0.12);
@@ -100,12 +102,18 @@
 
       .memory98-boot-bar i {
         display: block;
-        width: 46%;
+        width: 44%;
         height: 100%;
         border-radius: inherit;
         background: linear-gradient(90deg, #f4a7b9, #8bbde8, #d7a979);
-        animation: memory98-boot-progress 1.2s ease-in-out infinite;
+        animation: memory98-boot-progress 1.05s ease-in-out infinite;
         transform: translate3d(-110%, 0, 0);
+      }
+
+      @keyframes memory98-boot-show {
+        to {
+          opacity: 1;
+        }
       }
 
       @keyframes memory98-boot-progress {
@@ -129,7 +137,7 @@
         <div class="memory98-boot-card">
           <img src="./logo-web-class-98.png" alt="Memory98" />
           <strong>Đang mở Memory98...</strong>
-          <span>Đang kiểm tra phiên bản mới nhất để app không bị kẹt ở bản cũ.</span>
+          <span>Đang chuẩn bị không gian ký ức của lớp 9/8.</span>
           <div class="memory98-boot-bar"><i></i></div>
         </div>
       </div>

@@ -68,26 +68,26 @@ export const showAppUpdateOverlay = (label = 'Đang cập nhật phiên bản m�
     }
 
     #memory98-update-overlay .memory98-update-card {
-      width: min(360px, 100%);
-      padding: 26px 22px 22px;
+      width: min(340px, 100%);
+      padding: 24px 20px 20px;
       border: 1px solid rgba(79, 52, 40, 0.12);
       border-radius: 24px;
       background: rgba(255, 252, 246, 0.96);
-      box-shadow: 0 24px 70px rgba(79, 52, 40, 0.16);
+      box-shadow: 0 20px 54px rgba(79, 52, 40, 0.14);
       text-align: center;
     }
 
     #memory98-update-overlay img {
-      width: 92px;
-      height: 92px;
+      width: 88px;
+      height: 88px;
       object-fit: contain;
       border-radius: 26px;
       background: #fff7ee;
-      box-shadow: 0 12px 28px rgba(79, 52, 40, 0.14);
+      box-shadow: 0 10px 24px rgba(79, 52, 40, 0.13);
     }
 
     #memory98-update-overlay p {
-      margin: 18px 0 6px;
+      margin: 16px 0 5px;
       font-size: 18px;
       font-weight: 800;
       line-height: 1.35;
@@ -97,12 +97,12 @@ export const showAppUpdateOverlay = (label = 'Đang cập nhật phiên bản m�
       display: block;
       color: rgba(79, 52, 40, 0.68);
       font-size: 13px;
-      line-height: 1.6;
+      line-height: 1.55;
     }
 
     #memory98-update-overlay .memory98-update-bar {
-      height: 8px;
-      margin-top: 18px;
+      height: 7px;
+      margin-top: 16px;
       overflow: hidden;
       border-radius: 999px;
       background: rgba(79, 52, 40, 0.12);
@@ -114,7 +114,7 @@ export const showAppUpdateOverlay = (label = 'Đang cập nhật phiên bản m�
       height: 100%;
       border-radius: inherit;
       background: linear-gradient(90deg, #f4a7b9, #8bbde8, #d7a979);
-      animation: memory98-update-progress 1.15s ease-in-out infinite;
+      animation: memory98-update-progress 1s ease-in-out infinite;
       transform: translate3d(-110%, 0, 0);
     }
 
