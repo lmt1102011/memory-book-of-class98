@@ -39,6 +39,8 @@ import type {
   RememberNoteDraft,
   RememberReactionId,
   SecretDiaryEntry,
+  TimeCapsuleEntry,
+  TimeCapsuleSettings,
   UserProfile,
   VoteCategory,
   VoteCategoryDraft,
@@ -56,6 +58,7 @@ const MEMORY_VIDEO_CHUNKS_COLLECTION = 'memoryVideoChunks98';
 const MEMORY_COMMENTS_COLLECTION = 'memoryComments98';
 const MEMORY_DOWNLOAD_LOGS_COLLECTION = 'memoryDownloadLogs98';
 const GUESTBOOK_COLLECTION = 'guestbook98';
+const TIME_CAPSULE_COLLECTION = 'timeCapsules98';
 const SECRET_MAILBOX_PRIVATE_COLLECTION = 'secretMailboxPrivate98';
 const REMEMBER_NOTES_COLLECTION = 'rememberNotes98';
 const VOTE_CATEGORIES_COLLECTION = 'voteCategories98';
@@ -63,6 +66,7 @@ const VOTES_SUBCOLLECTION = 'votes';
 const SITE_SETTINGS_COLLECTION = 'siteSettings98';
 const MEMORY_RECAP_SETTING_ID = 'memoryRecap';
 const CINEMATIC_SLIDESHOW_SETTING_ID = 'cinematicSlideshow';
+const TIME_CAPSULE_SETTING_ID = 'timeCapsule';
 const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
 const FIREBASE_RETRY_DELAYS = [0, 450, 1000, 1800];
 const FIREBASE_TIMEOUT_MS = 12_000;
@@ -298,12 +302,23 @@ const guestbookFromDoc = (id: string, data: DocumentData): GuestbookEntry => {
   return {
     id,
     uid: String(data.uid || ''),
+    nameKey: String(data.nameKey || ''),
     name: anonymous ? 'Ẩn danh' : String(data.name || 'Classmate'),
     message: String(data.message || ''),
     createdAt: timestampToIso(data.createdAt),
     anonymous,
   };
 };
+
+const timeCapsuleFromDoc = (id: string, data: DocumentData): TimeCapsuleEntry => ({
+  id,
+  uid: String(data.uid || ''),
+  name: String(data.name || 'Bạn lớp 9/8'),
+  nameKey: String(data.nameKey || ''),
+  className: String(data.className || CLASS_NAME),
+  message: String(data.message || ''),
+  createdAt: timestampToIso(data.createdAt),
+});
 
 const secretDiaryFromDoc = (id: string, data: DocumentData): SecretDiaryEntry => ({
   id,
@@ -386,8 +401,24 @@ const memoryRecapSettingsFromData = (data?: DocumentData): MemoryRecapSettings =
   updatedAt: data?.updatedAt ? timestampToIso(data.updatedAt) : undefined,
 });
 
+const SLIDESHOW_MOODS = ['cinematic', 'scrapbook', 'photobooth'] as const;
+
 const cinematicSlideshowSettingsFromData = (data?: DocumentData): CinematicSlideshowSettings => ({
   enabled: Boolean(data?.enabled),
+  mood: SLIDESHOW_MOODS.includes(String(data?.mood) as CinematicSlideshowSettings['mood'])
+    ? (String(data?.mood) as CinematicSlideshowSettings['mood'])
+    : 'cinematic',
+  updatedAt: data?.updatedAt ? timestampToIso(data.updatedAt) : undefined,
+});
+
+const defaultTimeCapsuleUnlockAt = () => {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() + 1);
+  return date.toISOString();
+};
+
+const timeCapsuleSettingsFromData = (data?: DocumentData): TimeCapsuleSettings => ({
+  unlockAt: typeof data?.unlockAt === 'string' && data.unlockAt ? data.unlockAt : defaultTimeCapsuleUnlockAt(),
   updatedAt: data?.updatedAt ? timestampToIso(data.updatedAt) : undefined,
 });
 
@@ -553,7 +584,7 @@ export const subscribeMemories = (
     }
   };
   void load();
-  const interval = createVisiblePolling(load, SITE_SETTINGS_POLL_MS);
+  const interval = createVisiblePolling(load);
   return () => window.clearInterval(interval);
 };
 
@@ -571,7 +602,7 @@ export const subscribeMemoryComments = (
     }
   };
   void load();
-  const interval = createVisiblePolling(load, SITE_SETTINGS_POLL_MS);
+  const interval = createVisiblePolling(load);
   return () => window.clearInterval(interval);
 };
 
@@ -584,6 +615,24 @@ export const subscribeGuestbook = (
     try {
       const snapshot = await withFirebaseRetry(() => getDocs(guestbookQuery));
       onNext(snapshot.docs.map((item) => guestbookFromDoc(item.id, item.data())));
+    } catch (error) {
+      onError(friendlyFirebaseError(error));
+    }
+  };
+  void load();
+  const interval = createVisiblePolling(load);
+  return () => window.clearInterval(interval);
+};
+
+export const subscribeTimeCapsules = (
+  onNext: (entries: TimeCapsuleEntry[]) => void,
+  onError: (error: Error) => void,
+) => {
+  const capsulesQuery = query(collection(db, TIME_CAPSULE_COLLECTION), orderBy('createdAt', 'desc'), limit(120));
+  const load = async () => {
+    try {
+      const snapshot = await withFirebaseRetry(() => getDocs(capsulesQuery));
+      onNext(snapshot.docs.map((item) => timeCapsuleFromDoc(item.id, item.data())));
     } catch (error) {
       onError(friendlyFirebaseError(error));
     }
@@ -693,7 +742,7 @@ export const subscribeMemoryRecapSettings = (
     }
   };
   void load();
-  const interval = createVisiblePolling(load);
+  const interval = createVisiblePolling(load, SITE_SETTINGS_POLL_MS);
   return () => window.clearInterval(interval);
 };
 
@@ -711,7 +760,25 @@ export const subscribeCinematicSlideshowSettings = (
     }
   };
   void load();
-  const interval = createVisiblePolling(load);
+  const interval = createVisiblePolling(load, SITE_SETTINGS_POLL_MS);
+  return () => window.clearInterval(interval);
+};
+
+export const subscribeTimeCapsuleSettings = (
+  onNext: (settings: TimeCapsuleSettings) => void,
+  onError: (error: Error) => void,
+) => {
+  const settingRef = doc(db, SITE_SETTINGS_COLLECTION, TIME_CAPSULE_SETTING_ID);
+  const load = async () => {
+    try {
+      const snapshot = await withFirebaseRetry(() => getDoc(settingRef));
+      onNext(timeCapsuleSettingsFromData(snapshot.exists() ? snapshot.data() : undefined));
+    } catch (error) {
+      onError(friendlyFirebaseError(error));
+    }
+  };
+  void load();
+  const interval = createVisiblePolling(load, SITE_SETTINGS_POLL_MS);
   return () => window.clearInterval(interval);
 };
 
@@ -1025,6 +1092,7 @@ export const addGuestbookEntry = async (profile: UserProfile, message: string) =
   return {
     id: docRef.id,
     uid: profile.uid,
+    nameKey: profile.nameKey,
     name: profile.name,
     message,
     createdAt,
@@ -1046,6 +1114,7 @@ export const addAnonymousMessage = async (profile: UserProfile, message: string)
   return {
     id: docRef.id,
     uid: profile.uid,
+    nameKey: profile.nameKey,
     name: 'Ẩn danh',
     message: safeMessage,
     createdAt,
@@ -1059,6 +1128,29 @@ export const deleteGuestbookEntry = async (profile: UserProfile, entry: Guestboo
   }
 
   await withFirebaseRetry(() => deleteDoc(doc(db, GUESTBOOK_COLLECTION, entry.id)));
+};
+
+export const addTimeCapsuleEntry = async (profile: UserProfile, message: string) => {
+  const createdAt = new Date().toISOString();
+  const safeMessage = message.trim().slice(0, 900);
+  const docRef = await withFirebaseRetry(() => addDoc(collection(db, TIME_CAPSULE_COLLECTION), {
+    uid: profile.uid,
+    name: profile.name,
+    nameKey: profile.nameKey,
+    className: CLASS_NAME,
+    message: safeMessage,
+    createdAt: serverTimestamp(),
+  }));
+
+  return {
+    id: docRef.id,
+    uid: profile.uid,
+    name: profile.name,
+    nameKey: profile.nameKey,
+    className: CLASS_NAME,
+    message: safeMessage,
+    createdAt,
+  };
 };
 
 export const addSecretDiary = async (profile: UserProfile, message: string) => {

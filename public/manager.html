@@ -33,6 +33,7 @@
 
       button,
       input,
+      select,
       textarea {
         font: inherit;
       }
@@ -62,6 +63,7 @@
       }
 
       input,
+      select,
       textarea {
         width: 100%;
         min-width: 0;
@@ -406,11 +408,28 @@
           <div>
             <strong>Slideshow điện ảnh</strong>
             <p class="muted">
-              Khi bật, trang Ký ức sẽ hiện khối slideshow thật nổi bật để học sinh xem ảnh lớp như một đoạn phim ngắn.
+              Khi bật, trang Ký ức sẽ hiện slideshow nổi bật. Manager chọn mood, học sinh chỉ thấy một trải nghiệm đã chỉnh sẵn.
             </p>
+            <select id="slideshowMoodSelect" style="margin-top: 10px">
+              <option value="cinematic">Điện ảnh</option>
+              <option value="scrapbook">Lưu bút</option>
+              <option value="photobooth">Photobooth Hàn Quốc</option>
+            </select>
             <p id="slideshowStatus" class="status"></p>
           </div>
           <button id="toggleSlideshowButton" class="secondary">Đang tải...</button>
+        </section>
+
+        <section class="card setting-card">
+          <div>
+            <strong>Hộp thời gian trong Thư lớp</strong>
+            <p class="muted">
+              Học sinh viết thư cho tương lai ngay trong mục Thư lớp. Trước ngày mở khóa, web chỉ hiện phong bì.
+            </p>
+            <input id="timeCapsuleUnlockAt" type="datetime-local" style="margin-top: 10px" />
+            <p id="timeCapsuleStatus" class="status"></p>
+          </div>
+          <button id="saveTimeCapsuleButton" class="secondary">Lưu ngày mở</button>
         </section>
 
         <section class="toolbar">
@@ -530,11 +549,13 @@
       const MEMORY_VIDEO_CHUNKS_COLLECTION = 'memoryVideoChunks98';
       const MEMORY_DOWNLOAD_LOGS_COLLECTION = 'memoryDownloadLogs98';
       const GUESTBOOK_COLLECTION = 'guestbook98';
+      const TIME_CAPSULE_COLLECTION = 'timeCapsules98';
       const REMEMBER_NOTES_COLLECTION = 'rememberNotes98';
       const DIARY_COLLECTION = 'secretMailboxPrivate98';
       const SITE_SETTINGS_COLLECTION = 'siteSettings98';
       const MEMORY_RECAP_SETTING_ID = 'memoryRecap';
       const CINEMATIC_SLIDESHOW_SETTING_ID = 'cinematicSlideshow';
+      const TIME_CAPSULE_SETTING_ID = 'timeCapsule';
 
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
@@ -551,15 +572,18 @@
       const memoryStatus = $('memoryStatus');
       const recapStatus = $('recapStatus');
       const slideshowStatus = $('slideshowStatus');
+      const timeCapsuleStatus = $('timeCapsuleStatus');
 
       let accounts = [];
       let diaries = [];
       let memories = [];
       let downloads = [];
       let classLetters = [];
+      let timeCapsules = [];
       let rememberNotes = [];
       let memoryRecapSetting = { enabled: false };
-      let cinematicSlideshowSetting = { enabled: false };
+      let cinematicSlideshowSetting = { enabled: false, mood: 'cinematic' };
+      let timeCapsuleSetting = { unlockAt: '' };
       let activeTab = 'accounts';
       let managerPoll = 0;
       let isLoadingManagerData = false;
@@ -605,6 +629,13 @@
         return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
       };
 
+      const toDateTimeLocalValue = (value) => {
+        const date = value?.toDate ? value.toDate() : new Date(value || Date.now() + 365 * 24 * 60 * 60 * 1000);
+        if (Number.isNaN(date.getTime())) return '';
+        const offset = date.getTimezoneOffset() * 60000;
+        return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+      };
+
       const escapeHtml = (value) =>
         String(value || '')
           .replace(/&/g, '&amp;')
@@ -644,7 +675,7 @@
       const updateStats = () => {
         $('statAccounts').textContent = accounts.filter((account) => !account.deleted).length;
         $('statMemories').textContent = memories.length;
-        $('statLetters').textContent = classLetters.length;
+        $('statLetters').textContent = classLetters.length + timeCapsules.length;
         $('statRemember').textContent = rememberNotes.length;
         $('statDiaries').textContent = diaries.length;
         $('statDownloads').textContent = downloads.length;
@@ -657,11 +688,17 @@
           ? 'Đang bật: học sinh sẽ thấy recap nổi bật trên trang Ký ức.'
           : 'Đang tắt: recap sẽ được ẩn khỏi trang học sinh.';
 
+        $('slideshowMoodSelect').value = cinematicSlideshowSetting.mood || 'cinematic';
         $('toggleSlideshowButton').textContent = cinematicSlideshowSetting.enabled ? 'Tắt slideshow' : 'Bật slideshow';
         $('toggleSlideshowButton').classList.toggle('danger', cinematicSlideshowSetting.enabled);
         slideshowStatus.textContent = cinematicSlideshowSetting.enabled
-          ? 'Đang bật: trang Ký ức sẽ hiện khối slideshow điện ảnh.'
+          ? `Đang bật: mood ${$('slideshowMoodSelect').selectedOptions[0]?.textContent || 'Điện ảnh'} sẽ hiện trên trang Ký ức.`
           : 'Đang tắt: slideshow sẽ ẩn để feed gọn hơn.';
+
+        $('timeCapsuleUnlockAt').value = toDateTimeLocalValue(timeCapsuleSetting.unlockAt);
+        timeCapsuleStatus.textContent = timeCapsuleSetting.unlockAt
+          ? `Ngày mở hiện tại: ${formatDate(timeCapsuleSetting.unlockAt)}. Đã có ${timeCapsules.length} phong bì.`
+          : `Chưa đặt ngày mở. Đã có ${timeCapsules.length} phong bì.`;
       };
 
       const showManager = () => {
@@ -751,24 +788,44 @@
 
       const renderLetters = () => {
         const items = classLetters.filter((letter) => matchesSearch(letter, ['name', 'nameKey', 'uid', 'message', 'trueName']));
-        $('classLetters').innerHTML =
-          items
-            .map((letter) => {
-              const anonymous = isAnonymousLetter(letter);
-              const trueName = resolveTrueName({ uid: letter.uid, nameKey: letter.nameKey, fallback: letter.trueName || letter.name });
-              return `
-                <article class="item">
-                  <div class="row">
-                    <strong>${anonymous ? 'Ẩn danh trên bảng lớp' : escapeHtml(letter.name || trueName)}</strong>
-                    <span class="pill">${formatDate(letter.createdAt)}</span>
-                    ${anonymous ? '<span class="pill pink">Ẩn danh</span>' : '<span class="pill">Có tên</span>'}
-                  </div>
-                  <p class="muted">Người viết thật: <strong>${escapeHtml(trueName)}</strong> | key: ${escapeHtml(letter.nameKey || '')} | UID: ${escapeHtml(letter.uid || '')}</p>
-                  <p class="message">${escapeHtml(letter.message || '')}</p>
-                </article>
-              `;
-            })
-            .join('') || '<p class="muted">Chưa có thư lớp nào.</p>';
+        const capsuleItems = timeCapsules.filter((letter) => matchesSearch(letter, ['name', 'nameKey', 'uid', 'message']));
+        const classHtml = items
+          .map((letter) => {
+            const anonymous = isAnonymousLetter(letter);
+            const trueName = resolveTrueName({ uid: letter.uid, nameKey: letter.nameKey, fallback: letter.trueName || letter.name });
+            return `
+              <article class="item">
+                <div class="row">
+                  <strong>${anonymous ? 'Ẩn danh trên bảng lớp' : escapeHtml(letter.name || trueName)}</strong>
+                  <span class="pill">${formatDate(letter.createdAt)}</span>
+                  ${anonymous ? '<span class="pill pink">Ẩn danh</span>' : '<span class="pill">Có tên</span>'}
+                </div>
+                <p class="muted">Người viết thật: <strong>${escapeHtml(trueName)}</strong> | key: ${escapeHtml(letter.nameKey || '')} | UID: ${escapeHtml(letter.uid || '')}</p>
+                <p class="message">${escapeHtml(letter.message || '')}</p>
+              </article>
+            `;
+          })
+          .join('');
+        const capsuleHtml = capsuleItems
+          .map((letter) => `
+            <article class="item">
+              <div class="row">
+                <strong>Hộp thời gian: ${escapeHtml(letter.name || 'Không rõ tên')}</strong>
+                <span class="pill blue">${formatDate(letter.createdAt)}</span>
+                <span class="pill dark">Mở: ${formatDate(timeCapsuleSetting.unlockAt)}</span>
+              </div>
+              <p class="muted">key: ${escapeHtml(letter.nameKey || '')} | UID: ${escapeHtml(letter.uid || '')}</p>
+              <p class="message">${escapeHtml(letter.message || '')}</p>
+            </article>
+          `)
+          .join('');
+
+        $('classLetters').innerHTML = `
+          <h3>Thư lớp</h3>
+          ${classHtml || '<p class="muted">Chưa có thư lớp nào.</p>'}
+          <h3 style="margin-top: 16px">Hộp thời gian</h3>
+          ${capsuleHtml || '<p class="muted">Chưa có phong bì thời gian nào.</p>'}
+        `;
       };
 
       const renderRememberNotes = () => {
@@ -895,9 +952,11 @@
             privateMemorySnapshot,
             downloadSnapshot,
             letterSnapshot,
+            timeCapsuleSnapshot,
             rememberSnapshot,
             recapSnapshot,
             slideshowSnapshot,
+            timeCapsuleSettingSnapshot,
           ] = await Promise.all([
             getDocs(query(collection(db, 'students98'), orderBy('name'))),
             getDocs(query(collection(db, DIARY_COLLECTION), orderBy('createdAt', 'desc'))),
@@ -905,9 +964,11 @@
             getDocs(query(collection(db, PRIVATE_MEMORIES_COLLECTION), orderBy('createdAt', 'desc'))),
             getDocs(query(collection(db, MEMORY_DOWNLOAD_LOGS_COLLECTION), orderBy('downloadedAt', 'desc'))),
             getDocs(query(collection(db, GUESTBOOK_COLLECTION), orderBy('createdAt', 'desc'))),
+            getDocs(query(collection(db, TIME_CAPSULE_COLLECTION), orderBy('createdAt', 'desc'))),
             getDocs(query(collection(db, REMEMBER_NOTES_COLLECTION), orderBy('createdAt', 'desc'))),
             getDoc(doc(db, SITE_SETTINGS_COLLECTION, MEMORY_RECAP_SETTING_ID)),
             getDoc(doc(db, SITE_SETTINGS_COLLECTION, CINEMATIC_SLIDESHOW_SETTING_ID)),
+            getDoc(doc(db, SITE_SETTINGS_COLLECTION, TIME_CAPSULE_SETTING_ID)),
           ]);
 
           accounts = accountSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
@@ -921,9 +982,15 @@
               trueName: resolveTrueName({ uid: data.uid, nameKey: data.nameKey, fallback: data.name }),
             };
           });
+          timeCapsules = timeCapsuleSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
           rememberNotes = rememberSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
           memoryRecapSetting = recapSnapshot.exists() ? { enabled: Boolean(recapSnapshot.data().enabled) } : { enabled: false };
-          cinematicSlideshowSetting = slideshowSnapshot.exists() ? { enabled: Boolean(slideshowSnapshot.data().enabled) } : { enabled: false };
+          cinematicSlideshowSetting = slideshowSnapshot.exists()
+            ? { enabled: Boolean(slideshowSnapshot.data().enabled), mood: slideshowSnapshot.data().mood || 'cinematic' }
+            : { enabled: false, mood: 'cinematic' };
+          timeCapsuleSetting = timeCapsuleSettingSnapshot.exists()
+            ? { unlockAt: timeCapsuleSettingSnapshot.data().unlockAt || '' }
+            : { unlockAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() };
           memories = [
             ...publicMemorySnapshot.docs.map((item) => ({ id: item.id, collectionName: PUBLIC_MEMORIES_COLLECTION, ...item.data() })),
             ...privateMemorySnapshot.docs.map((item) => ({ id: item.id, collectionName: PRIVATE_MEMORIES_COLLECTION, ...item.data() })),
@@ -1005,6 +1072,7 @@
       });
       $('toggleSlideshowButton').addEventListener('click', async () => {
         const nextEnabled = !cinematicSlideshowSetting.enabled;
+        const mood = $('slideshowMoodSelect').value || 'cinematic';
         $('toggleSlideshowButton').disabled = true;
         slideshowStatus.textContent = nextEnabled ? 'Đang bật slideshow...' : 'Đang tắt slideshow...';
         try {
@@ -1012,18 +1080,69 @@
             doc(db, SITE_SETTINGS_COLLECTION, CINEMATIC_SLIDESHOW_SETTING_ID),
             {
               enabled: nextEnabled,
+              mood,
               managerKey: MANAGER_PASSWORD,
               updatedAt: serverTimestamp(),
               updatedBy: MANAGER_NAME_KEY,
             },
             { merge: true },
           );
-          cinematicSlideshowSetting = { enabled: nextEnabled };
+          cinematicSlideshowSetting = { enabled: nextEnabled, mood };
           renderSettings();
         } catch (error) {
           slideshowStatus.textContent = error.message || 'Không thể cập nhật slideshow.';
         } finally {
           $('toggleSlideshowButton').disabled = false;
+        }
+      });
+      $('slideshowMoodSelect').addEventListener('change', async () => {
+        const mood = $('slideshowMoodSelect').value || 'cinematic';
+        slideshowStatus.textContent = 'Đang lưu mood slideshow...';
+        try {
+          await setDoc(
+            doc(db, SITE_SETTINGS_COLLECTION, CINEMATIC_SLIDESHOW_SETTING_ID),
+            {
+              enabled: Boolean(cinematicSlideshowSetting.enabled),
+              mood,
+              managerKey: MANAGER_PASSWORD,
+              updatedAt: serverTimestamp(),
+              updatedBy: MANAGER_NAME_KEY,
+            },
+            { merge: true },
+          );
+          cinematicSlideshowSetting = { ...cinematicSlideshowSetting, mood };
+          renderSettings();
+        } catch (error) {
+          slideshowStatus.textContent = error.message || 'Không thể lưu mood slideshow.';
+        }
+      });
+      $('saveTimeCapsuleButton').addEventListener('click', async () => {
+        const value = $('timeCapsuleUnlockAt').value;
+        const unlockAt = value ? new Date(value).toISOString() : '';
+        if (!unlockAt) {
+          timeCapsuleStatus.textContent = 'Hãy chọn ngày mở khóa hợp lệ.';
+          return;
+        }
+
+        $('saveTimeCapsuleButton').disabled = true;
+        timeCapsuleStatus.textContent = 'Đang lưu ngày mở hộp thời gian...';
+        try {
+          await setDoc(
+            doc(db, SITE_SETTINGS_COLLECTION, TIME_CAPSULE_SETTING_ID),
+            {
+              unlockAt,
+              managerKey: MANAGER_PASSWORD,
+              updatedAt: serverTimestamp(),
+              updatedBy: MANAGER_NAME_KEY,
+            },
+            { merge: true },
+          );
+          timeCapsuleSetting = { unlockAt };
+          renderSettings();
+        } catch (error) {
+          timeCapsuleStatus.textContent = error.message || 'Không thể lưu ngày mở hộp thời gian.';
+        } finally {
+          $('saveTimeCapsuleButton').disabled = false;
         }
       });
       $('managerSearch').addEventListener('input', renderCurrentTab);

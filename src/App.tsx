@@ -25,6 +25,7 @@ import LandingPage from './pages/LandingPage';
 import { isStandaloneMode, shouldSkipIntroOnInstalledLaunch } from './pwaInstallPrompt';
 import type {
   AppRoute,
+  CinematicSlideshowSettings,
   ClassmateProfile,
   GuestbookEntry,
   MemoryComment,
@@ -36,6 +37,8 @@ import type {
   RememberNoteDraft,
   RememberReactionId,
   SecretDiaryEntry,
+  TimeCapsuleEntry,
+  TimeCapsuleSettings,
   UserProfile,
   VoteCategory,
   VoteCategoryDraft,
@@ -120,6 +123,17 @@ const logoSrc = `${import.meta.env.BASE_URL}logo-web-class-98.svg?v=20260521-log
 const sortCommentsNewestFirst = (comments: MemoryComment[]) =>
   [...comments].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
 
+const defaultCinematicSlideshowSettings: CinematicSlideshowSettings = {
+  enabled: false,
+  mood: 'cinematic',
+};
+
+const makeDefaultTimeCapsuleSettings = (): TimeCapsuleSettings => {
+  const unlockAt = new Date();
+  unlockAt.setFullYear(unlockAt.getFullYear() + 1);
+  return { unlockAt: unlockAt.toISOString() };
+};
+
 export default function App() {
   const [route, setRoute] = useState<AppRoute>(() => routeFromHash());
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -127,6 +141,7 @@ export default function App() {
   const [memoriesLoading, setMemoriesLoading] = useState(false);
   const [remoteComments, setRemoteComments] = useState<MemoryComment[]>([]);
   const [remoteGuestbook, setRemoteGuestbook] = useState<GuestbookEntry[]>([]);
+  const [timeCapsules, setTimeCapsules] = useState<TimeCapsuleEntry[]>([]);
   const [classmates, setClassmates] = useState<ClassmateProfile[]>([]);
   const [classmatesLoading, setClassmatesLoading] = useState(false);
   const [voteCategories, setVoteCategories] = useState<VoteCategory[]>([]);
@@ -150,7 +165,12 @@ export default function App() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsSeenAt, setNotificationsSeenAt] = useState(() => new Date(0).toISOString());
   const [memoryRecapEnabled, setMemoryRecapEnabled] = useState(false);
-  const [cinematicSlideshowEnabled, setCinematicSlideshowEnabled] = useState(false);
+  const [cinematicSlideshowSettings, setCinematicSlideshowSettings] = useState<CinematicSlideshowSettings>(
+    defaultCinematicSlideshowSettings,
+  );
+  const [timeCapsuleSettings, setTimeCapsuleSettings] = useState<TimeCapsuleSettings>(() =>
+    makeDefaultTimeCapsuleSettings(),
+  );
   const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [openNavGroup, setOpenNavGroup] = useState<NavGroupId | null>(null);
@@ -341,6 +361,7 @@ export default function App() {
 
     let unsubscribeRecap: (() => void) | undefined;
     let unsubscribeSlideshow: (() => void) | undefined;
+    let unsubscribeTimeCapsuleSettings: (() => void) | undefined;
     let isActive = true;
 
     void import('./services/firebaseMemoryBook')
@@ -359,18 +380,29 @@ export default function App() {
         unsubscribeSlideshow = service.subscribeCinematicSlideshowSettings(
           (settings) => {
             if (!isActive) return;
-            setCinematicSlideshowEnabled(settings.enabled);
+            setCinematicSlideshowSettings(settings);
           },
           () => {
             if (!isActive) return;
-            setCinematicSlideshowEnabled(false);
+            setCinematicSlideshowSettings(defaultCinematicSlideshowSettings);
+          },
+        );
+        unsubscribeTimeCapsuleSettings = service.subscribeTimeCapsuleSettings(
+          (settings) => {
+            if (!isActive) return;
+            setTimeCapsuleSettings(settings);
+          },
+          () => {
+            if (!isActive) return;
+            setTimeCapsuleSettings(makeDefaultTimeCapsuleSettings());
           },
         );
       })
       .catch(() => {
         if (isActive) {
           setMemoryRecapEnabled(false);
-          setCinematicSlideshowEnabled(false);
+          setCinematicSlideshowSettings(defaultCinematicSlideshowSettings);
+          setTimeCapsuleSettings(makeDefaultTimeCapsuleSettings());
         }
       });
 
@@ -378,6 +410,7 @@ export default function App() {
       isActive = false;
       unsubscribeRecap?.();
       unsubscribeSlideshow?.();
+      unsubscribeTimeCapsuleSettings?.();
     };
   }, [bootSplashDone]);
 
@@ -387,6 +420,7 @@ export default function App() {
     let unsubscribeMemories: (() => void) | undefined;
     let unsubscribeComments: (() => void) | undefined;
     let unsubscribeGuestbook: (() => void) | undefined;
+    let unsubscribeTimeCapsules: (() => void) | undefined;
     let unsubscribeClassmates: (() => void) | undefined;
     let unsubscribeRememberNotes: (() => void) | undefined;
     let unsubscribeSentRememberNotes: (() => void) | undefined;
@@ -540,6 +574,14 @@ export default function App() {
             },
             (error) => setFirebaseNotice(error.message),
           );
+          unsubscribeTimeCapsules = service.subscribeTimeCapsules(
+            (items) => {
+              if (!isActive) return;
+              setTimeCapsules(items);
+              setFirebaseNotice('');
+            },
+            (error) => setFirebaseNotice(error.message),
+          );
         }
 
         if (route === 'diary' && profile) {
@@ -593,6 +635,7 @@ export default function App() {
       unsubscribeMemories?.();
       unsubscribeComments?.();
       unsubscribeGuestbook?.();
+      unsubscribeTimeCapsules?.();
       unsubscribeClassmates?.();
       unsubscribeRememberNotes?.();
       unsubscribeSentRememberNotes?.();
@@ -1344,6 +1387,19 @@ export default function App() {
     [navigate, profile],
   );
 
+  const handleTimeCapsuleAdd = useCallback(
+    async (message: string) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+      const service = await import('./services/firebaseMemoryBook');
+      const entry = await service.addTimeCapsuleEntry(profile, message);
+      setTimeCapsules((items) => [entry, ...items]);
+    },
+    [navigate, profile],
+  );
+
   const handleSecretDiaryAdd = useCallback(
     async (message: string) => {
       if (!profile) {
@@ -1576,12 +1632,15 @@ export default function App() {
         <Suspense fallback={<LoadingScreen label="Đang mở bảng thư lớp" />}>
           <LettersPage
             guestbook={allGuestbook}
+            timeCapsules={timeCapsules}
+            timeCapsuleSettings={timeCapsuleSettings}
             firebaseNotice={firebaseNotice}
             profile={profile}
             onJoin={() => navigate('join')}
             onAddGuestbook={handleGuestbookAdd}
             onDeleteGuestbook={handleGuestbookDelete}
             onAddAnonymousMessage={handleAnonymousMessageAdd}
+            onAddTimeCapsule={handleTimeCapsuleAdd}
           />
         </Suspense>
       );
@@ -1699,7 +1758,7 @@ export default function App() {
           firebaseNotice={firebaseNotice}
           isLoadingMemories={memoriesLoading}
           memoryRecapEnabled={memoryRecapEnabled}
-          cinematicSlideshowEnabled={cinematicSlideshowEnabled}
+          cinematicSlideshowSettings={cinematicSlideshowSettings}
           profile={profile}
           pendingReactionIds={pendingReactionIds}
           onJoin={() => navigate('join')}

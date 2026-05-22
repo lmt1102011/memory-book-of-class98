@@ -4,7 +4,7 @@ import { Camera, Download, Filter, Heart, Lock, RotateCcw, Search, UserRound, Vi
 import FirebaseNotice from '../components/FirebaseNotice';
 import MemoryCard from '../components/MemoryCard';
 import { useDebounce } from '../hooks/useDebounce';
-import type { MemoryComment, MemoryItem, UserProfile } from '../types';
+import type { CinematicSlideshowSettings, MemoryComment, MemoryItem, UserProfile } from '../types';
 
 const EMPTY_COMMENTS: MemoryComment[] = [];
 
@@ -33,13 +33,73 @@ const formatVideoDuration = (seconds: number) => `${Math.max(1, Math.round(secon
 
 const clampZoom = (value: number) => Math.min(4, Math.max(1, value));
 
+const slideshowMoodConfig: Record<
+  CinematicSlideshowSettings['mood'],
+  {
+    label: string;
+    eyebrow: string;
+    title: string;
+    description: string;
+    shellClass: string;
+    glowClass: string;
+    chipClass: string;
+    previewClass: string;
+    modalClass: string;
+    modalFooterClass: string;
+    progressClass: string;
+  }
+> = {
+  cinematic: {
+    label: 'Điện ảnh',
+    eyebrow: 'Rạp phim thanh xuân',
+    title: 'Rạp phim thanh xuân của lớp 9/8',
+    description: 'Ảnh chạy chậm, nền tối, rõ mặt và có cảm giác như một đoạn phim cuối cấp.',
+    shellClass: 'bg-ink text-paper shadow-[0_28px_80px_rgba(53,41,31,0.22)]',
+    glowClass:
+      'bg-[radial-gradient(circle_at_18%_18%,rgba(247,183,199,0.24),transparent_32%),radial-gradient(circle_at_82%_22%,rgba(169,205,232,0.24),transparent_34%)]',
+    chipClass: 'bg-paper text-ink',
+    previewClass: 'bg-white/8 border-white/10',
+    modalClass: 'border-white/12 bg-[#14100d]',
+    modalFooterClass: 'border-white/10 bg-[#1e1712]',
+    progressClass: 'from-blush via-paper to-skySoft',
+  },
+  scrapbook: {
+    label: 'Lưu bút',
+    eyebrow: 'Scrapbook mềm',
+    title: 'Slideshow như trang lưu bút đang mở',
+    description: 'Nền giấy ấm, ảnh như polaroid, hợp xem lại những khoảnh khắc nhẹ nhàng và có chút tiếc nuối.',
+    shellClass: 'bg-paper text-ink shadow-[0_28px_80px_rgba(122,86,57,0.18)]',
+    glowClass:
+      'bg-[radial-gradient(circle_at_12%_18%,rgba(247,183,199,0.28),transparent_34%),radial-gradient(circle_at_86%_80%,rgba(244,223,191,0.48),transparent_38%)]',
+    chipClass: 'bg-ink text-paper',
+    previewClass: 'bg-[#f7e7ca]/58 border-coffee/10',
+    modalClass: 'border-[#f4dfbf]/30 bg-[#2f2118]',
+    modalFooterClass: 'border-[#f4dfbf]/18 bg-[#3b2a1f]',
+    progressClass: 'from-coffee via-blush to-skySoft',
+  },
+  photobooth: {
+    label: 'Photobooth',
+    eyebrow: 'Korean photobooth',
+    title: 'Slideshow kiểu photobooth Hàn Quốc',
+    description: 'Sáng, vui, nổi bật như đang lướt những tấm strip nhỏ sau giờ chụp ảnh cùng lớp.',
+    shellClass: 'bg-[#ffeef5] text-ink shadow-[0_28px_80px_rgba(157,59,75,0.18)]',
+    glowClass:
+      'bg-[linear-gradient(135deg,rgba(255,255,255,0.62),transparent_30%),radial-gradient(circle_at_78%_18%,rgba(169,205,232,0.38),transparent_36%)]',
+    chipClass: 'bg-[#35291f] text-paper',
+    previewClass: 'bg-white/62 border-white/80',
+    modalClass: 'border-pink-100/30 bg-[#251722]',
+    modalFooterClass: 'border-pink-100/18 bg-[#341f30]',
+    progressClass: 'from-blush via-skySoft to-[#f4dfbf]',
+  },
+};
+
 interface HomePageProps {
   memories: MemoryItem[];
   commentsByMemory: Record<string, MemoryComment[]>;
   firebaseNotice: string;
   isLoadingMemories: boolean;
   memoryRecapEnabled: boolean;
-  cinematicSlideshowEnabled: boolean;
+  cinematicSlideshowSettings: CinematicSlideshowSettings;
   profile: UserProfile | null;
   pendingReactionIds: string[];
   onJoin: () => void;
@@ -57,7 +117,7 @@ export default function HomePage({
   firebaseNotice,
   isLoadingMemories,
   memoryRecapEnabled,
-  cinematicSlideshowEnabled,
+  cinematicSlideshowSettings,
   profile,
   pendingReactionIds,
   onJoin,
@@ -308,6 +368,7 @@ export default function HomePage({
     () => memories.filter((memory) => memory.mediaType === 'image' && memory.imageUrl).slice(0, 36),
     [memories],
   );
+  const slideshowMood = slideshowMoodConfig[cinematicSlideshowSettings.mood] || slideshowMoodConfig.cinematic;
 
   const activeSlide = slideshowMemories[slideIndex % Math.max(1, slideshowMemories.length)];
 
@@ -320,7 +381,7 @@ export default function HomePage({
   }, [slideshowMemories.length]);
 
   useEffect(() => {
-    if (!cinematicSlideshowEnabled) {
+    if (!cinematicSlideshowSettings.enabled) {
       setIsSlideshowOpen(false);
       return;
     }
@@ -332,7 +393,7 @@ export default function HomePage({
     }
 
     setSlideIndex((index) => Math.min(index, slideshowMemories.length - 1));
-  }, [cinematicSlideshowEnabled, slideshowMemories.length]);
+  }, [cinematicSlideshowSettings.enabled, slideshowMemories.length]);
 
   useEffect(() => {
     if (!isSlideshowOpen || slideshowMemories.length <= 1) return undefined;
@@ -576,31 +637,35 @@ export default function HomePage({
         </section>
       )}
 
-      {cinematicSlideshowEnabled && (
+      {cinematicSlideshowSettings.enabled && (
         <section className="mx-auto max-w-7xl px-4 pb-7 sm:px-6 lg:px-8">
-          <div className="relative overflow-hidden rounded-[1.7rem] border border-white/75 bg-ink text-paper shadow-[0_28px_80px_rgba(53,41,31,0.22)]">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(247,183,199,0.24),transparent_32%),radial-gradient(circle_at_82%_22%,rgba(169,205,232,0.24),transparent_34%)]" />
+          <div className={`relative overflow-hidden rounded-[1.7rem] border border-white/75 ${slideshowMood.shellClass}`}>
+            <div className={`absolute inset-0 ${slideshowMood.glowClass}`} />
             <div className="relative grid gap-0 lg:grid-cols-[minmax(0,1fr)_24rem]">
               <div className="min-w-0 p-5 sm:p-7 lg:p-8">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-paper px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.08em] text-ink">
+                  <span className={`rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.08em] ${slideshowMood.chipClass}`}>
                     Slideshow được manager bật
                   </span>
-                  <span className="rounded-full bg-white/12 px-3 py-1.5 text-[11px] font-black uppercase text-paper/80">
+                  <span className="rounded-full bg-white/18 px-3 py-1.5 text-[11px] font-black uppercase">
+                    {slideshowMood.label}
+                  </span>
+                  <span className="rounded-full bg-white/12 px-3 py-1.5 text-[11px] font-black uppercase opacity-80">
                     {isLoadingMemories ? 'Đang tải ảnh' : `${slideshowMemories.length} ảnh`}
                   </span>
                 </div>
 
-                <h2 className="mt-5 max-w-2xl font-display text-6xl leading-[0.86] text-paper sm:text-7xl">
-                  Rạp phim thanh xuân của lớp 9/8
+                <p className="mt-5 text-xs font-black uppercase tracking-[0.2em] opacity-60">{slideshowMood.eyebrow}</p>
+                <h2 className="mt-2 max-w-2xl font-display text-6xl leading-[0.86] sm:text-7xl">
+                  {slideshowMood.title}
                 </h2>
-                <p className="mt-4 max-w-2xl text-sm leading-7 text-paper/70 sm:text-base">
-                  Khi cả lớp muốn xem lại ảnh theo kiểu điện ảnh, mở slideshow để ảnh tự chạy nhẹ nhàng, rõ mặt, không thêm hiệu ứng nặng.
+                <p className="mt-4 max-w-2xl text-sm leading-7 opacity-70 sm:text-base">
+                  {slideshowMood.description}
                 </p>
 
                 <button
                   type="button"
-                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-paper px-5 py-3 text-sm font-black text-ink shadow-paper transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  className={`mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-black shadow-paper transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto ${slideshowMood.chipClass}`}
                   onClick={() => {
                     if (!slideshowMemories.length) return;
                     setSlideIndex(0);
@@ -613,7 +678,7 @@ export default function HomePage({
                 </button>
               </div>
 
-              <aside className="relative min-h-[17rem] overflow-hidden border-t border-white/10 bg-white/8 p-5 sm:p-7 lg:border-l lg:border-t-0">
+              <aside className={`relative min-h-[17rem] overflow-hidden border-t p-5 sm:p-7 lg:border-l lg:border-t-0 ${slideshowMood.previewClass}`}>
                 <div className="relative mx-auto grid max-w-[20rem] grid-cols-3 gap-2">
                   {slideshowMemories.length ? (
                     slideshowMemories.slice(0, 6).map((memory, index) => (
@@ -633,21 +698,21 @@ export default function HomePage({
                       </div>
                     ))
                   ) : (
-                    <div className="col-span-3 grid aspect-[16/10] place-items-center rounded-[1rem] border border-white/12 bg-paper/10 px-5 text-center shadow-paper">
+                    <div className="col-span-3 grid aspect-[16/10] place-items-center rounded-[1rem] border border-white/20 bg-white/10 px-5 text-center shadow-paper">
                       <div>
                         <div className="memory-loading-spinner mx-auto mb-4 h-10 w-10 rounded-full border-4 border-paper/20 border-t-paper" />
-                        <p className="text-sm font-black text-paper">
+                        <p className="text-sm font-black">
                           {isLoadingMemories ? 'Đang tải ảnh từ database...' : 'Slideshow đã bật, nhưng chưa có ảnh nào để chiếu.'}
                         </p>
-                        <p className="mt-2 text-xs font-bold leading-5 text-paper/54">
+                        <p className="mt-2 text-xs font-bold leading-5 opacity-60">
                           Ảnh sẽ tự hiện ở đây khi feed Ký ức tải xong hoặc khi lớp đăng ảnh mới.
                         </p>
                       </div>
                     </div>
                   )}
                 </div>
-                <p className="mx-auto mt-4 max-w-[20rem] rounded-[1rem] bg-paper/10 px-4 py-3 text-center text-xs font-bold leading-5 text-paper/68">
-                  Bố cục được giữ gọn: một nút mở, ảnh tự chạy, có nút lùi/tiến và đóng.
+                <p className="mx-auto mt-4 max-w-[20rem] rounded-[1rem] bg-white/12 px-4 py-3 text-center text-xs font-bold leading-5 opacity-70">
+                  Manager chọn mood, học sinh chỉ cần mở slideshow và xem ảnh tự chạy.
                 </p>
               </aside>
             </div>
@@ -773,12 +838,14 @@ export default function HomePage({
           onClick={() => setIsSlideshowOpen(false)}
         >
           <div
-            className="relative grid h-[calc(100svh-1.5rem)] w-full max-w-6xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[1.1rem] border border-white/12 bg-[#14100d] shadow-[0_28px_90px_rgba(0,0,0,0.34)] sm:h-[min(88svh,760px)] sm:rounded-[1.4rem]"
+            className={`relative grid h-[calc(100svh-1.5rem)] w-full max-w-6xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[1.1rem] border shadow-[0_28px_90px_rgba(0,0,0,0.34)] sm:h-[min(88svh,760px)] sm:rounded-[1.4rem] ${slideshowMood.modalClass}`}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-5">
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-paper/48">Slideshow 9/8</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-paper/48">
+                  {slideshowMood.label} · Slideshow 9/8
+                </p>
                 <strong className="block truncate text-sm text-paper">{activeSlide.name}</strong>
               </div>
               <button
@@ -823,7 +890,7 @@ export default function HomePage({
               )}
             </div>
 
-            <div className="border-t border-white/10 bg-[#1e1712] px-4 py-3 sm:px-5">
+            <div className={`border-t px-4 py-3 sm:px-5 ${slideshowMood.modalFooterClass}`}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div className="min-w-0">
                   <p className="line-clamp-2 text-sm font-bold leading-6 text-paper/82">
@@ -835,7 +902,7 @@ export default function HomePage({
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/12 sm:w-44">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-blush via-paper to-skySoft"
+                    className={`h-full rounded-full bg-gradient-to-r ${slideshowMood.progressClass}`}
                     style={{ width: `${((slideIndex + 1) / slideshowMemories.length) * 100}%` }}
                   />
                 </div>

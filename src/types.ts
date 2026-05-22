@@ -94,10 +94,21 @@ export interface MemoryComment {
 export interface GuestbookEntry {
   id: string;
   uid?: string;
+  nameKey?: string;
   name: string;
   message: string;
   createdAt: string;
   anonymous?: boolean;
+}
+
+export interface TimeCapsuleEntry {
+  id: string;
+  uid: string;
+  name: string;
+  nameKey: string;
+  className: string;
+  message: string;
+  createdAt: string;
 }
 
 export interface CapturedPhoto {
@@ -233,6 +244,12 @@ export interface MemoryRecapSettings {
 
 export interface CinematicSlideshowSettings {
   enabled: boolean;
+  mood: 'cinematic' | 'scrapbook' | 'photobooth';
+  updatedAt?: string;
+}
+
+export interface TimeCapsuleSettings {
+  unlockAt: string;
   updatedAt?: string;
 }
 

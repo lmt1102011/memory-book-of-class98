@@ -159,6 +159,36 @@ service cloud.firestore {
         && request.resource.data.targetNameKey is string;
     }
 
+    function validTimeCapsuleCreate() {
+      return request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.className == '9/8'
+        && request.resource.data.name is string
+        && request.resource.data.nameKey is string
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0
+        && request.resource.data.message.size() <= 900;
+    }
+
+    function validSiteSettingWrite(settingId) {
+      return isManagerWrite()
+        && (
+          (
+            settingId == 'memoryRecap'
+            && request.resource.data.enabled is bool
+          )
+          || (
+            settingId == 'cinematicSlideshow'
+            && request.resource.data.enabled is bool
+            && request.resource.data.mood in ['cinematic', 'scrapbook', 'photobooth']
+          )
+          || (
+            settingId == 'timeCapsule'
+            && request.resource.data.unlockAt is string
+          )
+        );
+    }
+
     match /students98/{nameKey} {
       allow read: if true;
       allow create: if request.auth != null
@@ -265,9 +295,7 @@ service cloud.firestore {
 
     match /siteSettings98/{settingId} {
       allow read: if true;
-      allow create, update: if settingId in ['memoryRecap', 'cinematicSlideshow']
-        && isManagerWrite()
-        && request.resource.data.enabled is bool;
+      allow create, update: if validSiteSettingWrite(settingId);
       allow delete: if false;
     }
 
@@ -280,6 +308,13 @@ service cloud.firestore {
         && request.resource.data.message.size() <= 160;
       allow update: if false;
       allow delete: if ownsResource();
+    }
+
+    match /timeCapsules98/{entryId} {
+      allow read: if true;
+      allow create: if validTimeCapsuleCreate();
+      allow update: if false;
+      allow delete: if ownsResource() || isManagerMarkedResource();
     }
 
     match /secretMailbox98/{letterId} {
