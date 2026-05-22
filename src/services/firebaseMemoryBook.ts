@@ -263,33 +263,7 @@ const withFirebaseRetry = async <T,>(operation: () => Promise<T>) => {
   throw friendlyFirebaseError(lastError);
 };
 
-const waitForAuthSession = async (expectedUid: string) => {
-  if (auth.currentUser?.uid === expectedUid) {
-    await withTimeout(auth.currentUser.getIdToken(true), 'Auth token refresh');
-    await sleep(250);
-    return auth.currentUser;
-  }
-
-  const user = await withTimeout(
-    new Promise<User>((resolve, reject) => {
-      const unsubscribe = onAuthStateChanged(
-        auth,
-        (nextUser) => {
-          if (nextUser?.uid === expectedUid) {
-            unsubscribe();
-            resolve(nextUser);
-          }
-        },
-        reject,
-      );
-    }),
-    'Auth session',
-  );
-
-  await withTimeout(user.getIdToken(true), 'Auth token refresh');
-  await sleep(250);
-  return user;
-};
+const currentAuthUserFor = (user: User) => (auth.currentUser?.uid === user.uid ? auth.currentUser : user);
 
 type StudentProfileWriteOptions = {
   includeCreatedAt: boolean;
@@ -342,8 +316,8 @@ const writeStudentProfileViaRest = async (
   nameKey: string,
   options: StudentProfileWriteOptions,
 ) => {
-  const sessionUser = await waitForAuthSession(user.uid);
-  const token = await withTimeout(sessionUser.getIdToken(true), 'Auth token refresh');
+  const sessionUser = currentAuthUserFor(user);
+  const token = await withTimeout(sessionUser.getIdToken(), 'Auth token');
   const fields = firestoreRestFields(sessionUser, displayName, nameKey, options);
   const params = new URLSearchParams();
   if (options.merge) {
@@ -376,7 +350,7 @@ const writeStudentProfileDocument = async (
   nameKey: string,
   options: StudentProfileWriteOptions,
 ) => {
-  const sessionUser = await waitForAuthSession(user.uid);
+  const sessionUser = currentAuthUserFor(user);
   const studentRef = doc(db, STUDENTS_COLLECTION, nameKey);
   const data = studentProfileWriteData(sessionUser, displayName, nameKey, options);
 
@@ -693,7 +667,6 @@ export const registerStudent = async (name: string, password: string) => {
   }
 
   await withTimeout(updateProfile(credential.user, { displayName }), 'Auth profile');
-  await waitForAuthSession(credential.user.uid);
 
   const profile: UserProfile = {
     uid: credential.user.uid,
