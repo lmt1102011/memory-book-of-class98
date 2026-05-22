@@ -92,8 +92,13 @@ export interface MemoryComment {
   nameKey?: string;
   message: string;
   createdAt: string;
+  updatedAt?: string;
+  reactionCounts: Record<CommentReactionId, number>;
+  reactionByUid: Record<string, CommentReactionId>;
   pending?: boolean;
 }
+
+export type CommentReactionId = 'haha' | 'love' | 'miss' | 'wow';
 
 export interface GuestbookEntry {
   id: string;

@@ -40,6 +40,126 @@ service cloud.firestore {
         : [];
     }
 
+    function oldCommentHahaBy() {
+      return resource.data.keys().hasAny(['reactionHahaBy']) && resource.data.reactionHahaBy is list
+        ? resource.data.reactionHahaBy
+        : [];
+    }
+
+    function oldCommentLoveBy() {
+      return resource.data.keys().hasAny(['reactionLoveBy']) && resource.data.reactionLoveBy is list
+        ? resource.data.reactionLoveBy
+        : [];
+    }
+
+    function oldCommentMissBy() {
+      return resource.data.keys().hasAny(['reactionMissBy']) && resource.data.reactionMissBy is list
+        ? resource.data.reactionMissBy
+        : [];
+    }
+
+    function oldCommentWowBy() {
+      return resource.data.keys().hasAny(['reactionWowBy']) && resource.data.reactionWowBy is list
+        ? resource.data.reactionWowBy
+        : [];
+    }
+
+    function newCommentHahaBy() {
+      return request.resource.data.keys().hasAny(['reactionHahaBy']) && request.resource.data.reactionHahaBy is list
+        ? request.resource.data.reactionHahaBy
+        : [];
+    }
+
+    function newCommentLoveBy() {
+      return request.resource.data.keys().hasAny(['reactionLoveBy']) && request.resource.data.reactionLoveBy is list
+        ? request.resource.data.reactionLoveBy
+        : [];
+    }
+
+    function newCommentMissBy() {
+      return request.resource.data.keys().hasAny(['reactionMissBy']) && request.resource.data.reactionMissBy is list
+        ? request.resource.data.reactionMissBy
+        : [];
+    }
+
+    function newCommentWowBy() {
+      return request.resource.data.keys().hasAny(['reactionWowBy']) && request.resource.data.reactionWowBy is list
+        ? request.resource.data.reactionWowBy
+        : [];
+    }
+
+    function sameList(nextList, oldList) {
+      return nextList.size() == oldList.size() && nextList.hasAll(oldList);
+    }
+
+    function userHasOldCommentReaction() {
+      return request.auth.uid in oldCommentHahaBy()
+        || request.auth.uid in oldCommentLoveBy()
+        || request.auth.uid in oldCommentMissBy()
+        || request.auth.uid in oldCommentWowBy();
+    }
+
+    function emptyCommentReactionsOnCreate() {
+      return (!request.resource.data.keys().hasAny(['reactionHahaBy']) || (request.resource.data.reactionHahaBy is list && request.resource.data.reactionHahaBy.size() == 0))
+        && (!request.resource.data.keys().hasAny(['reactionLoveBy']) || (request.resource.data.reactionLoveBy is list && request.resource.data.reactionLoveBy.size() == 0))
+        && (!request.resource.data.keys().hasAny(['reactionMissBy']) || (request.resource.data.reactionMissBy is list && request.resource.data.reactionMissBy.size() == 0))
+        && (!request.resource.data.keys().hasAny(['reactionWowBy']) || (request.resource.data.reactionWowBy is list && request.resource.data.reactionWowBy.size() == 0));
+    }
+
+    function validCommentHahaReactionUpdate() {
+      return newCommentHahaBy().size() == oldCommentHahaBy().size() + 1
+        && request.auth.uid in newCommentHahaBy()
+        && newCommentHahaBy().hasAll(oldCommentHahaBy())
+        && sameList(newCommentLoveBy(), oldCommentLoveBy())
+        && sameList(newCommentMissBy(), oldCommentMissBy())
+        && sameList(newCommentWowBy(), oldCommentWowBy());
+    }
+
+    function validCommentLoveReactionUpdate() {
+      return newCommentLoveBy().size() == oldCommentLoveBy().size() + 1
+        && request.auth.uid in newCommentLoveBy()
+        && newCommentLoveBy().hasAll(oldCommentLoveBy())
+        && sameList(newCommentHahaBy(), oldCommentHahaBy())
+        && sameList(newCommentMissBy(), oldCommentMissBy())
+        && sameList(newCommentWowBy(), oldCommentWowBy());
+    }
+
+    function validCommentMissReactionUpdate() {
+      return newCommentMissBy().size() == oldCommentMissBy().size() + 1
+        && request.auth.uid in newCommentMissBy()
+        && newCommentMissBy().hasAll(oldCommentMissBy())
+        && sameList(newCommentHahaBy(), oldCommentHahaBy())
+        && sameList(newCommentLoveBy(), oldCommentLoveBy())
+        && sameList(newCommentWowBy(), oldCommentWowBy());
+    }
+
+    function validCommentWowReactionUpdate() {
+      return newCommentWowBy().size() == oldCommentWowBy().size() + 1
+        && request.auth.uid in newCommentWowBy()
+        && newCommentWowBy().hasAll(oldCommentWowBy())
+        && sameList(newCommentHahaBy(), oldCommentHahaBy())
+        && sameList(newCommentLoveBy(), oldCommentLoveBy())
+        && sameList(newCommentMissBy(), oldCommentMissBy());
+    }
+
+    function validCommentReactionUpdate() {
+      return request.auth != null
+        && !userHasOldCommentReaction()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'reactionHahaBy',
+          'reactionLoveBy',
+          'reactionMissBy',
+          'reactionWowBy',
+          'updatedAt'
+        ])
+        && (
+          validCommentHahaReactionUpdate()
+          || validCommentLoveReactionUpdate()
+          || validCommentMissReactionUpdate()
+          || validCommentWowReactionUpdate()
+        );
+    }
+
     function isPublicMemoryResource() {
       return !resource.data.keys().hasAny(['visibility'])
         || resource.data.visibility == 'public';
@@ -379,8 +499,9 @@ service cloud.firestore {
         && request.resource.data.className == '9/8'
         && request.resource.data.memoryId is string
         && request.resource.data.message is string
-        && request.resource.data.message.size() <= 240;
-      allow update: if false;
+        && request.resource.data.message.size() <= 240
+        && emptyCommentReactionsOnCreate();
+      allow update: if validCommentReactionUpdate();
       allow delete: if ownsResource();
     }
 

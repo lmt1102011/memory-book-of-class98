@@ -30,6 +30,7 @@ import type {
   AppRoute,
   CinematicSlideshowSettings,
   ClassmateProfile,
+  CommentReactionId,
   GuestbookEntry,
   MemoryComment,
   MemoryItem,
@@ -135,6 +136,13 @@ const logoSrc = `${import.meta.env.BASE_URL}logo-web-class-98.svg?v=20260521-log
 const sortCommentsNewestFirst = (comments: MemoryComment[]) =>
   [...comments].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
 
+const makeEmptyCommentReactionCounts = (): Record<CommentReactionId, number> => ({
+  haha: 0,
+  love: 0,
+  miss: 0,
+  wow: 0,
+});
+
 const readNotificationIdsKey = (uid: string) => `memory98-notifications-read-ids:${uid}`;
 
 const readStoredNotificationIds = (uid: string) => {
@@ -201,8 +209,10 @@ export default function App() {
   const [bootSplashDone, setBootSplashDone] = useState(false);
   const [routeFeedbackVisible, setRouteFeedbackVisible] = useState(false);
   const [pendingReactionIds, setPendingReactionIds] = useState<string[]>([]);
+  const [pendingCommentReactionIds, setPendingCommentReactionIds] = useState<string[]>([]);
   const memoriesLoadedOnceRef = useRef(false);
   const pendingReactionIdsRef = useRef(new Set<string>());
+  const pendingCommentReactionIdsRef = useRef(new Set<string>());
   const routeFeedbackTimerRef = useRef(0);
   const notificationPopupTimerRef = useRef(0);
   const menuHintTimerRef = useRef(0);
@@ -352,6 +362,8 @@ export default function App() {
       setRememberNotes([]);
       setSentRememberNotes([]);
       setSecretDiaries([]);
+      pendingCommentReactionIdsRef.current.clear();
+      setPendingCommentReactionIds([]);
       setNotificationsSeenAt(new Date(0).toISOString());
       setNotificationReadIds(new Set());
       setNotificationActivity({
@@ -1634,6 +1646,8 @@ export default function App() {
         nameKey: profile.nameKey,
         message: safeMessage,
         createdAt: new Date().toISOString(),
+        reactionCounts: makeEmptyCommentReactionCounts(),
+        reactionByUid: {},
         pending: true,
       };
 
@@ -1707,6 +1721,68 @@ export default function App() {
           }));
         }
         setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể xóa bình luận lúc này.');
+      }
+    },
+    [navigate, profile],
+  );
+
+  const handleMemoryCommentReact = useCallback(
+    async (comment: MemoryComment, reactionId: CommentReactionId) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+
+      if (
+        comment.pending ||
+        comment.reactionByUid?.[profile.uid] ||
+        pendingCommentReactionIdsRef.current.has(comment.id)
+      ) {
+        return;
+      }
+
+      pendingCommentReactionIdsRef.current.add(comment.id);
+      setPendingCommentReactionIds(Array.from(pendingCommentReactionIdsRef.current));
+
+      const reactedAt = new Date().toISOString();
+      const applyReaction = (item: MemoryComment): MemoryComment => {
+        if (item.id !== comment.id) return item;
+        const currentCounts = { ...makeEmptyCommentReactionCounts(), ...(item.reactionCounts || {}) };
+        return {
+          ...item,
+          updatedAt: reactedAt,
+          reactionCounts: {
+            ...currentCounts,
+            [reactionId]: (currentCounts[reactionId] || 0) + 1,
+          },
+          reactionByUid: {
+            ...(item.reactionByUid || {}),
+            [profile.uid]: reactionId,
+          },
+        };
+      };
+      const rollbackReaction = (item: MemoryComment): MemoryComment => (item.id === comment.id ? comment : item);
+
+      setRemoteComments((items) => items.map(applyReaction));
+      setNotificationActivity((activity) => ({
+        ...activity,
+        ownMemoryComments: activity.ownMemoryComments.map(applyReaction),
+      }));
+
+      try {
+        const service = await import('./services/firebaseMemoryBook');
+        await service.reactToMemoryComment(profile, comment, reactionId);
+        setFirebaseNotice('');
+      } catch (caught) {
+        setRemoteComments((items) => items.map(rollbackReaction));
+        setNotificationActivity((activity) => ({
+          ...activity,
+          ownMemoryComments: activity.ownMemoryComments.map(rollbackReaction),
+        }));
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'KhÃ´ng thá»ƒ reaction bÃ¬nh luáº­n lÃºc nÃ y.');
+      } finally {
+        pendingCommentReactionIdsRef.current.delete(comment.id);
+        setPendingCommentReactionIds(Array.from(pendingCommentReactionIdsRef.current));
       }
     },
     [navigate, profile],
@@ -2119,10 +2195,12 @@ export default function App() {
             isLoading={notificationActivityLoading}
             profile={profile}
             pendingReactionIds={pendingReactionIds}
+            pendingCommentReactionIds={pendingCommentReactionIds}
             onJoin={() => navigate('join')}
             onPhotobook={() => navigate('photobook')}
             onOpenProfile={openPersonProfile}
             onReact={handleReact}
+            onReactComment={handleMemoryCommentReact}
             onAddComment={handleMemoryCommentAdd}
             onDeleteComment={handleMemoryCommentDelete}
             onDeleteMemory={handleMemoryDelete}
@@ -2143,10 +2221,12 @@ export default function App() {
           cinematicSlideshowSettings={cinematicSlideshowSettings}
           profile={profile}
           pendingReactionIds={pendingReactionIds}
+          pendingCommentReactionIds={pendingCommentReactionIds}
           onJoin={() => navigate('join')}
           onPhotobook={() => navigate('photobook')}
           onOpenProfile={openPersonProfile}
           onReact={handleReact}
+          onReactComment={handleMemoryCommentReact}
           onAddComment={handleMemoryCommentAdd}
           onDeleteComment={handleMemoryCommentDelete}
           onDeleteMemory={handleMemoryDelete}

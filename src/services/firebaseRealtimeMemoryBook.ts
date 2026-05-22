@@ -11,13 +11,20 @@ import {
   type DocumentData,
 } from 'firebase/firestore';
 import { firebaseApp } from '../firebase';
-import type { MemoryComment, MemoryItem, UserProfile } from '../types';
+import type { CommentReactionId, MemoryComment, MemoryItem, UserProfile } from '../types';
 
 const MEMORIES_COLLECTION = 'memories98';
 const PRIVATE_MEMORIES_COLLECTION = 'privateMemories98';
 const MEMORY_COMMENTS_COLLECTION = 'memoryComments98';
 const STUDENTS_COLLECTION = 'students98';
 const CLASS_NAME = '9/8';
+const COMMENT_REACTION_FIELDS: Record<CommentReactionId, string> = {
+  haha: 'reactionHahaBy',
+  love: 'reactionLoveBy',
+  miss: 'reactionMissBy',
+  wow: 'reactionWowBy',
+};
+const COMMENT_REACTION_IDS = Object.keys(COMMENT_REACTION_FIELDS) as CommentReactionId[];
 
 const realtimeDb = getFirestore(firebaseApp);
 
@@ -83,7 +90,31 @@ const memoryCommentFromDoc = (id: string, data: DocumentData): MemoryComment => 
   nameKey: String(data.nameKey || ''),
   message: String(data.message || ''),
   createdAt: timestampToIso(data.createdAt),
+  updatedAt: data.updatedAt ? timestampToIso(data.updatedAt) : undefined,
+  ...commentReactionsFromData(data),
 });
+
+const commentReactionUsers = (data: DocumentData, reactionId: CommentReactionId) => {
+  const value = data[COMMENT_REACTION_FIELDS[reactionId]];
+  return Array.isArray(value) ? value.map(String).slice(0, 500) : [];
+};
+
+const commentReactionsFromData = (data: DocumentData) => {
+  const reactionCounts = COMMENT_REACTION_IDS.reduce(
+    (acc, reactionId) => {
+      acc[reactionId] = commentReactionUsers(data, reactionId).length;
+      return acc;
+    },
+    { haha: 0, love: 0, miss: 0, wow: 0 } as Record<CommentReactionId, number>,
+  );
+  const reactionByUid: Record<string, CommentReactionId> = {};
+  COMMENT_REACTION_IDS.forEach((reactionId) => {
+    commentReactionUsers(data, reactionId).forEach((uid) => {
+      if (!reactionByUid[uid]) reactionByUid[uid] = reactionId;
+    });
+  });
+  return { reactionCounts, reactionByUid };
+};
 
 type StudentAccountRealtimeStatus =
   | { state: 'active'; profile: UserProfile }

@@ -1,6 +1,6 @@
 import { Heart, Lock, MessageCircle, Send, Trash2, Video } from 'lucide-react';
 import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import type { MemoryComment, MemoryItem, UserProfile } from '../types';
+import type { CommentReactionId, MemoryComment, MemoryItem, UserProfile } from '../types';
 import { formatUploadTime } from '../utils/date';
 
 interface MemoryCardProps {
@@ -8,10 +8,12 @@ interface MemoryCardProps {
   comments: MemoryComment[];
   profile: UserProfile | null;
   isReacting: boolean;
+  pendingCommentReactionIds: string[];
   onJoin: () => void;
   onOpenImage: (memory: MemoryItem) => void;
   onOpenProfile: (nameKey: string) => void;
   onReact: (memory: MemoryItem) => void | Promise<void>;
+  onReactComment: (comment: MemoryComment, reactionId: CommentReactionId) => void | Promise<void>;
   onAddComment: (memory: MemoryItem, message: string) => void | Promise<void>;
   onDeleteComment: (comment: MemoryComment) => void | Promise<void>;
   canDelete?: boolean;
@@ -25,15 +27,24 @@ const toneClass = {
   chalk: 'from-chalk/20 to-paper',
 };
 
+const commentReactionOptions: Array<{ id: CommentReactionId; label: string }> = [
+  { id: 'haha', label: 'Haha' },
+  { id: 'love', label: 'Thương' },
+  { id: 'miss', label: 'Nhớ' },
+  { id: 'wow', label: 'Wow' },
+];
+
 function MemoryCard({
   memory,
   comments,
   profile,
   isReacting,
+  pendingCommentReactionIds,
   onJoin,
   onOpenImage,
   onOpenProfile,
   onReact,
+  onReactComment,
   onAddComment,
   onDeleteComment,
   canDelete = false,
@@ -192,6 +203,8 @@ function MemoryCard({
             <div className="grid gap-2">
               {visibleComments.map((comment) => {
                 const canDeleteComment = profile?.uid === comment.uid && !comment.pending;
+                const ownReaction = profile?.uid ? comment.reactionByUid?.[profile.uid] : undefined;
+                const isCommentReactionPending = pendingCommentReactionIds.includes(comment.id);
                 return (
                   <div key={comment.id} className="rounded-[0.65rem] bg-paper/78 px-3 py-2">
                     <div className="flex items-start justify-between gap-2">
@@ -212,6 +225,37 @@ function MemoryCard({
                           <Trash2 size={12} />
                         </button>
                       )}
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {commentReactionOptions.map((option) => {
+                        const count = comment.reactionCounts?.[option.id] || 0;
+                        const isActive = ownReaction === option.id;
+                        const isDisabled = Boolean(ownReaction) || isCommentReactionPending || Boolean(comment.pending);
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            className={`inline-flex min-h-7 items-center gap-1 rounded-full px-2.5 text-[11px] font-black transition ${
+                              isActive
+                                ? 'bg-ink text-paper shadow-sm'
+                                : 'bg-white/70 text-coffee hover:bg-blush/30 active:scale-[0.98]'
+                            } disabled:cursor-not-allowed disabled:opacity-70`}
+                            disabled={isDisabled}
+                            onClick={() => {
+                              if (!profile) {
+                                onJoin();
+                                return;
+                              }
+                              void onReactComment(comment, option.id);
+                            }}
+                            aria-label={`${option.label} bình luận của ${comment.name}`}
+                            title={isActive ? 'Bạn đã reaction bình luận này rồi' : option.label}
+                          >
+                            <span>{option.label}</span>
+                            {count > 0 && <span className="text-[10px] opacity-80">{count}</span>}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 );

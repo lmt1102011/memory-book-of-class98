@@ -4,7 +4,7 @@ import { Camera, Download, Filter, Heart, Lock, RotateCcw, Search, Upload, UserR
 import FirebaseNotice from '../components/FirebaseNotice';
 import MemoryCard from '../components/MemoryCard';
 import { useDebounce } from '../hooks/useDebounce';
-import type { CinematicSlideshowSettings, MemoryComment, MemoryItem, UserProfile } from '../types';
+import type { CinematicSlideshowSettings, CommentReactionId, MemoryComment, MemoryItem, UserProfile } from '../types';
 
 const EMPTY_COMMENTS: MemoryComment[] = [];
 
@@ -102,10 +102,12 @@ interface HomePageProps {
   cinematicSlideshowSettings: CinematicSlideshowSettings;
   profile: UserProfile | null;
   pendingReactionIds: string[];
+  pendingCommentReactionIds: string[];
   onJoin: () => void;
   onPhotobook: () => void;
   onOpenProfile: (nameKey: string) => void;
   onReact: (memory: MemoryItem) => void | Promise<void>;
+  onReactComment: (comment: MemoryComment, reactionId: CommentReactionId) => void | Promise<void>;
   onAddComment: (memory: MemoryItem, message: string) => void | Promise<void>;
   onDeleteComment: (comment: MemoryComment) => void | Promise<void>;
   onDeleteMemory: (memory: MemoryItem) => void | Promise<void>;
@@ -121,10 +123,12 @@ export default function HomePage({
   cinematicSlideshowSettings,
   profile,
   pendingReactionIds,
+  pendingCommentReactionIds,
   onJoin,
   onPhotobook,
   onOpenProfile,
   onReact,
+  onReactComment,
   onAddComment,
   onDeleteComment,
   onDeleteMemory,
@@ -934,10 +938,12 @@ export default function HomePage({
                 comments={memory.visibility === 'public' ? commentsByMemory[memory.id] || EMPTY_COMMENTS : EMPTY_COMMENTS}
                 profile={profile}
                 isReacting={pendingReactionIds.includes(memory.id)}
+                pendingCommentReactionIds={pendingCommentReactionIds}
                 onJoin={onJoin}
                 onOpenImage={setSelectedMemory}
                 onOpenProfile={onOpenProfile}
                 onReact={onReact}
+                onReactComment={onReactComment}
                 onAddComment={onAddComment}
                 onDeleteComment={onDeleteComment}
                 canDelete={profile?.uid === memory.uid}

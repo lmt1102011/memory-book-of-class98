@@ -30,6 +30,7 @@ import { auth, db } from '../firebase';
 import type {
   ClassmateProfile,
   CinematicSlideshowSettings,
+  CommentReactionId,
   GuestbookEntry,
   MemoryComment,
   MemoryItem,
@@ -81,6 +82,13 @@ const REMEMBER_REACTION_LABELS: Record<RememberReactionId, string> = {
   'good-luck': 'Chúc may mắn',
 };
 const REMEMBER_REACTION_IDS = Object.keys(REMEMBER_REACTION_LABELS) as RememberReactionId[];
+const COMMENT_REACTION_FIELDS: Record<CommentReactionId, string> = {
+  haha: 'reactionHahaBy',
+  love: 'reactionLoveBy',
+  miss: 'reactionMissBy',
+  wow: 'reactionWowBy',
+};
+const COMMENT_REACTION_IDS = Object.keys(COMMENT_REACTION_FIELDS) as CommentReactionId[];
 
 export const cleanDisplayName = (name: string) => name.trim().replace(/\s+/g, ' ');
 
@@ -303,7 +311,31 @@ const memoryCommentFromDoc = (id: string, data: DocumentData): MemoryComment => 
   nameKey: String(data.nameKey || ''),
   message: String(data.message || ''),
   createdAt: timestampToIso(data.createdAt),
+  updatedAt: data.updatedAt ? timestampToIso(data.updatedAt) : undefined,
+  ...commentReactionsFromData(data),
 });
+
+const commentReactionUsers = (data: DocumentData, reactionId: CommentReactionId) => {
+  const value = data[COMMENT_REACTION_FIELDS[reactionId]];
+  return Array.isArray(value) ? value.map(String).slice(0, 500) : [];
+};
+
+const commentReactionsFromData = (data: DocumentData) => {
+  const reactionCounts = COMMENT_REACTION_IDS.reduce(
+    (acc, reactionId) => {
+      acc[reactionId] = commentReactionUsers(data, reactionId).length;
+      return acc;
+    },
+    { haha: 0, love: 0, miss: 0, wow: 0 } as Record<CommentReactionId, number>,
+  );
+  const reactionByUid: Record<string, CommentReactionId> = {};
+  COMMENT_REACTION_IDS.forEach((reactionId) => {
+    commentReactionUsers(data, reactionId).forEach((uid) => {
+      if (!reactionByUid[uid]) reactionByUid[uid] = reactionId;
+    });
+  });
+  return { reactionCounts, reactionByUid };
+};
 
 const guestbookFromDoc = (id: string, data: DocumentData): GuestbookEntry => {
   const anonymous = Boolean(
@@ -1086,6 +1118,10 @@ export const addMemoryComment = async (profile: UserProfile, memory: MemoryItem,
     className: CLASS_NAME,
     message: safeMessage,
     createdAt: serverTimestamp(),
+    reactionHahaBy: [],
+    reactionLoveBy: [],
+    reactionMissBy: [],
+    reactionWowBy: [],
   }));
 
   return {
@@ -1097,7 +1133,29 @@ export const addMemoryComment = async (profile: UserProfile, memory: MemoryItem,
     nameKey: profile.nameKey,
     message: safeMessage,
     createdAt,
+    reactionCounts: { haha: 0, love: 0, miss: 0, wow: 0 },
+    reactionByUid: {},
   };
+};
+
+export const reactToMemoryComment = async (
+  profile: UserProfile,
+  comment: MemoryComment,
+  reactionId: CommentReactionId,
+) => {
+  const reactionField = COMMENT_REACTION_FIELDS[reactionId];
+  if (!reactionField) throw new Error('Cảm xúc bình luận này chưa hợp lệ.');
+  if (comment.pending) throw new Error('Đợi bình luận gửi xong rồi hãy reaction nha.');
+  if (comment.reactionByUid?.[profile.uid]) {
+    throw new Error('Bạn đã reaction bình luận này rồi.');
+  }
+
+  await withFirebaseRetry(() =>
+    updateDoc(doc(db, MEMORY_COMMENTS_COLLECTION, comment.id), {
+      [reactionField]: arrayUnion(profile.uid),
+      updatedAt: serverTimestamp(),
+    }),
+  );
 };
 
 export const logMemoryDownload = async (profile: UserProfile, memory: MemoryItem) => {
