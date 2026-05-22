@@ -15,6 +15,7 @@ const iconByKind = {
   message: MessageCircle,
   reaction: Heart,
   comment: MessageCircle,
+  commentReaction: Heart,
   like: Heart,
   vote: Trophy,
 };
@@ -39,7 +40,7 @@ export default function NotificationCenter({
   const latestItem = items[0];
   const listItems = latestItem ? items.filter((item) => item.id !== latestItem.id) : items;
   const messageCount = items.filter((item) => item.kind === 'message' || item.kind === 'reaction').length;
-  const memoryCount = items.filter((item) => item.kind === 'comment' || item.kind === 'like').length;
+  const memoryCount = items.filter((item) => item.kind === 'comment' || item.kind === 'commentReaction' || item.kind === 'like').length;
   const voteCount = items.filter((item) => item.kind === 'vote').length;
 
   return (
@@ -128,7 +129,10 @@ export default function NotificationCenter({
                     onClick={() => onOpenItem(item)}
                   >
                     <span className={`grid h-10 w-10 place-items-center rounded-full ${accentClass[item.accent]}`}>
-                      <Icon size={17} fill={item.kind === 'like' || item.kind === 'reaction' ? 'currentColor' : 'none'} />
+                      <Icon
+                        size={17}
+                        fill={item.kind === 'like' || item.kind === 'reaction' || item.kind === 'commentReaction' ? 'currentColor' : 'none'}
+                      />
                     </span>
                     <span className="min-w-0">
                       <span className="flex items-center justify-between gap-2">

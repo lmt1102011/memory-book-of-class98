@@ -143,6 +143,13 @@ const makeEmptyCommentReactionCounts = (): Record<CommentReactionId, number> => 
   wow: 0,
 });
 
+const commentReactionLabels: Record<CommentReactionId, string> = {
+  haha: 'Haha',
+  love: 'Thương',
+  miss: 'Nhớ',
+  wow: 'Wow',
+};
+
 const readNotificationIdsKey = (uid: string) => `memory98-notifications-read-ids:${uid}`;
 
 const readStoredNotificationIds = (uid: string) => {
@@ -1089,6 +1096,30 @@ export default function App() {
         });
       });
 
+    notificationActivity.ownMemoryComments
+      .filter((comment) => comment.uid === profile.uid && !comment.pending)
+      .slice(0, 48)
+      .forEach((comment) => {
+        const reactionsByUid = Object.entries(comment.reactionByUid || {}).filter(([uid]) => uid !== profile.uid);
+        if (!reactionsByUid.length) return;
+
+        const reactionIds = Array.from(new Set(reactionsByUid.map(([, reactionId]) => reactionId)));
+        const reactionText = reactionIds.map((reactionId) => commentReactionLabels[reactionId]).filter(Boolean).join(', ');
+        const createdAt = comment.updatedAt || comment.createdAt;
+        const id = `comment-reaction-${comment.id}-${reactionsByUid.length}`;
+        const shortMessage = comment.message.length > 86 ? `${comment.message.slice(0, 86)}...` : comment.message;
+        items.push({
+          id,
+          kind: 'commentReaction',
+          route: 'home',
+          title: `${reactionsByUid.length} cảm xúc trên bình luận của bạn`,
+          body: reactionText ? `${reactionText} · "${shortMessage}"` : shortMessage,
+          createdAt,
+          unread: makeUnread(id, createdAt),
+          accent: 'blue',
+        });
+      });
+
     notificationActivity.ownMemories
       .filter((memory) => memory.likedBy.some((uid) => uid !== profile.uid))
       .slice(0, 28)
@@ -1237,7 +1268,9 @@ export default function App() {
       }
 
       if (itemRoute === 'people' || itemRoute === 'mine') {
-        return notificationItems.filter((item) => item.unread && (item.kind === 'comment' || item.kind === 'like')).length;
+        return notificationItems.filter(
+          (item) => item.unread && (item.kind === 'comment' || item.kind === 'commentReaction' || item.kind === 'like'),
+        ).length;
       }
 
       if (itemRoute === 'votes') {

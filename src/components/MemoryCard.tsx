@@ -1,5 +1,5 @@
 import { Heart, Lock, MessageCircle, Send, Trash2, Video } from 'lucide-react';
-import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { CommentReactionId, MemoryComment, MemoryItem, UserProfile } from '../types';
 import { formatUploadTime } from '../utils/date';
 
@@ -27,11 +27,11 @@ const toneClass = {
   chalk: 'from-chalk/20 to-paper',
 };
 
-const commentReactionOptions: Array<{ id: CommentReactionId; label: string }> = [
-  { id: 'haha', label: 'Haha' },
-  { id: 'love', label: 'Thương' },
-  { id: 'miss', label: 'Nhớ' },
-  { id: 'wow', label: 'Wow' },
+const commentReactionOptions: Array<{ id: CommentReactionId; label: string; icon: string; tone: string }> = [
+  { id: 'haha', label: 'Haha', icon: '😂', tone: 'bg-[#fff1bd] text-coffee' },
+  { id: 'love', label: 'Thương', icon: '💗', tone: 'bg-blush/55 text-roseDust' },
+  { id: 'miss', label: 'Nhớ', icon: '🥹', tone: 'bg-skySoft/40 text-chalk' },
+  { id: 'wow', label: 'Wow', icon: '😮', tone: 'bg-[#f4dfbf]/75 text-coffee' },
 ];
 
 function MemoryCard({
@@ -52,8 +52,10 @@ function MemoryCard({
 }: MemoryCardProps) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [draft, setDraft] = useState('');
+  const [openReactionMenuId, setOpenReactionMenuId] = useState('');
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
+  const reactionMenuRef = useRef<HTMLDivElement | null>(null);
   const hasLiked = Boolean(profile?.uid && memory.likedBy.includes(profile.uid));
   const commentsEnabled = memory.visibility !== 'private' && memory.visibility !== 'tagged';
   const visibleComments = useMemo(() => (commentsOpen ? comments : comments.slice(0, 2)), [comments, commentsOpen]);
@@ -62,6 +64,18 @@ function MemoryCard({
     setImageLoaded(false);
     setImageFailed(false);
   }, [memory.imageUrl]);
+
+  useEffect(() => {
+    if (!openReactionMenuId) return undefined;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (reactionMenuRef.current?.contains(event.target as Node)) return;
+      setOpenReactionMenuId('');
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    return () => window.removeEventListener('pointerdown', handlePointerDown);
+  }, [openReactionMenuId]);
 
   const handleReact = useCallback(() => {
     if (hasLiked || isReacting) return;
@@ -205,6 +219,12 @@ function MemoryCard({
                 const canDeleteComment = profile?.uid === comment.uid && !comment.pending;
                 const ownReaction = profile?.uid ? comment.reactionByUid?.[profile.uid] : undefined;
                 const isCommentReactionPending = pendingCommentReactionIds.includes(comment.id);
+                const reactionTotal = commentReactionOptions.reduce(
+                  (total, option) => total + (comment.reactionCounts?.[option.id] || 0),
+                  0,
+                );
+                const activeReaction = commentReactionOptions.find((option) => option.id === ownReaction);
+                const reactionButtonDisabled = Boolean(ownReaction) || isCommentReactionPending || Boolean(comment.pending);
                 return (
                   <div key={comment.id} className="rounded-[0.65rem] bg-paper/78 px-3 py-2">
                     <div className="flex items-start justify-between gap-2">
@@ -226,36 +246,74 @@ function MemoryCard({
                         </button>
                       )}
                     </div>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {commentReactionOptions.map((option) => {
-                        const count = comment.reactionCounts?.[option.id] || 0;
-                        const isActive = ownReaction === option.id;
-                        const isDisabled = Boolean(ownReaction) || isCommentReactionPending || Boolean(comment.pending);
-                        return (
-                          <button
-                            key={option.id}
-                            type="button"
-                            className={`inline-flex min-h-7 items-center gap-1 rounded-full px-2.5 text-[11px] font-black transition ${
-                              isActive
-                                ? 'bg-ink text-paper shadow-sm'
-                                : 'bg-white/70 text-coffee hover:bg-blush/30 active:scale-[0.98]'
-                            } disabled:cursor-not-allowed disabled:opacity-70`}
-                            disabled={isDisabled}
-                            onClick={() => {
-                              if (!profile) {
-                                onJoin();
-                                return;
-                              }
-                              void onReactComment(comment, option.id);
-                            }}
-                            aria-label={`${option.label} bình luận của ${comment.name}`}
-                            title={isActive ? 'Bạn đã reaction bình luận này rồi' : option.label}
-                          >
-                            <span>{option.label}</span>
-                            {count > 0 && <span className="text-[10px] opacity-80">{count}</span>}
-                          </button>
-                        );
-                      })}
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        {reactionTotal > 0 ? (
+                          commentReactionOptions
+                            .filter((option) => (comment.reactionCounts?.[option.id] || 0) > 0)
+                            .map((option) => (
+                              <span
+                                key={option.id}
+                                className={`inline-flex min-h-6 items-center gap-1 rounded-full px-2 text-[11px] font-black shadow-sm ${option.tone}`}
+                                title={`${option.label}: ${comment.reactionCounts?.[option.id] || 0}`}
+                              >
+                                <span aria-hidden="true">{option.icon}</span>
+                                <span>{comment.reactionCounts?.[option.id] || 0}</span>
+                              </span>
+                            ))
+                        ) : (
+                          <span className="text-[11px] font-semibold text-ink/38">Chưa có cảm xúc</span>
+                        )}
+                      </div>
+
+                      <div ref={openReactionMenuId === comment.id ? reactionMenuRef : undefined} className="relative shrink-0">
+                        {openReactionMenuId === comment.id && !reactionButtonDisabled && (
+                          <div className="absolute bottom-full right-0 z-30 mb-2 flex items-center gap-1.5 rounded-full border border-white/85 bg-[#fffaf1] p-1.5 shadow-[0_18px_42px_rgba(53,41,31,0.22)] ring-1 ring-coffee/8">
+                            {commentReactionOptions.map((option) => (
+                              <button
+                                key={option.id}
+                                type="button"
+                                className="grid h-10 w-10 place-items-center rounded-full bg-white text-xl shadow-sm transition-transform duration-150 hover:-translate-y-1 hover:scale-110 active:scale-95"
+                                onClick={() => {
+                                  setOpenReactionMenuId('');
+                                  void onReactComment(comment, option.id);
+                                }}
+                                aria-label={`${option.label} bình luận của ${comment.name}`}
+                                title={option.label}
+                              >
+                                <span aria-hidden="true">{option.icon}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          className={`inline-flex h-8 min-w-8 items-center justify-center gap-1 rounded-full px-2 text-[11px] font-black transition ${
+                            ownReaction
+                              ? 'bg-roseDust text-white shadow-sm'
+                              : 'bg-white/82 text-coffee shadow-sm hover:bg-blush/35 active:scale-[0.96]'
+                          } disabled:cursor-not-allowed disabled:opacity-70`}
+                          disabled={reactionButtonDisabled}
+                          onClick={() => {
+                            if (!profile) {
+                              onJoin();
+                              return;
+                            }
+                            setOpenReactionMenuId((current) => (current === comment.id ? '' : comment.id));
+                          }}
+                          aria-label={ownReaction ? `Bạn đã thả ${activeReaction?.label || 'cảm xúc'}` : 'Mở cảm xúc bình luận'}
+                          title={ownReaction ? `Bạn đã thả ${activeReaction?.label || 'cảm xúc'}` : 'Thả cảm xúc'}
+                        >
+                          {activeReaction ? (
+                            <span className="text-sm" aria-hidden="true">
+                              {activeReaction.icon}
+                            </span>
+                          ) : (
+                            <Heart size={14} fill={openReactionMenuId === comment.id ? 'currentColor' : 'none'} />
+                          )}
+                          {reactionTotal > 0 && <span>{reactionTotal}</span>}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );

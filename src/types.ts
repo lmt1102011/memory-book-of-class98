@@ -277,7 +277,7 @@ export interface VoteCategoryDraft {
   icon: string;
 }
 
-export type NotificationKind = 'message' | 'reaction' | 'comment' | 'like' | 'vote';
+export type NotificationKind = 'message' | 'reaction' | 'comment' | 'commentReaction' | 'like' | 'vote';
 
 export interface NotificationItem {
   id: string;

@@ -946,6 +946,7 @@ export const subscribeNotificationActivity = (
   const ownPublicMemoriesQuery = query(collection(db, MEMORIES_COLLECTION), where('uid', '==', profile.uid), limit(80));
   const ownPrivateMemoriesQuery = query(collection(db, PRIVATE_MEMORIES_COLLECTION), where('uid', '==', profile.uid), limit(80));
   const recentCommentsQuery = query(collection(db, MEMORY_COMMENTS_COLLECTION), orderBy('createdAt', 'desc'), limit(160));
+  const ownCommentsQuery = query(collection(db, MEMORY_COMMENTS_COLLECTION), where('uid', '==', profile.uid), limit(120));
   const receivedNotesQuery = query(collection(db, REMEMBER_NOTES_COLLECTION), where('toNameKey', '==', profile.nameKey), limit(80));
   const sentNotesQuery = query(collection(db, REMEMBER_NOTES_COLLECTION), where('fromUid', '==', profile.uid), limit(80));
   const voteCategoriesQuery = query(collection(db, VOTE_CATEGORIES_COLLECTION), where('hidden', '==', false), limit(40));
@@ -959,6 +960,7 @@ export const subscribeNotificationActivity = (
         ownPublicSnapshot,
         ownPrivateSnapshot,
         commentsSnapshot,
+        ownCommentsSnapshot,
         receivedNotesSnapshot,
         sentNotesSnapshot,
         voteCategoriesSnapshot,
@@ -966,6 +968,7 @@ export const subscribeNotificationActivity = (
         withFirebaseRetry(() => getDocs(ownPublicMemoriesQuery)),
         withFirebaseRetry(() => getDocs(ownPrivateMemoriesQuery)),
         withFirebaseRetry(() => getDocs(recentCommentsQuery)),
+        withFirebaseRetry(() => getDocs(ownCommentsQuery)),
         withFirebaseRetry(() => getDocs(receivedNotesQuery)),
         withFirebaseRetry(() => getDocs(sentNotesQuery)),
         withFirebaseRetry(() => getDocs(voteCategoriesQuery)),
@@ -976,13 +979,19 @@ export const subscribeNotificationActivity = (
         ...ownPrivateSnapshot.docs.map((item) => memoryFromDoc(item.id, item.data(), PRIVATE_MEMORIES_COLLECTION)),
       ]).filter((item) => item.imageUrl);
       const ownMemoryIds = new Set(ownMemories.map((item) => item.id));
+      const commentsById = new Map<string, MemoryComment>();
+      [...commentsSnapshot.docs, ...ownCommentsSnapshot.docs].forEach((item) => {
+        commentsById.set(item.id, memoryCommentFromDoc(item.id, item.data()));
+      });
 
       onNext({
         ownMemories,
         ownMemoryComments: sortNewestFirst(
-          commentsSnapshot.docs
-            .map((item) => memoryCommentFromDoc(item.id, item.data()))
-            .filter((comment) => comment.memoryUid === profile.uid || ownMemoryIds.has(comment.memoryId)),
+          Array.from(commentsById.values())
+            .filter(
+              (comment) =>
+                comment.uid === profile.uid || comment.memoryUid === profile.uid || ownMemoryIds.has(comment.memoryId),
+            ),
         ),
         receivedNotes: sortNewestFirst(receivedNotesSnapshot.docs.map((item) => rememberNoteFromDoc(item.id, item.data()))),
         sentNotes: sortNewestFirst(sentNotesSnapshot.docs.map((item) => rememberNoteFromDoc(item.id, item.data()))),
