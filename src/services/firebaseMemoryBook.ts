@@ -1181,25 +1181,37 @@ export const reactToMemoryComment = async (
   reactionId: CommentReactionId,
 ) => {
   const reactionField = COMMENT_REACTION_FIELDS[reactionId];
-  const previousReactionId = comment.reactionByUid?.[profile.uid];
-  const previousReactionField = previousReactionId ? COMMENT_REACTION_FIELDS[previousReactionId] : '';
   if (!reactionField) throw new Error('Cảm xúc bình luận này chưa hợp lệ.');
   if (comment.pending) throw new Error('Đợi bình luận gửi xong rồi hãy reaction nha.');
-  if (previousReactionId === reactionId) return;
-
-  const updates = previousReactionField
-    ? {
-        [previousReactionField]: arrayRemove(profile.uid),
-        [reactionField]: arrayUnion(profile.uid),
-        updatedAt: serverTimestamp(),
-      }
-    : {
-        [reactionField]: arrayUnion(profile.uid),
-        updatedAt: serverTimestamp(),
-      };
+  const commentRef = doc(db, MEMORY_COMMENTS_COLLECTION, comment.id);
 
   await withFirebaseRetry(() =>
-    updateDoc(doc(db, MEMORY_COMMENTS_COLLECTION, comment.id), updates),
+    runTransaction(db, async (transaction) => {
+      const snapshot = await transaction.get(commentRef);
+      if (!snapshot.exists()) throw new Error('Bình luận này không còn tồn tại.');
+
+      const current = memoryCommentFromDoc(snapshot.id, snapshot.data());
+      const previousReactionId = current.reactionByUid?.[profile.uid];
+      if (previousReactionId === reactionId) return;
+
+      const nextReactionByUid = {
+        ...(current.reactionByUid || {}),
+        [profile.uid]: reactionId,
+      };
+
+      const updates = COMMENT_REACTION_IDS.reduce(
+        (acc, currentReactionId) => {
+          const field = COMMENT_REACTION_FIELDS[currentReactionId];
+          acc[field] = Object.entries(nextReactionByUid)
+            .filter(([, selectedReactionId]) => selectedReactionId === currentReactionId)
+            .map(([uid]) => uid);
+          return acc;
+        },
+        { updatedAt: serverTimestamp() } as Record<string, unknown>,
+      );
+
+      transaction.update(commentRef, updates);
+    }),
   );
 };
 
