@@ -352,7 +352,6 @@ service cloud.firestore {
     function validStudentCreate(nameKey) {
       return request.auth != null
         && request.resource.data.uid == request.auth.uid
-        && request.auth.token.email == nameKey + '@memorybook-of-class98.firebaseapp.com'
         && request.resource.data.nameKey == nameKey
         && request.resource.data.className == '9/8'
         && (
