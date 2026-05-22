@@ -1103,10 +1103,10 @@ export default function App() {
         const reactionsByUid = Object.entries(comment.reactionByUid || {}).filter(([uid]) => uid !== profile.uid);
         if (!reactionsByUid.length) return;
 
-        const reactionIds = Array.from(new Set(reactionsByUid.map(([, reactionId]) => reactionId)));
+        const reactionIds = Array.from(new Set(reactionsByUid.map(([, reactionId]) => reactionId))).sort();
         const reactionText = reactionIds.map((reactionId) => commentReactionLabels[reactionId]).filter(Boolean).join(', ');
         const createdAt = comment.updatedAt || comment.createdAt;
-        const id = `comment-reaction-${comment.id}-${reactionsByUid.length}`;
+        const id = `comment-reaction-${comment.id}-${reactionsByUid.length}-${reactionIds.join('-')}`;
         const shortMessage = comment.message.length > 86 ? `${comment.message.slice(0, 86)}...` : comment.message;
         items.push({
           id,
@@ -1768,11 +1768,13 @@ export default function App() {
 
       if (
         comment.pending ||
-        comment.reactionByUid?.[profile.uid] ||
         pendingCommentReactionIdsRef.current.has(comment.id)
       ) {
         return;
       }
+
+      const previousReactionId = comment.reactionByUid?.[profile.uid];
+      if (previousReactionId === reactionId) return;
 
       pendingCommentReactionIdsRef.current.add(comment.id);
       setPendingCommentReactionIds(Array.from(pendingCommentReactionIdsRef.current));
@@ -1781,6 +1783,10 @@ export default function App() {
       const applyReaction = (item: MemoryComment): MemoryComment => {
         if (item.id !== comment.id) return item;
         const currentCounts = { ...makeEmptyCommentReactionCounts(), ...(item.reactionCounts || {}) };
+        const itemPreviousReactionId = item.reactionByUid?.[profile.uid];
+        if (itemPreviousReactionId && itemPreviousReactionId !== reactionId) {
+          currentCounts[itemPreviousReactionId] = Math.max(0, (currentCounts[itemPreviousReactionId] || 0) - 1);
+        }
         return {
           ...item,
           updatedAt: reactedAt,

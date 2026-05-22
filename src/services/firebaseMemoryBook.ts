@@ -8,6 +8,7 @@ import {
 } from 'firebase/auth';
 import {
   addDoc,
+  arrayRemove,
   arrayUnion,
   collection,
   deleteDoc,
@@ -1153,17 +1154,25 @@ export const reactToMemoryComment = async (
   reactionId: CommentReactionId,
 ) => {
   const reactionField = COMMENT_REACTION_FIELDS[reactionId];
+  const previousReactionId = comment.reactionByUid?.[profile.uid];
+  const previousReactionField = previousReactionId ? COMMENT_REACTION_FIELDS[previousReactionId] : '';
   if (!reactionField) throw new Error('Cảm xúc bình luận này chưa hợp lệ.');
   if (comment.pending) throw new Error('Đợi bình luận gửi xong rồi hãy reaction nha.');
-  if (comment.reactionByUid?.[profile.uid]) {
-    throw new Error('Bạn đã reaction bình luận này rồi.');
-  }
+  if (previousReactionId === reactionId) return;
+
+  const updates = previousReactionField
+    ? {
+        [previousReactionField]: arrayRemove(profile.uid),
+        [reactionField]: arrayUnion(profile.uid),
+        updatedAt: serverTimestamp(),
+      }
+    : {
+        [reactionField]: arrayUnion(profile.uid),
+        updatedAt: serverTimestamp(),
+      };
 
   await withFirebaseRetry(() =>
-    updateDoc(doc(db, MEMORY_COMMENTS_COLLECTION, comment.id), {
-      [reactionField]: arrayUnion(profile.uid),
-      updatedAt: serverTimestamp(),
-    }),
+    updateDoc(doc(db, MEMORY_COMMENTS_COLLECTION, comment.id), updates),
   );
 };
 

@@ -240,7 +240,7 @@ function MemoryCard({
                   0,
                 );
                 const activeReaction = commentReactionOptions.find((option) => option.id === ownReaction);
-                const reactionButtonDisabled = Boolean(ownReaction) || isCommentReactionPending || Boolean(comment.pending);
+                const reactionButtonDisabled = isCommentReactionPending || Boolean(comment.pending);
                 return (
                   <div key={comment.id} className="rounded-[0.65rem] bg-paper/78 px-3 py-2">
                     <div className="flex items-start justify-between gap-2">
@@ -283,21 +283,27 @@ function MemoryCard({
                       <div ref={openReactionMenuId === comment.id ? reactionMenuRef : undefined} className="relative shrink-0">
                         {openReactionMenuId === comment.id && !reactionButtonDisabled && (
                           <div className="absolute bottom-full right-0 z-30 mb-2 flex items-center gap-1.5 rounded-full border border-white/85 bg-[#fffaf1] p-1.5 shadow-[0_18px_42px_rgba(53,41,31,0.22)] ring-1 ring-coffee/8">
-                            {commentReactionOptions.map((option) => (
-                              <button
-                                key={option.id}
-                                type="button"
-                                className="grid h-10 w-10 place-items-center rounded-full bg-white text-xl shadow-sm transition-transform duration-150 hover:-translate-y-1 hover:scale-110 active:scale-95"
-                                onClick={() => {
-                                  setOpenReactionMenuId('');
-                                  void onReactComment(comment, option.id);
-                                }}
-                                aria-label={`${option.label} bình luận của ${comment.name}`}
-                                title={option.label}
-                              >
-                                <ReactionIcon src={option.iconSrc} className="h-6 w-6" />
-                              </button>
-                            ))}
+                            {commentReactionOptions.map((option) => {
+                              const isCurrentChoice = ownReaction === option.id;
+                              return (
+                                <button
+                                  key={option.id}
+                                  type="button"
+                                  className={`grid h-10 w-10 place-items-center rounded-full bg-white text-xl shadow-sm transition-transform duration-150 hover:-translate-y-1 hover:scale-110 active:scale-95 ${
+                                    isCurrentChoice ? 'ring-2 ring-roseDust ring-offset-2 ring-offset-[#fffaf1]' : ''
+                                  }`}
+                                  onClick={() => {
+                                    setOpenReactionMenuId('');
+                                    if (isCurrentChoice) return;
+                                    void onReactComment(comment, option.id);
+                                  }}
+                                  aria-label={`${isCurrentChoice ? 'Đang chọn' : 'Đổi sang'} ${option.label} bình luận của ${comment.name}`}
+                                  title={isCurrentChoice ? `Đang chọn ${option.label}` : `Đổi sang ${option.label}`}
+                                >
+                                  <ReactionIcon src={option.iconSrc} className="h-6 w-6" />
+                                </button>
+                              );
+                            })}
                           </div>
                         )}
                         <button
@@ -315,8 +321,8 @@ function MemoryCard({
                             }
                             setOpenReactionMenuId((current) => (current === comment.id ? '' : comment.id));
                           }}
-                          aria-label={ownReaction ? `Bạn đã thả ${activeReaction?.label || 'cảm xúc'}` : 'Mở cảm xúc bình luận'}
-                          title={ownReaction ? `Bạn đã thả ${activeReaction?.label || 'cảm xúc'}` : 'Thả cảm xúc'}
+                          aria-label={ownReaction ? `Đổi cảm xúc ${activeReaction?.label || ''}` : 'Mở cảm xúc bình luận'}
+                          title={ownReaction ? 'Đổi cảm xúc' : 'Thả cảm xúc'}
                         >
                           {activeReaction ? (
                             <ReactionIcon src={activeReaction.iconSrc} className="h-4 w-4" />
