@@ -1762,6 +1762,7 @@ export default function App() {
           profile={profile}
           pendingReactionIds={pendingReactionIds}
           onJoin={() => navigate('join')}
+          onPhotobook={() => navigate('photobook')}
           onOpenProfile={openPersonProfile}
           onReact={handleReact}
           onAddComment={handleMemoryCommentAdd}

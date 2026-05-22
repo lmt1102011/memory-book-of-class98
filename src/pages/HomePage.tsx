@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
-import { Camera, Download, Filter, Heart, Lock, RotateCcw, Search, UserRound, Video, X } from 'lucide-react';
+import { Camera, Download, Filter, Heart, Lock, RotateCcw, Search, Upload, UserRound, Video, X } from 'lucide-react';
 import FirebaseNotice from '../components/FirebaseNotice';
 import MemoryCard from '../components/MemoryCard';
 import { useDebounce } from '../hooks/useDebounce';
@@ -103,6 +103,7 @@ interface HomePageProps {
   profile: UserProfile | null;
   pendingReactionIds: string[];
   onJoin: () => void;
+  onPhotobook: () => void;
   onOpenProfile: (nameKey: string) => void;
   onReact: (memory: MemoryItem) => void | Promise<void>;
   onAddComment: (memory: MemoryItem, message: string) => void | Promise<void>;
@@ -121,6 +122,7 @@ export default function HomePage({
   profile,
   pendingReactionIds,
   onJoin,
+  onPhotobook,
   onOpenProfile,
   onReact,
   onAddComment,
@@ -548,7 +550,12 @@ export default function HomePage({
             <p className="text-xs leading-5 text-ink/58">
               Đây là góc xem lại ảnh, video và những bình luận đang được lớp cập nhật theo thời gian thực.
             </p>
-            {!profile && (
+            {profile ? (
+              <button className="primary-button justify-center" onClick={onPhotobook}>
+                <Upload size={17} />
+                Đăng ảnh/video
+              </button>
+            ) : (
               <button className="secondary-button justify-center" onClick={onJoin}>
                 Vào lớp 9/8
               </button>
@@ -818,12 +825,17 @@ export default function HomePage({
                   ? 'Thử xóa bộ lọc hoặc tìm bằng tên, caption, hashtag khác.'
                   : 'Khi có ảnh hoặc video mới trên database, kỷ niệm sẽ hiện ở đây ngay lập tức.'}
               </p>
-              {hasActiveFilter && (
+              {hasActiveFilter ? (
                 <button className="secondary-button mx-auto mt-5" onClick={clearFilters}>
                   <X size={16} />
                   Xóa lọc
                 </button>
-              )}
+              ) : profile ? (
+                <button className="primary-button mx-auto mt-5" onClick={onPhotobook}>
+                  <Upload size={17} />
+                  Đăng kỷ niệm đầu tiên
+                </button>
+              ) : null}
             </div>
           </div>
         )}
