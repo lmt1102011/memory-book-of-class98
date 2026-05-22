@@ -441,6 +441,7 @@
           <button class="tab active" data-tab="accounts">Tài khoản</button>
           <button class="tab" data-tab="memories">Ảnh/video</button>
           <button class="tab" data-tab="letters">Thư lớp</button>
+          <button class="tab" data-tab="future">Gửi cho tương lai</button>
           <button class="tab" data-tab="remember">Secret Message</button>
           <button class="tab" data-tab="diaries">Nhật ký</button>
           <button class="tab" data-tab="downloads">Lượt tải</button>
@@ -478,6 +479,16 @@
             <h2>Thư lớp</h2>
             <p class="muted" style="margin-bottom: 12px">Thư ẩn danh vẫn hiện tên thật của người viết trong manager.</p>
             <div id="classLetters" class="list"></div>
+          </section>
+        </section>
+
+        <section class="panel" data-panel="future">
+          <section class="card">
+            <h2>Gửi cho tương lai</h2>
+            <p class="muted" style="margin-bottom: 12px">
+              Manager thấy người viết, nội dung lời nhắn và có thể xóa lời nhắn tương lai khi cần.
+            </p>
+            <div id="futureMessages" class="list"></div>
           </section>
         </section>
 
@@ -814,12 +825,12 @@
 
       const renderLetters = () => {
         const items = classLetters.filter((letter) => matchesSearch(letter, ['name', 'nameKey', 'uid', 'message', 'trueName']));
-        const capsuleItems = timeCapsules.filter((letter) => matchesSearch(letter, ['name', 'nameKey', 'uid', 'message']));
-        const classHtml = items
-          .map((letter) => {
-            const anonymous = isAnonymousLetter(letter);
-            const trueName = resolveTrueName({ uid: letter.uid, nameKey: letter.nameKey, fallback: letter.trueName || letter.name });
-            return `
+        $('classLetters').innerHTML =
+          items
+            .map((letter) => {
+              const anonymous = isAnonymousLetter(letter);
+              const trueName = resolveTrueName({ uid: letter.uid, nameKey: letter.nameKey, fallback: letter.trueName || letter.name });
+              return `
               <article class="item">
                 <div class="row">
                   <strong>${anonymous ? 'Ẩn danh trên bảng lớp' : escapeHtml(letter.name || trueName)}</strong>
@@ -830,10 +841,15 @@
                 <p class="message">${escapeHtml(letter.message || '')}</p>
               </article>
             `;
-          })
-          .join('');
-        const capsuleHtml = capsuleItems
-          .map((letter) => `
+            })
+            .join('') || '<p class="muted">Chưa có thư lớp nào.</p>';
+      };
+
+      const renderFutureMessages = () => {
+        const capsuleItems = timeCapsules.filter((letter) => matchesSearch(letter, ['name', 'nameKey', 'uid', 'message']));
+        $('futureMessages').innerHTML =
+          capsuleItems
+            .map((letter) => `
             <article class="item">
               <div class="row">
                 <strong>Gửi cho tương lai: ${escapeHtml(letter.name || 'Không rõ tên')}</strong>
@@ -847,14 +863,7 @@
               </div>
             </article>
           `)
-          .join('');
-
-        $('classLetters').innerHTML = `
-          <h3>Thư lớp</h3>
-          ${classHtml || '<p class="muted">Chưa có thư lớp nào.</p>'}
-          <h3 style="margin-top: 16px">Gửi cho tương lai</h3>
-          ${capsuleHtml || '<p class="muted">Chưa có lời nhắn tương lai nào.</p>'}
-        `;
+            .join('') || '<p class="muted">Chưa có lời nhắn tương lai nào.</p>';
       };
 
       const renderRememberNotes = () => {
@@ -932,6 +941,7 @@
         if (activeTab === 'accounts') renderAccounts();
         if (activeTab === 'memories') renderMemories();
         if (activeTab === 'letters') renderLetters();
+        if (activeTab === 'future') renderFutureMessages();
         if (activeTab === 'remember') renderRememberNotes();
         if (activeTab === 'diaries') renderDiaries();
         if (activeTab === 'downloads') renderDownloads();
@@ -944,6 +954,7 @@
         renderAccounts();
         renderMemories();
         renderLetters();
+        renderFutureMessages();
         renderRememberNotes();
         renderDiaries();
         renderDownloads();
@@ -1265,7 +1276,7 @@
         }
       });
 
-      $('classLetters').addEventListener('click', async (event) => {
+      $('futureMessages').addEventListener('click', async (event) => {
         const button = event.target.closest('button[data-capsule-action="delete"][data-id]');
         if (!button) return;
 
@@ -1282,7 +1293,7 @@
           });
           await deleteDoc(doc(db, TIME_CAPSULE_COLLECTION, id));
           timeCapsules = timeCapsules.filter((item) => item.id !== id);
-          renderLetters();
+          renderFutureMessages();
           updateStats();
           timeCapsuleStatus.textContent = 'Đã xóa lời nhắn tương lai.';
         } catch (error) {
