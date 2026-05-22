@@ -23,7 +23,7 @@ import { useMobilePerformanceMode } from './hooks/useMobilePerformanceMode';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion';
 import LandingPage from './pages/LandingPage';
-import { detectInstalledMemoryApp, shouldSkipIntroOnInstalledLaunch } from './pwaInstallPrompt';
+import { shouldSkipIntroOnInstalledLaunch } from './pwaInstallPrompt';
 import type {
   AppRoute,
   ClassmateProfile,
@@ -160,19 +160,10 @@ export default function App() {
   }, [route]);
 
   useEffect(() => {
-    if (route !== 'landing' || shouldSkipIntroOnInstalledLaunch()) return undefined;
+    if (route !== 'landing' || shouldSkipIntroOnInstalledLaunch()) return;
+    if (window.location.hash === '#/landing') return;
 
-    let isActive = true;
-    void detectInstalledMemoryApp().then((isInstalled) => {
-      if (!isActive || !isInstalled) return;
-
-      setRoute('home');
-      window.history.replaceState(null, '', '#/home');
-    });
-
-    return () => {
-      isActive = false;
-    };
+    window.history.replaceState(null, '', '#/landing');
   }, [route]);
 
   useEffect(() => {

@@ -14,42 +14,12 @@ export interface BeforeInstallPromptEvent extends Event {
 }
 
 type PromptListener = (prompt: BeforeInstallPromptEvent | null) => void;
-type InstalledRelatedApp = {
-  id?: string;
-  platform?: string;
-  url?: string;
-};
-type NavigatorWithRelatedApps = Navigator & {
-  getInstalledRelatedApps?: () => Promise<InstalledRelatedApp[]>;
-};
-
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 let isCaptureStarted = false;
 const promptListeners = new Set<PromptListener>();
-const PWA_INSTALLED_STORAGE_KEY = 'memory98-pwa-installed';
 
 const notifyPromptListeners = () => {
   promptListeners.forEach((listener) => listener(deferredPrompt));
-};
-
-export const rememberPwaInstalled = () => {
-  if (typeof window === 'undefined') return;
-
-  try {
-    window.localStorage.setItem(PWA_INSTALLED_STORAGE_KEY, 'yes');
-  } catch {
-    // Ignore private browsing/storage failures; install detection still works through display-mode.
-  }
-};
-
-export const hasRememberedPwaInstall = () => {
-  if (typeof window === 'undefined') return false;
-
-  try {
-    return window.localStorage.getItem(PWA_INSTALLED_STORAGE_KEY) === 'yes';
-  } catch {
-    return false;
-  }
 };
 
 export const isStandaloneMode = () => {
@@ -58,33 +28,14 @@ export const isStandaloneMode = () => {
   const navigatorWithStandalone = window.navigator as Navigator & { standalone?: boolean };
   const displayModes = ['standalone', 'fullscreen', 'minimal-ui', 'window-controls-overlay'];
   const isDisplayModeApp = displayModes.some((mode) => window.matchMedia(`(display-mode: ${mode})`).matches);
-  const isAndroidWebApk = document.referrer.startsWith('android-app://');
 
-  return isDisplayModeApp || navigatorWithStandalone.standalone === true || isAndroidWebApk;
+  return isDisplayModeApp || navigatorWithStandalone.standalone === true;
 };
 
 export const shouldSkipIntroOnInstalledLaunch = () => {
   if (typeof window === 'undefined') return false;
 
   return isStandaloneMode();
-};
-
-export const detectInstalledMemoryApp = async () => {
-  if (typeof window === 'undefined') return false;
-  if (isStandaloneMode()) return true;
-
-  const navigatorWithRelatedApps = window.navigator as NavigatorWithRelatedApps;
-  if (!navigatorWithRelatedApps.getInstalledRelatedApps) return false;
-
-  try {
-    const apps = await navigatorWithRelatedApps.getInstalledRelatedApps();
-    return apps.some((app) => {
-      const source = `${app.platform || ''} ${app.id || ''} ${app.url || ''}`.toLowerCase();
-      return source.includes('webapp') || source.includes('memory98') || source.includes('memory-book-of-class98');
-    });
-  } catch {
-    return false;
-  }
 };
 
 export const detectInstallPlatform = (): InstallPlatform => {
@@ -110,7 +61,6 @@ export const capturePwaInstallPrompt = () => {
   });
 
   window.addEventListener('appinstalled', () => {
-    rememberPwaInstalled();
     deferredPrompt = null;
     notifyPromptListeners();
   });
