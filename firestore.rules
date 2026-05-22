@@ -423,6 +423,29 @@ service cloud.firestore {
           'className',
           'disabled',
           'deleted',
+          'createdAt',
+          'repairedAt',
+          'lastLoginAt'
+        ]);
+    }
+
+    function validStudentSelfRepair(nameKey) {
+      return request.auth != null
+        && resource.data.uid == request.auth.uid
+        && !studentIsDisabled()
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.nameKey == nameKey
+        && request.resource.data.className == '9/8'
+        && request.resource.data.disabled == false
+        && request.resource.data.deleted == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'uid',
+          'name',
+          'nameKey',
+          'className',
+          'disabled',
+          'deleted',
+          'createdAt',
           'repairedAt',
           'lastLoginAt'
         ]);
@@ -452,6 +475,7 @@ service cloud.firestore {
       allow create: if validStudentCreate(nameKey);
       allow update: if validStudentOwnerUpdate(nameKey)
         || validStudentDeletedRestore()
+        || validStudentSelfRepair(nameKey)
         || isManagerWrite();
       allow delete: if isManagerMarkedResource();
     }
