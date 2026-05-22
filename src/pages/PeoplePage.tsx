@@ -60,10 +60,36 @@ const loadImage = (src: string) =>
     image.src = src;
   });
 
+const waitForFrame = () =>
+  new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => resolve());
+  });
+
+const canvasToDataUrl = (canvas: HTMLCanvasElement, type: string, quality: number) =>
+  new Promise<string>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error('Không thể xử lý ảnh đại diện này.'));
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Không thể đọc ảnh đại diện này.'));
+        reader.readAsDataURL(blob);
+      },
+      type,
+      quality,
+    );
+  });
+
 const compressAvatar = async (file: File) => {
+  await waitForFrame();
   const objectUrl = URL.createObjectURL(file);
   try {
     const image = await loadImage(objectUrl);
+    await waitForFrame();
     const size = 360;
     const scale = Math.max(size / image.width, size / image.height);
     const drawWidth = image.width * scale;
@@ -80,7 +106,7 @@ const compressAvatar = async (file: File) => {
     ctx.fillStyle = '#fffaf1';
     ctx.fillRect(0, 0, size, size);
     ctx.drawImage(image, x, y, drawWidth, drawHeight);
-    return canvas.toDataURL('image/jpeg', 0.82);
+    return await canvasToDataUrl(canvas, 'image/jpeg', 0.78);
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
@@ -287,7 +313,9 @@ export default function PeoplePage({
   const [classMessage, setClassMessage] = useState('');
   const [tagText, setTagText] = useState(defaultTags.join(', '));
   const [isSaving, setIsSaving] = useState(false);
+  const [isAvatarProcessing, setIsAvatarProcessing] = useState(false);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [isProfileDraftDirty, setIsProfileDraftDirty] = useState(false);
   const [localError, setLocalError] = useState('');
   const [localSuccess, setLocalSuccess] = useState('');
 
@@ -306,6 +334,14 @@ export default function PeoplePage({
     [profile?.nameKey, sortedClassmates],
   );
 
+  const hydrateProfileDraft = (source: ClassmateProfile | null) => {
+    setAvatarDataUrl(source?.avatarDataUrl || '');
+    setNickname(source?.nickname || '');
+    setQuote(source?.quote || '');
+    setClassMessage(source?.classMessage || '');
+    setTagText(((source?.personalityTags.length ? source.personalityTags : defaultTags) || defaultTags).join(', '));
+  };
+
   useEffect(() => {
     setSelectedNameKey('');
   }, [listResetKey]);
@@ -316,12 +352,9 @@ export default function PeoplePage({
 
   useEffect(() => {
     if (!selfProfile) return;
-    setAvatarDataUrl(selfProfile.avatarDataUrl || '');
-    setNickname(selfProfile.nickname || '');
-    setQuote(selfProfile.quote || '');
-    setClassMessage(selfProfile.classMessage || '');
-    setTagText((selfProfile.personalityTags.length ? selfProfile.personalityTags : defaultTags).join(', '));
-  }, [selfProfile]);
+    if (isEditorOpen && isProfileDraftDirty) return;
+    hydrateProfileDraft(selfProfile);
+  }, [isEditorOpen, isProfileDraftDirty, selfProfile]);
 
   const statsByKey = useMemo(() => {
     const stats: Record<string, PersonStats> = {};
@@ -404,11 +437,17 @@ export default function PeoplePage({
     if (!file) return;
 
     try {
+      setIsAvatarProcessing(true);
       setLocalError('');
-      setAvatarDataUrl(await compressAvatar(file));
+      setLocalSuccess('');
+      const nextAvatar = await compressAvatar(file);
+      setAvatarDataUrl(nextAvatar);
+      setIsProfileDraftDirty(true);
+      setLocalSuccess('Đã chọn ảnh đại diện mới. Bấm Lưu hồ sơ để cập nhật.');
     } catch {
       setLocalError('Không thể nén ảnh đại diện này. Hãy thử ảnh JPG/PNG khác.');
     } finally {
+      setIsAvatarProcessing(false);
       event.target.value = '';
     }
   };
@@ -417,6 +456,10 @@ export default function PeoplePage({
     event.preventDefault();
     setLocalError('');
     setLocalSuccess('');
+    if (isAvatarProcessing) {
+      setLocalError('Đợi ảnh đại diện xử lý xong rồi hãy lưu nha.');
+      return;
+    }
 
     if (!profile) {
       onJoin();
@@ -438,6 +481,7 @@ export default function PeoplePage({
     try {
       setIsSaving(true);
       await onUpdateProfile(draft);
+      setIsProfileDraftDirty(false);
       setLocalSuccess('Đã lưu hồ sơ thanh xuân của bạn.');
       setIsEditorOpen(false);
     } catch (caught) {
@@ -513,7 +557,13 @@ export default function PeoplePage({
                   <button
                     type="button"
                     className="secondary-button mt-4 w-full justify-center"
-                    onClick={() => setIsEditorOpen(true)}
+                    onClick={() => {
+                      hydrateProfileDraft(selfProfile);
+                      setIsProfileDraftDirty(false);
+                      setLocalError('');
+                      setLocalSuccess('');
+                      setIsEditorOpen(true);
+                    }}
                   >
                     <UserRound size={16} />
                     Sửa hồ sơ
@@ -629,7 +679,12 @@ export default function PeoplePage({
         title="Sửa hồ sơ"
         description="Chỉnh lại ảnh đại diện, biệt danh, câu nói riêng và lời gửi lớp 9/8."
         icon={<UserRound size={20} />}
-        onClose={() => setIsEditorOpen(false)}
+        onClose={() => {
+          setIsEditorOpen(false);
+          setIsProfileDraftDirty(false);
+          setLocalError('');
+          setLocalSuccess('');
+        }}
       >
         {profile && (
           <form onSubmit={handleSubmit}>
@@ -641,18 +696,30 @@ export default function PeoplePage({
               <div className="flex items-center gap-4">
                 <button
                   type="button"
-                  className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full bg-paper shadow-paper ring-1 ring-coffee/15"
+                  className="relative grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full bg-paper shadow-paper ring-1 ring-coffee/15 disabled:cursor-wait disabled:opacity-70"
                   onClick={() => uploadRef.current?.click()}
+                  disabled={isAvatarProcessing}
                 >
                   {avatarDataUrl ? (
                     <img src={avatarDataUrl} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <Upload size={24} className="text-coffee" />
                   )}
+                  {isAvatarProcessing && (
+                    <span className="absolute inset-0 grid place-items-center bg-ink/62 text-[10px] font-black uppercase text-paper">
+                      Đang xử lý
+                    </span>
+                  )}
                 </button>
                 <div className="min-w-0">
                   <p className="break-words text-sm font-bold">{profile.name}</p>
-                  <p className="mt-1 text-xs leading-5 text-ink/58">Bấm vào vòng ảnh để chọn chân dung của bạn.</p>
+                  <p className="mt-1 text-xs leading-5 text-ink/58">
+                    {isAvatarProcessing
+                      ? 'Đang nén ảnh để lưu mượt hơn...'
+                      : avatarDataUrl
+                        ? 'Ảnh đã sẵn sàng. Bấm Lưu hồ sơ để cập nhật.'
+                        : 'Bấm vào vòng ảnh để chọn chân dung của bạn.'}
+                  </p>
                 </div>
                 <input ref={uploadRef} className="hidden" type="file" accept="image/*" onChange={handleAvatarChange} />
               </div>
@@ -666,12 +733,26 @@ export default function PeoplePage({
               <div className="grid gap-3">
                 <label className="block">
                   <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Biệt danh</span>
-                  <input className="input-field" value={nickname} onChange={(event) => setNickname(event.target.value.slice(0, 36))} />
+                  <input
+                    className="input-field"
+                    value={nickname}
+                    onChange={(event) => {
+                      setIsProfileDraftDirty(true);
+                      setNickname(event.target.value.slice(0, 36));
+                    }}
+                  />
                 </label>
 
                 <label className="block">
                   <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Câu nói riêng</span>
-                  <input className="input-field" value={quote} onChange={(event) => setQuote(event.target.value.slice(0, 120))} />
+                  <input
+                    className="input-field"
+                    value={quote}
+                    onChange={(event) => {
+                      setIsProfileDraftDirty(true);
+                      setQuote(event.target.value.slice(0, 120));
+                    }}
+                  />
                 </label>
               </div>
             </ProfileFormSection>
@@ -686,7 +767,10 @@ export default function PeoplePage({
                 <input
                   className="input-field"
                   value={tagText}
-                  onChange={(event) => setTagText(event.target.value.slice(0, 80))}
+                  onChange={(event) => {
+                    setIsProfileDraftDirty(true);
+                    setTagText(event.target.value.slice(0, 80));
+                  }}
                   placeholder="ấm áp, hài hước, đáng nhớ"
                 />
               </label>
@@ -702,16 +786,20 @@ export default function PeoplePage({
                 <textarea
                   className="input-field min-h-28 resize-none"
                   value={classMessage}
-                  onChange={(event) => setClassMessage(event.target.value.slice(0, 360))}
+                  onChange={(event) => {
+                    setIsProfileDraftDirty(true);
+                    setClassMessage(event.target.value.slice(0, 360));
+                  }}
                 />
               </label>
             </ProfileFormSection>
 
             {localError && <p className="mt-3 text-sm font-bold text-[#9d3b4b]">{localError}</p>}
+            {localSuccess && <p className="mt-3 text-sm font-bold text-chalk">{localSuccess}</p>}
 
-            <button className="primary-button mt-5 w-full justify-center" disabled={isSaving}>
+            <button className="primary-button mt-5 w-full justify-center" disabled={isSaving || isAvatarProcessing}>
               <Send size={17} />
-              {isSaving ? 'Đang lưu...' : 'Lưu hồ sơ'}
+              {isAvatarProcessing ? 'Đang xử lý ảnh...' : isSaving ? 'Đang lưu...' : 'Lưu hồ sơ'}
             </button>
           </form>
         )}
