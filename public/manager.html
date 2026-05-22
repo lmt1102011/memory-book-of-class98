@@ -1023,7 +1023,7 @@
                           ? `<button class="secondary" data-account-action="restore" data-id="${account.id}">Mở lại</button>`
                           : `<button class="secondary" data-account-action="disable" data-id="${account.id}">Khóa</button>`
                     }
-                    ${account.id === MANAGER_NAME_KEY ? '' : `<button class="danger" data-account-action="delete" data-id="${account.id}">Xóa tài khoản</button>`}
+                    ${account.id === MANAGER_NAME_KEY ? '' : `<button class="danger" data-account-action="delete" data-id="${account.id}">Xóa khỏi database</button>`}
                   </div>
                 </article>
               `;
@@ -1253,16 +1253,14 @@
         await deleteDoc(doc(db, collectionName, memory.id));
       };
 
-      const softDeleteAccountRecord = async (account) => {
+      const deleteAccountRecord = async (account) => {
         if (!account || account.id === MANAGER_NAME_KEY) return;
         await updateDoc(doc(db, 'students98', account.id), {
-          disabled: true,
-          deleted: true,
-          deletedAt: serverTimestamp(),
           managerKey: MANAGER_PASSWORD,
           managerDeletedAt: serverTimestamp(),
           managerUpdatedAt: serverTimestamp(),
         });
+        await deleteDoc(doc(db, 'students98', account.id));
       };
 
       const deleteClassLetterRecord = async (letter) => {
@@ -1347,17 +1345,7 @@
       const removeSelectedRecordsFromLocalState = (records) => {
         if (activeTab === 'accounts') {
           const ids = new Set(records.map((item) => item.id));
-          accounts = accounts.map((account) =>
-            ids.has(account.id)
-              ? {
-                  ...account,
-                  disabled: true,
-                  deleted: true,
-                  deletedAt: new Date().toISOString(),
-                  managerDeletedAt: new Date().toISOString(),
-                }
-              : account,
-          );
+          accounts = accounts.filter((account) => !ids.has(account.id));
         }
 
         if (activeTab === 'memories') {
@@ -1387,7 +1375,7 @@
       };
 
       const deleteRecordForActiveTab = async (record) => {
-        if (activeTab === 'accounts') return await softDeleteAccountRecord(record);
+        if (activeTab === 'accounts') return await deleteAccountRecord(record);
         if (activeTab === 'memories') return await deleteMemoryRecord(record);
         if (activeTab === 'letters') return await deleteClassLetterRecord(record);
         if (activeTab === 'future') return await deleteFutureMessageRecord(record);
@@ -1694,15 +1682,14 @@
         button.disabled = true;
         try {
           if (action === 'delete') {
-            if (!window.confirm(`Xóa tài khoản ${account.name || id} khỏi lớp 9/8?`)) return;
-            await updateDoc(doc(db, 'students98', id), {
-              disabled: true,
-              deleted: true,
-              deletedAt: serverTimestamp(),
-              managerKey: MANAGER_PASSWORD,
-              managerDeletedAt: serverTimestamp(),
-              managerUpdatedAt: serverTimestamp(),
-            });
+            if (!window.confirm(`Xóa hẳn tài khoản ${account.name || id} khỏi database lớp 9/8?`)) return;
+            await deleteAccountRecord(account);
+            accounts = accounts.filter((item) => item.id !== id);
+            selectedItems.delete(selectionKey('account', id));
+            renderAccounts();
+            updateStats();
+            accountStatus.textContent = 'Đã xóa hẳn tài khoản khỏi database.';
+            return;
           }
 
           if (action === 'restore-deleted' || action === 'restore') {

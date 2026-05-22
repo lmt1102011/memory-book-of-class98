@@ -199,7 +199,7 @@ service cloud.firestore {
         && resource.data.uid == request.auth.uid
         && request.resource.data.uid == resource.data.uid
       ) || isManagerWrite();
-      allow delete: if false;
+      allow delete: if isManagerMarkedResource();
     }
 
     match /memories98/{memoryId} {
