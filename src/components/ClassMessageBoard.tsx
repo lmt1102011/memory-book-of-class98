@@ -16,6 +16,7 @@ interface ClassMessageBoardProps {
   onDeleteGuestbook: (entry: GuestbookEntry) => void | Promise<void>;
   onAddAnonymousMessage: (message: string) => void | Promise<void>;
   onAddTimeCapsule: (message: string) => void | Promise<void>;
+  onOpenFutureMessages: () => void;
 }
 
 type BoardNote = {
@@ -56,6 +57,15 @@ const boardPositions = [
   { left: 48, top: 80, rotate: 2, width: 18 },
 ];
 
+const VIETNAM_TIME_ZONE = 'Asia/Ho_Chi_Minh';
+
+const formatFutureUnlockDate = (date: Date) =>
+  new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'full',
+    timeStyle: 'short',
+    timeZone: VIETNAM_TIME_ZONE,
+  }).format(date);
+
 function ClassMessageBoard({
   guestbook,
   timeCapsules,
@@ -66,6 +76,7 @@ function ClassMessageBoard({
   onDeleteGuestbook,
   onAddAnonymousMessage,
   onAddTimeCapsule,
+  onOpenFutureMessages,
 }: ClassMessageBoardProps) {
   const [classMessage, setClassMessage] = useState('');
   const [anonymousMessage, setAnonymousMessage] = useState('');
@@ -81,8 +92,17 @@ function ClassMessageBoard({
   const unlockDate = useMemo(() => new Date(timeCapsuleSettings.unlockAt), [timeCapsuleSettings.unlockAt]);
   const isCapsuleUnlocked = Number.isFinite(unlockDate.getTime()) && Date.now() >= unlockDate.getTime();
   const unlockDateLabel = Number.isFinite(unlockDate.getTime())
-    ? new Intl.DateTimeFormat('vi-VN', { dateStyle: 'full', timeStyle: 'short' }).format(unlockDate)
+    ? formatFutureUnlockDate(unlockDate)
     : 'Chưa đặt ngày mở';
+  const futureCountdownLabel = useMemo(() => {
+    if (!Number.isFinite(unlockDate.getTime())) return 'Manager chưa đặt ngày mở';
+    const diff = unlockDate.getTime() - Date.now();
+    if (diff <= 0) return 'Đã đến ngày mở thư';
+    const days = Math.ceil(diff / 86_400_000);
+    if (days >= 2) return `Còn ${days} ngày`;
+    const hours = Math.max(1, Math.ceil(diff / 3_600_000));
+    return `Còn ${hours} giờ`;
+  }, [unlockDate]);
   const ownCapsuleCount = useMemo(
     () => (profile ? timeCapsules.filter((entry) => entry.uid === profile.uid).length : 0),
     [profile, timeCapsules],
@@ -297,108 +317,90 @@ function ClassMessageBoard({
       </div>
 
       <section className="mt-6 overflow-hidden rounded-[1.6rem] border border-white/70 bg-paper shadow-paper">
-        <div className="grid lg:grid-cols-[0.82fr_1.18fr]">
-          <div className="relative overflow-hidden bg-[#2f2118] p-5 text-paper sm:p-6">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_18%,rgba(247,183,199,0.2),transparent_34%),radial-gradient(circle_at_90%_74%,rgba(244,223,191,0.22),transparent_36%)]" />
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="relative overflow-hidden bg-[#2f2118] p-5 text-paper sm:p-7">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_14%_18%,rgba(247,183,199,0.2),transparent_34%),radial-gradient(circle_at_88%_76%,rgba(169,205,232,0.18),transparent_34%)]" />
             <div className="relative">
               <span className="inline-flex items-center gap-2 rounded-full bg-paper px-3 py-1.5 text-[11px] font-black uppercase text-ink">
                 <Sparkles size={13} />
-                Hộp thời gian 9/8
+                Gửi cho tương lai
               </span>
-              <h3 className="mt-4 font-display text-5xl leading-none sm:text-6xl">Gửi cho mình của một năm sau</h3>
-              <p className="mt-3 text-sm leading-7 text-paper/70">
-                Viết một lá thư nhỏ cho tương lai. Trước ngày mở khóa, mọi người chỉ thấy phong bì; khi đến ngày, nội dung mới được mở cùng Thư lớp.
+              <h3 className="mt-4 max-w-2xl font-display text-5xl leading-none sm:text-6xl">
+                Một lá thư nhỏ gửi cho chính mình sau này
+              </h3>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-paper/72">
+                Viết lại điều bạn muốn nhắn với bản thân trong tương lai. Trước ngày mở, phần này chỉ hiện số thư đã gửi để giữ bí mật; khi đến giờ, phong bì riêng của bạn sẽ tự hiện khi mở app.
               </p>
 
-              <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="mt-5 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-[1rem] bg-white/10 p-4">
-                  <span className="text-[11px] font-black uppercase text-paper/48">Đã gửi</span>
-                  <strong className="mt-1 block font-display text-5xl leading-none">{timeCapsules.length}</strong>
+                  <span className="text-[11px] font-black uppercase text-paper/48">Cả lớp đã gửi</span>
+                  <strong className="mt-1 block font-display text-6xl leading-none">{timeCapsules.length}</strong>
                 </div>
                 <div className="rounded-[1rem] bg-white/10 p-4">
                   <span className="text-[11px] font-black uppercase text-paper/48">Của bạn</span>
-                  <strong className="mt-1 block font-display text-5xl leading-none">{ownCapsuleCount}</strong>
+                  <strong className="mt-1 block font-display text-6xl leading-none">{ownCapsuleCount}</strong>
+                </div>
+                <div className="rounded-[1rem] bg-paper/12 p-4">
+                  <span className="text-[11px] font-black uppercase text-paper/48">Trạng thái</span>
+                  <strong className="mt-2 block text-sm font-black leading-6 text-paper">
+                    {isCapsuleUnlocked ? 'Đã đến ngày mở' : futureCountdownLabel}
+                  </strong>
                 </div>
               </div>
 
-              <div className="mt-4 rounded-[1rem] bg-paper/10 p-4">
-                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-paper/48">
-                  {isCapsuleUnlocked ? 'Đã mở khóa' : 'Ngày mở khóa'}
-                </p>
-                <p className="mt-1 text-sm font-bold leading-6 text-paper/82">{unlockDateLabel}</p>
+              <div className="mt-4 rounded-[1rem] border border-paper/12 bg-paper/10 p-4">
+                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-paper/48">Mở theo giờ Việt Nam</p>
+                <p className="mt-1 text-sm font-bold leading-6 text-paper/84">{unlockDateLabel}</p>
               </div>
 
-              <button
-                type="button"
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-paper px-5 py-3 text-sm font-black text-ink shadow-paper transition hover:-translate-y-0.5 sm:w-auto"
-                onClick={() => (profile ? setIsCapsuleWriterOpen(true) : onJoin())}
-              >
-                <Send size={17} />
-                Gửi vào hộp thời gian
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-[#fff5e7] p-4 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="section-kicker">Time Capsule</p>
-                <h3 className="font-display text-5xl leading-none text-ink">
-                  {isCapsuleUnlocked ? 'Thư đã được mở' : 'Những phong bì đang chờ ngày mở'}
-                </h3>
-              </div>
-              <span className="inline-flex items-center gap-2 rounded-full bg-ink px-3 py-2 text-xs font-black text-paper">
-                {isCapsuleUnlocked ? <Sparkles size={14} /> : <Lock size={14} />}
-                {isCapsuleUnlocked ? 'Mở rồi' : 'Đang khóa'}
-              </span>
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              {timeCapsules.length ? (
-                timeCapsules.slice(0, 12).map((entry, index) => (
-                  <article
-                    key={entry.id}
-                    className={`relative overflow-hidden rounded-[1rem] border border-white/70 p-4 shadow-paper ${
-                      isCapsuleUnlocked ? 'bg-white' : index % 2 ? 'bg-blush/35' : 'bg-skySoft/30'
-                    }`}
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-paper px-5 py-3 text-sm font-black text-ink shadow-paper transition hover:-translate-y-0.5 sm:w-auto"
+                  onClick={() => (profile ? setIsCapsuleWriterOpen(true) : onJoin())}
+                >
+                  <Send size={17} />
+                  Gửi cho tương lai
+                </button>
+                {isCapsuleUnlocked && ownCapsuleCount > 0 && (
+                  <button
+                    type="button"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white/12 px-5 py-3 text-sm font-black text-paper shadow-paper ring-1 ring-paper/18 transition hover:bg-white/18 sm:w-auto"
+                    onClick={onOpenFutureMessages}
                   >
-                    <span className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-ink/8 text-coffee">
-                      {isCapsuleUnlocked ? <MessageCircle size={17} /> : <Lock size={17} />}
-                    </span>
-                    <div className="pr-12">
-                      <p className="font-hand text-3xl font-bold leading-none text-coffee">
-                        {isCapsuleUnlocked ? entry.name : `Phong bì của ${entry.name}`}
-                      </p>
-                      <p className="mt-1 text-[11px] font-bold uppercase text-ink/42">{formatMemoryDate(entry.createdAt)}</p>
-                    </div>
-                    {isCapsuleUnlocked ? (
-                      <p className="mt-4 line-clamp-5 whitespace-pre-wrap text-sm leading-7 text-ink/70">{entry.message}</p>
-                    ) : (
-                      <p className="mt-4 text-sm font-semibold leading-7 text-ink/58">
-                        Nội dung đang được cất lại. Đến ngày mở khóa, lá thư này sẽ hiện ra ở đây.
-                      </p>
-                    )}
-                  </article>
-                ))
-              ) : (
-                <div className="grid min-h-48 place-items-center rounded-[1rem] bg-white/70 p-6 text-center sm:col-span-2">
-                  <div>
-                    <Sparkles className="mx-auto text-coffee" size={30} />
-                    <h4 className="mt-3 font-display text-4xl leading-none">Chưa có phong bì nào</h4>
-                    <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-ink/58">
-                      Hãy gửi lá thư đầu tiên cho tương lai của lớp 9/8.
-                    </p>
-                  </div>
-                </div>
-              )}
+                    <Sparkles size={17} />
+                    Mở lời nhắn của tôi
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <aside className="relative overflow-hidden bg-[#fff5e7] p-5 sm:p-6">
+            <div className="absolute right-5 top-5 grid h-12 w-12 place-items-center rounded-full bg-ink text-paper shadow-paper">
+              {isCapsuleUnlocked ? <Sparkles size={22} /> : <Lock size={22} />}
+            </div>
+            <p className="section-kicker pr-16">Future Letter</p>
+            <h3 className="pr-12 font-display text-5xl leading-none text-ink">
+              {isCapsuleUnlocked ? 'Đã đến lúc mở thư' : 'Đang giữ bí mật'}
+            </h3>
+            <p className="mt-3 text-sm leading-7 text-ink/64">
+              {isCapsuleUnlocked
+                ? 'Khi bạn vào app, một phong bì sẽ hiện lên. Bấm mở để đọc lại những điều bạn từng gửi cho tương lai.'
+                : 'Không hiện phong bì, không hiện nội dung trước ngày mở. Mọi thứ được cất lại để khoảnh khắc mở thư thật đáng nhớ.'}
+            </p>
+
+            <div className="mt-5 rounded-[1.2rem] border border-coffee/10 bg-white/70 p-5 text-center shadow-paper">
+              <span className="text-[11px] font-black uppercase tracking-[0.16em] text-coffee/55">Tổng đã gửi</span>
+              <strong className="mt-2 block font-display text-8xl leading-none text-ink">{timeCapsules.length}</strong>
+              <span className="mt-1 block text-xs font-black uppercase text-coffee/60">lời nhắn tương lai</span>
             </div>
 
-            {!isCapsuleUnlocked && timeCapsules.length > 12 && (
-              <p className="mt-3 rounded-[1rem] bg-white/62 px-4 py-3 text-center text-xs font-bold text-ink/58">
-                Còn {timeCapsules.length - 12} phong bì nữa đang được giữ kín đến ngày mở khóa.
-              </p>
-            )}
-          </div>
+            <p className="mt-4 rounded-[1rem] bg-paper/72 px-4 py-3 text-xs font-bold leading-5 text-ink/58">
+              Mỗi bạn chỉ thấy nội dung của chính mình trong popup mở thư. Manager vẫn có thể quản lý dữ liệu trong trang quản trị.
+            </p>
+          </aside>
         </div>
       </section>
 
@@ -448,18 +450,18 @@ function ClassMessageBoard({
 
       <ActionModal
         isOpen={Boolean(profile && isCapsuleWriterOpen)}
-        title="Gửi vào hộp thời gian"
-        description="Lá thư sẽ được cất lại cùng Thư lớp. Trước ngày mở khóa, mọi người chỉ thấy phong bì."
+        title="Gửi cho tương lai"
+        description="Lá thư sẽ được cất lại trong mục Lời nhắn. Trước ngày mở, mọi người chỉ thấy số thư đã gửi."
         icon={<Sparkles size={20} />}
         onClose={() => setIsCapsuleWriterOpen(false)}
       >
         <form className="grid gap-3" onSubmit={submitTimeCapsule}>
           <div className="rounded-[1rem] bg-[#2f2118] p-4 text-paper">
-            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-paper/48">Ngày mở khóa</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-paper/48">Mở theo giờ Việt Nam</p>
             <p className="mt-1 text-sm font-bold leading-6 text-paper/82">{unlockDateLabel}</p>
           </div>
           <label className="grid gap-2">
-            <span className="text-xs font-black uppercase text-coffee/70">Thư gửi mình của một năm sau</span>
+            <span className="text-xs font-black uppercase text-coffee/70">Lời nhắn gửi cho tương lai</span>
             <textarea
               className="input-field min-h-40 resize-none"
               value={timeCapsuleMessage}
@@ -471,7 +473,7 @@ function ClassMessageBoard({
           <p className="text-xs font-bold text-ink/48">{timeCapsuleMessage.length}/900 ký tự</p>
           <button className="primary-button justify-center" disabled={isSendingCapsule || !timeCapsuleMessage.trim()}>
             <Send size={17} />
-            {isSendingCapsule ? 'Đang cất thư...' : 'Cất vào hộp thời gian'}
+            {isSendingCapsule ? 'Đang gửi...' : 'Gửi cho tương lai'}
           </button>
         </form>
       </ActionModal>

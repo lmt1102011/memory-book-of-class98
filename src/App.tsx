@@ -16,6 +16,7 @@ import {
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AppStatusToast from './components/AppStatusToast';
 import BootSplash from './components/BootSplash';
+import FutureMessagePopup from './components/FutureMessagePopup';
 import LoadingScreen from './components/LoadingScreen';
 import NotificationCenter from './components/NotificationCenter';
 import { useMobilePerformanceMode } from './hooks/useMobilePerformanceMode';
@@ -164,6 +165,7 @@ export default function App() {
   const [notificationActivityLoading, setNotificationActivityLoading] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsSeenAt, setNotificationsSeenAt] = useState(() => new Date(0).toISOString());
+  const [futureMessagePopupOpen, setFutureMessagePopupOpen] = useState(false);
   const [memoryRecapEnabled, setMemoryRecapEnabled] = useState(false);
   const [cinematicSlideshowSettings, setCinematicSlideshowSettings] = useState<CinematicSlideshowSettings>(
     defaultCinematicSlideshowSettings,
@@ -186,6 +188,15 @@ export default function App() {
   const { isOnline, justRestored } = useNetworkStatus();
   const prefersReducedMotion = usePrefersReducedMotion();
   const reduceHeavyMotion = prefersReducedMotion || mobilePerformanceMode;
+  const ownFutureMessages = useMemo(
+    () => (profile ? timeCapsules.filter((entry) => entry.uid === profile.uid) : []),
+    [profile, timeCapsules],
+  );
+  const futureUnlockTime = useMemo(() => new Date(timeCapsuleSettings.unlockAt).getTime(), [timeCapsuleSettings.unlockAt]);
+  const futureMessagesUnlocked = Number.isFinite(futureUnlockTime) && Date.now() >= futureUnlockTime;
+  const futurePopupStorageKey = profile
+    ? `memory98-future-popup:${profile.uid}:${timeCapsuleSettings.unlockAt}:${ownFutureMessages.length}:${ownFutureMessages[0]?.id || 'none'}`
+    : '';
 
   useEffect(() => {
     const onPopState = (event: PopStateEvent) => {
@@ -354,7 +365,7 @@ export default function App() {
       isActive = false;
       unsubscribe?.();
     };
-  }, [bootSplashDone, profile]);
+  }, [bootSplashDone, profile?.uid]);
 
   useEffect(() => {
     if (!bootSplashDone) return undefined;
@@ -415,12 +426,57 @@ export default function App() {
   }, [bootSplashDone]);
 
   useEffect(() => {
+    if (!bootSplashDone || !profile) {
+      setTimeCapsules([]);
+      setFutureMessagePopupOpen(false);
+      return undefined;
+    }
+
+    let unsubscribeTimeCapsules: (() => void) | undefined;
+    let isActive = true;
+
+    void import('./services/firebaseMemoryBook')
+      .then((service) => {
+        if (!isActive) return;
+        unsubscribeTimeCapsules = service.subscribeTimeCapsules(
+          (items) => {
+            if (!isActive) return;
+            setTimeCapsules(items);
+          },
+          (error) => {
+            if (!isActive) return;
+            setFirebaseNotice(error.message);
+          },
+        );
+      })
+      .catch((caught) => {
+        if (!isActive) return;
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể tải Gửi cho tương lai lúc này.');
+      });
+
+    return () => {
+      isActive = false;
+      unsubscribeTimeCapsules?.();
+    };
+  }, [bootSplashDone, profile]);
+
+  useEffect(() => {
+    if (!bootSplashDone || !profile || !futureMessagesUnlocked || !ownFutureMessages.length || !futurePopupStorageKey) {
+      return undefined;
+    }
+    if (window.sessionStorage.getItem(futurePopupStorageKey)) return undefined;
+
+    window.sessionStorage.setItem(futurePopupStorageKey, '1');
+    const timer = window.setTimeout(() => setFutureMessagePopupOpen(true), mobilePerformanceMode ? 250 : 650);
+    return () => window.clearTimeout(timer);
+  }, [bootSplashDone, futureMessagesUnlocked, futurePopupStorageKey, mobilePerformanceMode, ownFutureMessages.length, profile?.uid]);
+
+  useEffect(() => {
     if (route === 'landing' || route === 'join') return undefined;
 
     let unsubscribeMemories: (() => void) | undefined;
     let unsubscribeComments: (() => void) | undefined;
     let unsubscribeGuestbook: (() => void) | undefined;
-    let unsubscribeTimeCapsules: (() => void) | undefined;
     let unsubscribeClassmates: (() => void) | undefined;
     let unsubscribeRememberNotes: (() => void) | undefined;
     let unsubscribeSentRememberNotes: (() => void) | undefined;
@@ -574,14 +630,6 @@ export default function App() {
             },
             (error) => setFirebaseNotice(error.message),
           );
-          unsubscribeTimeCapsules = service.subscribeTimeCapsules(
-            (items) => {
-              if (!isActive) return;
-              setTimeCapsules(items);
-              setFirebaseNotice('');
-            },
-            (error) => setFirebaseNotice(error.message),
-          );
         }
 
         if (route === 'diary' && profile) {
@@ -635,7 +683,6 @@ export default function App() {
       unsubscribeMemories?.();
       unsubscribeComments?.();
       unsubscribeGuestbook?.();
-      unsubscribeTimeCapsules?.();
       unsubscribeClassmates?.();
       unsubscribeRememberNotes?.();
       unsubscribeSentRememberNotes?.();
@@ -1641,6 +1688,7 @@ export default function App() {
             onDeleteGuestbook={handleGuestbookDelete}
             onAddAnonymousMessage={handleAnonymousMessageAdd}
             onAddTimeCapsule={handleTimeCapsuleAdd}
+            onOpenFutureMessages={() => setFutureMessagePopupOpen(true)}
           />
         </Suspense>
       );
@@ -2080,6 +2128,18 @@ export default function App() {
             onMarkAllRead={markNotificationsRead}
             onOpenItem={handleOpenNotification}
           />
+        )}
+        {bootSplashDone && (
+          <AnimatePresence>
+            {futureMessagePopupOpen && futureMessagesUnlocked && ownFutureMessages.length > 0 && (
+              <FutureMessagePopup
+                isOpen={futureMessagePopupOpen}
+                entries={ownFutureMessages}
+                unlockAt={timeCapsuleSettings.unlockAt}
+                onClose={() => setFutureMessagePopupOpen(false)}
+              />
+            )}
+          </AnimatePresence>
         )}
         {bootSplashDone && <AppStatusToast isOnline={isOnline} justRestored={justRestored} />}
       </div>

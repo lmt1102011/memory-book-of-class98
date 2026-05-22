@@ -422,14 +422,14 @@
 
         <section class="card setting-card">
           <div>
-            <strong>Hộp thời gian trong Thư lớp</strong>
+            <strong>Gửi cho tương lai trong Thư lớp</strong>
             <p class="muted">
-              Học sinh viết thư cho tương lai ngay trong mục Thư lớp. Trước ngày mở khóa, web chỉ hiện phong bì.
+              Học sinh viết lời nhắn cho tương lai ngay trong mục Thư lớp. Trước ngày mở, web học sinh chỉ hiện số đã gửi.
             </p>
             <input id="timeCapsuleUnlockAt" type="datetime-local" style="margin-top: 10px" />
             <p id="timeCapsuleStatus" class="status"></p>
           </div>
-          <button id="saveTimeCapsuleButton" class="secondary">Lưu ngày mở</button>
+          <button id="saveTimeCapsuleButton" class="secondary">Lưu giờ mở</button>
         </section>
 
         <section class="toolbar">
@@ -626,14 +626,39 @@
         if (!value) return '';
         const date = value.toDate ? value.toDate() : new Date(value);
         if (Number.isNaN(date.getTime())) return '';
-        return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+        return new Intl.DateTimeFormat('vi-VN', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+          timeZone: 'Asia/Ho_Chi_Minh',
+        }).format(date);
       };
 
       const toDateTimeLocalValue = (value) => {
         const date = value?.toDate ? value.toDate() : new Date(value || Date.now() + 365 * 24 * 60 * 60 * 1000);
         if (Number.isNaN(date.getTime())) return '';
-        const offset = date.getTimezoneOffset() * 60000;
-        return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+        const parts = Object.fromEntries(
+          new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          })
+            .formatToParts(date)
+            .filter((part) => part.type !== 'literal')
+            .map((part) => [part.type, part.value]),
+        );
+        return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+      };
+
+      const vietnamDateTimeLocalToIso = (value) => {
+        const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+        if (!match) return '';
+        const [, year, month, day, hour, minute] = match.map(Number);
+        const utcTime = Date.UTC(year, month - 1, day, hour - 7, minute, 0, 0);
+        return new Date(utcTime).toISOString();
       };
 
       const escapeHtml = (value) =>
@@ -697,8 +722,8 @@
 
         $('timeCapsuleUnlockAt').value = toDateTimeLocalValue(timeCapsuleSetting.unlockAt);
         timeCapsuleStatus.textContent = timeCapsuleSetting.unlockAt
-          ? `Ngày mở hiện tại: ${formatDate(timeCapsuleSetting.unlockAt)}. Đã có ${timeCapsules.length} phong bì.`
-          : `Chưa đặt ngày mở. Đã có ${timeCapsules.length} phong bì.`;
+          ? `Giờ mở hiện tại: ${formatDate(timeCapsuleSetting.unlockAt)} theo giờ Việt Nam. Đã có ${timeCapsules.length} lời nhắn.`
+          : `Chưa đặt giờ mở. Đã có ${timeCapsules.length} lời nhắn.`;
       };
 
       const showManager = () => {
@@ -810,9 +835,9 @@
           .map((letter) => `
             <article class="item">
               <div class="row">
-                <strong>Hộp thời gian: ${escapeHtml(letter.name || 'Không rõ tên')}</strong>
+                <strong>Gửi cho tương lai: ${escapeHtml(letter.name || 'Không rõ tên')}</strong>
                 <span class="pill blue">${formatDate(letter.createdAt)}</span>
-                <span class="pill dark">Mở: ${formatDate(timeCapsuleSetting.unlockAt)}</span>
+                <span class="pill dark">Mở theo giờ VN: ${formatDate(timeCapsuleSetting.unlockAt)}</span>
               </div>
               <p class="muted">key: ${escapeHtml(letter.nameKey || '')} | UID: ${escapeHtml(letter.uid || '')}</p>
               <p class="message">${escapeHtml(letter.message || '')}</p>
@@ -823,8 +848,8 @@
         $('classLetters').innerHTML = `
           <h3>Thư lớp</h3>
           ${classHtml || '<p class="muted">Chưa có thư lớp nào.</p>'}
-          <h3 style="margin-top: 16px">Hộp thời gian</h3>
-          ${capsuleHtml || '<p class="muted">Chưa có phong bì thời gian nào.</p>'}
+          <h3 style="margin-top: 16px">Gửi cho tương lai</h3>
+          ${capsuleHtml || '<p class="muted">Chưa có lời nhắn tương lai nào.</p>'}
         `;
       };
 
@@ -1118,14 +1143,14 @@
       });
       $('saveTimeCapsuleButton').addEventListener('click', async () => {
         const value = $('timeCapsuleUnlockAt').value;
-        const unlockAt = value ? new Date(value).toISOString() : '';
+        const unlockAt = value ? vietnamDateTimeLocalToIso(value) : '';
         if (!unlockAt) {
-          timeCapsuleStatus.textContent = 'Hãy chọn ngày mở khóa hợp lệ.';
+          timeCapsuleStatus.textContent = 'Hãy chọn giờ mở hợp lệ theo giờ Việt Nam.';
           return;
         }
 
         $('saveTimeCapsuleButton').disabled = true;
-        timeCapsuleStatus.textContent = 'Đang lưu ngày mở hộp thời gian...';
+        timeCapsuleStatus.textContent = 'Đang lưu giờ mở Gửi cho tương lai...';
         try {
           await setDoc(
             doc(db, SITE_SETTINGS_COLLECTION, TIME_CAPSULE_SETTING_ID),
@@ -1140,7 +1165,7 @@
           timeCapsuleSetting = { unlockAt };
           renderSettings();
         } catch (error) {
-          timeCapsuleStatus.textContent = error.message || 'Không thể lưu ngày mở hộp thời gian.';
+          timeCapsuleStatus.textContent = error.message || 'Không thể lưu giờ mở Gửi cho tương lai.';
         } finally {
           $('saveTimeCapsuleButton').disabled = false;
         }

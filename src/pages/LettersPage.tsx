@@ -13,6 +13,7 @@ interface LettersPageProps {
   onDeleteGuestbook: (entry: GuestbookEntry) => void | Promise<void>;
   onAddAnonymousMessage: (message: string) => void | Promise<void>;
   onAddTimeCapsule: (message: string) => void | Promise<void>;
+  onOpenFutureMessages: () => void;
 }
 
 export default function LettersPage({
@@ -26,6 +27,7 @@ export default function LettersPage({
   onDeleteGuestbook,
   onAddAnonymousMessage,
   onAddTimeCapsule,
+  onOpenFutureMessages,
 }: LettersPageProps) {
   return (
     <div className="relative">
@@ -39,6 +41,7 @@ export default function LettersPage({
         onDeleteGuestbook={onDeleteGuestbook}
         onAddAnonymousMessage={onAddAnonymousMessage}
         onAddTimeCapsule={onAddTimeCapsule}
+        onOpenFutureMessages={onOpenFutureMessages}
       />
       <FirebaseNotice message={firebaseNotice} />
     </div>
