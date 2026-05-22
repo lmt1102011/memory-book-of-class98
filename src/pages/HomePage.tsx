@@ -41,7 +41,6 @@ interface HomePageProps {
   profile: UserProfile | null;
   pendingReactionIds: string[];
   onJoin: () => void;
-  onPhotobook: () => void;
   onOpenProfile: (nameKey: string) => void;
   onReact: (memory: MemoryItem) => void | Promise<void>;
   onAddComment: (memory: MemoryItem, message: string) => void | Promise<void>;
@@ -58,7 +57,6 @@ export default function HomePage({
   profile,
   pendingReactionIds,
   onJoin,
-  onPhotobook,
   onOpenProfile,
   onReact,
   onAddComment,
@@ -360,10 +358,6 @@ export default function HomePage({
                 <UserRound size={17} />
                 Đăng nhập / tạo tài khoản
               </button>
-              <button className="secondary-button mx-auto mt-3 justify-center" onClick={onPhotobook}>
-                <Camera size={17} />
-                Đăng kỷ niệm sau khi vào lớp
-              </button>
             </div>
           </div>
         </section>
@@ -389,17 +383,11 @@ export default function HomePage({
           </div>
 
           <div className="flex flex-col gap-3 rounded-[1.5rem] border border-white/60 bg-white/45 p-4 shadow-paper backdrop-blur-xl">
-            <div className="flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
-              <span className="min-w-0 break-words font-hand text-3xl font-bold text-coffee">
-                {profile ? `Chào ${profile.name}` : 'Bạn lớp 9/8'}
-              </span>
-              <button className="primary-button" onClick={onPhotobook}>
-                <Camera size={17} />
-                Đăng ảnh/video
-              </button>
-            </div>
+            <span className="min-w-0 break-words font-hand text-3xl font-bold text-coffee">
+              {profile ? `Chào ${profile.name}` : 'Bạn lớp 9/8'}
+            </span>
             <p className="text-xs leading-5 text-ink/58">
-              Bấm Đăng ảnh/video để chụp photobook, upload ảnh có sẵn hoặc đăng một video ngắn lên feed của lớp.
+              Đây là góc xem lại ảnh, video và những bình luận đang được lớp cập nhật theo thời gian thực.
             </p>
             {!profile && (
               <button className="secondary-button justify-center" onClick={onJoin}>
@@ -506,17 +494,12 @@ export default function HomePage({
               <p className="mt-2 text-sm text-ink/60">
                 {hasActiveFilter
                   ? 'Thử xóa bộ lọc hoặc tìm bằng tên, caption, hashtag khác.'
-                  : 'Khi ai đó đăng photobook hoặc video lên database, kỷ niệm sẽ hiện ở đây ngay lập tức.'}
+                  : 'Khi có ảnh hoặc video mới trên database, kỷ niệm sẽ hiện ở đây ngay lập tức.'}
               </p>
-              {hasActiveFilter ? (
+              {hasActiveFilter && (
                 <button className="secondary-button mx-auto mt-5" onClick={clearFilters}>
                   <X size={16} />
                   Xóa lọc
-                </button>
-              ) : (
-                <button className="primary-button mx-auto mt-5" onClick={onPhotobook}>
-                  <Camera size={17} />
-                  Đăng kỷ niệm đầu tiên
                 </button>
               )}
             </div>

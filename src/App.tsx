@@ -2,7 +2,6 @@ import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion';
 import {
   BadgeCheck,
   Bell,
-  Camera,
   Heart,
   Home,
   Image as ImageIcon,
@@ -795,7 +794,7 @@ export default function App() {
       {
         id: 'memories',
         label: 'Ký ức',
-        description: 'Ảnh, video và photobook của lớp',
+        description: 'Ảnh, video và album của lớp',
         icon: Home,
         isActive: route === 'home' || route === 'photobook' || route === 'mine',
         badgeCount: ownActivityCount,
@@ -807,14 +806,6 @@ export default function App() {
             icon: ImageIcon,
             isActive: route === 'home',
             onSelect: () => navigate('home'),
-          },
-          {
-            id: 'photobook',
-            label: 'Đăng ảnh/video',
-            description: 'Chụp photobook, upload ảnh hoặc video ngắn.',
-            icon: Camera,
-            isActive: route === 'photobook',
-            onSelect: () => navigate('photobook'),
           },
           {
             id: 'mine',
@@ -1662,7 +1653,6 @@ export default function App() {
           profile={profile}
           pendingReactionIds={pendingReactionIds}
           onJoin={() => navigate('join')}
-          onPhotobook={() => navigate('photobook')}
           onOpenProfile={openPersonProfile}
           onReact={handleReact}
           onAddComment={handleMemoryCommentAdd}
