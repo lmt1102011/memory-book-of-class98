@@ -483,7 +483,11 @@ const getInstallGuide = (platform: InstallPlatform, canPrompt: boolean, isInstal
       title: 'Cài Memory98 trên iPhone',
       summary: 'iPhone không cho web tự bật hộp thoại cài. Bạn chỉ cần làm theo 3 bước trong Safari.',
       badge: 'Safari iPhone',
-      steps: ['Mở web bằng Safari.', 'Bấm nút Chia sẻ ở thanh dưới.', 'Chọn Thêm vào Màn hình chính rồi bấm Thêm.'],
+      steps: [
+        'Mở web bằng Safari.',
+        'Bấm nút Chia sẻ, hình vuông có mũi tên đi lên, ở thanh dưới Safari.',
+        'Chọn Thêm vào Màn hình chính rồi bấm Thêm.',
+      ],
       note: 'Nếu đang mở bằng Chrome/Facebook/Zalo trên iPhone, hãy copy link sang Safari trước để nút Thêm vào Màn hình chính hiện đúng.',
       primaryLabel: 'Mình đã hiểu',
     };
@@ -521,6 +525,7 @@ const getInstallGuide = (platform: InstallPlatform, canPrompt: boolean, isInstal
 function InstallGuideMockup({ platform, isInstalled }: { platform: InstallPlatform; isInstalled: boolean }) {
   const isDesktop = platform === 'desktop';
   const DeviceIcon = isDesktop ? Home : Camera;
+  const isIos = platform === 'ios';
 
   return (
     <div className="rounded-[1.2rem] bg-ink p-3 text-paper shadow-paper">
@@ -542,13 +547,35 @@ function InstallGuideMockup({ platform, isInstalled }: { platform: InstallPlatfo
                 <p className="mt-3 text-center text-sm font-black">Memory98</p>
                 <p className="mt-1 text-center text-[11px] font-bold text-coffee/70">Class 9/8 app</p>
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                {[Download, Home, BadgeCheck].map((Icon, index) => (
-                  <span key={index} className="grid h-10 place-items-center rounded-[0.8rem] bg-white text-coffee">
-                    <Icon size={16} />
-                  </span>
-                ))}
-              </div>
+              {isIos ? (
+                <div className="mt-3 rounded-[1rem] bg-white p-2 shadow-paper ring-1 ring-skySoft/40">
+                  <div className="flex items-center justify-between rounded-[0.8rem] bg-[#f3f6fb] px-2 py-2 text-coffee">
+                    <span className="grid h-8 w-8 place-items-center rounded-full bg-white/80 text-coffee/55">
+                      <BookOpen size={14} />
+                    </span>
+                    <span className="relative grid h-11 w-11 place-items-center rounded-full bg-[#147efb] text-white shadow-[0_10px_24px_rgba(20,126,251,0.38)] ring-4 ring-[#147efb]/18">
+                      <Upload size={21} strokeWidth={2.4} />
+                      <span className="absolute -top-2 -right-2 grid h-5 w-5 place-items-center rounded-full bg-blush text-[10px] font-black text-ink">
+                        1
+                      </span>
+                    </span>
+                    <span className="grid h-8 w-8 place-items-center rounded-full bg-white/80 text-coffee/55">
+                      <BadgeCheck size={14} />
+                    </span>
+                  </div>
+                  <p className="mt-2 text-center text-[11px] font-black uppercase tracking-[0.08em] text-coffee">
+                    Nút Chia sẻ trên Safari
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {[Download, Home, BadgeCheck].map((Icon, index) => (
+                    <span key={index} className="grid h-10 place-items-center rounded-[0.8rem] bg-white text-coffee">
+                      <Icon size={16} />
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
