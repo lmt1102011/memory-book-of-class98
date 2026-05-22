@@ -73,7 +73,9 @@ const MEMORY_RECAP_SETTING_ID = 'memoryRecap';
 const CLASS_LETTERS_SETTING_ID = 'classLetters';
 const CINEMATIC_SLIDESHOW_SETTING_ID = 'cinematicSlideshow';
 const TIME_CAPSULE_SETTING_ID = 'timeCapsule';
+const FIREBASE_PROJECT_ID = 'memorybook-of-class98';
 const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
+const FIRESTORE_REST_DOCUMENTS_URL = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;
 const FIREBASE_RETRY_DELAYS = [0, 450, 1000, 1800];
 const FIREBASE_TIMEOUT_MS = 12_000;
 const FIREBASE_POLL_MS = 20_000;
@@ -216,6 +218,17 @@ const isInvalidAuthCredential = (error: unknown) => {
   return text.includes('auth/invalid-credential') || text.includes('auth/wrong-password');
 };
 
+const isPermissionDeniedLikeError = (error: unknown) => {
+  const text = firebaseErrorText(error);
+  return (
+    text.includes('permission-denied') ||
+    text.includes('insufficient permissions') ||
+    text.includes('403') ||
+    text.includes('forbidden') ||
+    text.includes('firestore rules')
+  );
+};
+
 export const forceFirebaseOnline = async () => {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     throw new Error('Thiết bị đang mất internet, nên Firebase không thể online.');
@@ -248,6 +261,133 @@ const withFirebaseRetry = async <T,>(operation: () => Promise<T>) => {
   }
 
   throw friendlyFirebaseError(lastError);
+};
+
+const waitForAuthSession = async (expectedUid: string) => {
+  if (auth.currentUser?.uid === expectedUid) {
+    await withTimeout(auth.currentUser.getIdToken(true), 'Auth token refresh');
+    await sleep(250);
+    return auth.currentUser;
+  }
+
+  const user = await withTimeout(
+    new Promise<User>((resolve, reject) => {
+      const unsubscribe = onAuthStateChanged(
+        auth,
+        (nextUser) => {
+          if (nextUser?.uid === expectedUid) {
+            unsubscribe();
+            resolve(nextUser);
+          }
+        },
+        reject,
+      );
+    }),
+    'Auth session',
+  );
+
+  await withTimeout(user.getIdToken(true), 'Auth token refresh');
+  await sleep(250);
+  return user;
+};
+
+type StudentProfileWriteOptions = {
+  includeCreatedAt: boolean;
+  includeRepairedAt: boolean;
+  merge: boolean;
+};
+
+const studentProfileWriteData = (
+  user: User,
+  displayName: string,
+  nameKey: string,
+  options: StudentProfileWriteOptions,
+) => ({
+  uid: user.uid,
+  name: displayName,
+  nameKey,
+  className: CLASS_NAME,
+  disabled: false,
+  deleted: false,
+  ...(options.includeRepairedAt ? { repairedAt: serverTimestamp() } : {}),
+  ...(options.includeCreatedAt ? { createdAt: serverTimestamp() } : {}),
+  lastLoginAt: serverTimestamp(),
+});
+
+const firestoreRestFields = (
+  user: User,
+  displayName: string,
+  nameKey: string,
+  options: StudentProfileWriteOptions,
+) => {
+  const now = new Date().toISOString();
+  const fields: Record<string, unknown> = {
+    uid: { stringValue: user.uid },
+    name: { stringValue: displayName },
+    nameKey: { stringValue: nameKey },
+    className: { stringValue: CLASS_NAME },
+    disabled: { booleanValue: false },
+    deleted: { booleanValue: false },
+    lastLoginAt: { timestampValue: now },
+  };
+
+  if (options.includeCreatedAt) fields.createdAt = { timestampValue: now };
+  if (options.includeRepairedAt) fields.repairedAt = { timestampValue: now };
+  return fields;
+};
+
+const writeStudentProfileViaRest = async (
+  user: User,
+  displayName: string,
+  nameKey: string,
+  options: StudentProfileWriteOptions,
+) => {
+  const sessionUser = await waitForAuthSession(user.uid);
+  const token = await withTimeout(sessionUser.getIdToken(true), 'Auth token refresh');
+  const fields = firestoreRestFields(sessionUser, displayName, nameKey, options);
+  const params = new URLSearchParams();
+  if (options.merge) {
+    Object.keys(fields).forEach((fieldPath) => params.append('updateMask.fieldPaths', fieldPath));
+  }
+  const queryString = params.toString();
+  const response = await withTimeout(
+    fetch(`${FIRESTORE_REST_DOCUMENTS_URL}/${STUDENTS_COLLECTION}/${encodeURIComponent(nameKey)}${queryString ? `?${queryString}` : ''}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fields,
+      }),
+    }),
+    'Firestore REST',
+  );
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw friendlyFirebaseError(new Error(`Firestore REST profile write failed ${response.status} ${detail}`));
+  }
+};
+
+const writeStudentProfileDocument = async (
+  user: User,
+  displayName: string,
+  nameKey: string,
+  options: StudentProfileWriteOptions,
+) => {
+  const sessionUser = await waitForAuthSession(user.uid);
+  const studentRef = doc(db, STUDENTS_COLLECTION, nameKey);
+  const data = studentProfileWriteData(sessionUser, displayName, nameKey, options);
+
+  try {
+    await withFirebaseRetry(() =>
+      options.merge ? setDoc(studentRef, data, { merge: true }) : setDoc(studentRef, data),
+    );
+  } catch (error) {
+    if (!isPermissionDeniedLikeError(error)) throw error;
+    await writeStudentProfileViaRest(sessionUser, displayName, nameKey, options);
+  }
 };
 
 const createVisiblePolling = (load: () => Promise<void>, intervalMs = FIREBASE_POLL_MS) =>
@@ -489,29 +629,14 @@ const writeRestoredStudentProfile = async (
   nameKey: string,
   options: { includeCreatedAt: boolean },
 ) => {
-  await withTimeout(user.getIdToken(true), 'Auth token refresh');
-
-  const studentRef = doc(db, STUDENTS_COLLECTION, nameKey);
-  await withFirebaseRetry(() =>
-    setDoc(
-      studentRef,
-      {
-        uid: user.uid,
-        name: displayName,
-        nameKey,
-        className: CLASS_NAME,
-        disabled: false,
-        deleted: false,
-        repairedAt: serverTimestamp(),
-        ...(options.includeCreatedAt ? { createdAt: serverTimestamp() } : {}),
-        lastLoginAt: serverTimestamp(),
-      },
-      { merge: true },
-    ),
-  );
+  await writeStudentProfileDocument(user, displayName, nameKey, {
+    includeCreatedAt: options.includeCreatedAt,
+    includeRepairedAt: true,
+    merge: true,
+  });
 
   return {
-    uid: user.uid,
+    uid: auth.currentUser?.uid || user.uid,
     name: displayName,
     nameKey,
     className: CLASS_NAME,
@@ -568,7 +693,7 @@ export const registerStudent = async (name: string, password: string) => {
   }
 
   await withTimeout(updateProfile(credential.user, { displayName }), 'Auth profile');
-  await withTimeout(credential.user.getIdToken(true), 'Auth token refresh');
+  await waitForAuthSession(credential.user.uid);
 
   const profile: UserProfile = {
     uid: credential.user.uid,
@@ -578,16 +703,11 @@ export const registerStudent = async (name: string, password: string) => {
     joinedAt: new Date().toISOString(),
   };
 
-  await withFirebaseRetry(() => setDoc(studentRef, {
-    uid: credential.user.uid,
-    name: displayName,
-    nameKey,
-    className: CLASS_NAME,
-    disabled: false,
-    deleted: false,
-    createdAt: serverTimestamp(),
-    lastLoginAt: serverTimestamp(),
-  }));
+  await writeStudentProfileDocument(credential.user, displayName, nameKey, {
+    includeCreatedAt: true,
+    includeRepairedAt: false,
+    merge: false,
+  });
 
   return profile;
 };
@@ -623,8 +743,11 @@ export const loginStudent = async (name: string, password: string) => {
     return writeRestoredStudentProfile(credential.user, displayName, nameKey, { includeCreatedAt: false });
   }
 
-  await withTimeout(credential.user.getIdToken(true), 'Auth token refresh');
-  await withFirebaseRetry(() => updateDoc(studentRef, { lastLoginAt: serverTimestamp() }));
+  await writeStudentProfileDocument(credential.user, cleanDisplayName(String(snapshot.data().name || name)), nameKey, {
+    includeCreatedAt: false,
+    includeRepairedAt: false,
+    merge: true,
+  });
   return profileFromData(nameKey, snapshot.data(), credential.user);
 };
 
