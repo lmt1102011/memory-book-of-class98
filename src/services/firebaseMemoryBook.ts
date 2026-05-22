@@ -486,9 +486,21 @@ export const registerStudent = async (name: string, password: string) => {
   const studentRef = doc(db, STUDENTS_COLLECTION, nameKey);
   const existing = await withFirebaseRetry(() => getDoc(studentRef));
   if (existing.exists()) {
-    if (existing.data().disabled || existing.data().deleted) {
-      throw new Error('Tài khoản này đã bị khóa hoặc xóa khỏi lớp 9/8.');
+    if (existing.data().disabled) {
+      throw new Error('Tài khoản này đang bị khóa khỏi lớp 9/8.');
     }
+
+    if (existing.data().deleted) {
+      try {
+        return await loginStudent(name, password);
+      } catch (loginError) {
+        if (isInvalidAuthCredential(loginError)) {
+          throw new Error('Tên này từng được tạo trước đó. Hãy nhập mật khẩu cũ để khôi phục tài khoản.');
+        }
+        throw loginError;
+      }
+    }
+
     throw new Error('Tên này đã có trong lớp 9/8. Hãy nhập mật khẩu để tiếp tục.');
   }
 

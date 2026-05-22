@@ -204,11 +204,21 @@ service cloud.firestore {
         );
     }
 
+    function studentIsDisabled() {
+      return resource.data.keys().hasAny(['disabled'])
+        && resource.data.disabled == true;
+    }
+
+    function studentIsDeleted() {
+      return resource.data.keys().hasAny(['deleted'])
+        && resource.data.deleted == true;
+    }
+
     function validStudentOwnerUpdate() {
       return request.auth != null
         && resource.data.uid == request.auth.uid
-        && resource.data.disabled != true
-        && resource.data.deleted != true
+        && !studentIsDisabled()
+        && !studentIsDeleted()
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'avatarDataUrl',
@@ -224,8 +234,8 @@ service cloud.firestore {
     function validStudentDeletedRestore() {
       return request.auth != null
         && resource.data.uid == request.auth.uid
-        && resource.data.disabled != true
-        && resource.data.deleted == true
+        && !studentIsDisabled()
+        && studentIsDeleted()
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.nameKey == resource.data.nameKey
         && request.resource.data.className == '9/8'
