@@ -60,6 +60,9 @@ const VotesPage = lazy(() => import('./pages/VotesPage'));
 const MyMemoriesPage = lazy(() => import('./pages/MyMemoriesPage'));
 
 const appRoutes: AppRoute[] = ['landing', 'join', 'home', 'letters', 'future', 'remember', 'diary', 'photobook', 'people', 'votes', 'mine'];
+const MENU_HINT_STORAGE_VERSION = 'v2';
+
+const menuHintStorageKey = (uid: string) => `memory98-menu-hint-seen:${MENU_HINT_STORAGE_VERSION}:${uid}`;
 
 type Memory98HistoryState = {
   memory98?: true;
@@ -347,7 +350,7 @@ export default function App() {
   const dismissMenuHint = useCallback(() => {
     setMenuHintVisible(false);
     if (profile) {
-      window.localStorage.setItem(`memory98-menu-hint-seen:${profile.uid}`, '1');
+      window.localStorage.setItem(menuHintStorageKey(profile.uid), '1');
     }
   }, [profile]);
 
@@ -358,7 +361,7 @@ export default function App() {
     if (!profile || !bootSplashDone || route === 'landing' || route === 'join') return undefined;
     if (menuOpen || notificationsOpen || futureMessagePopupOpen) return undefined;
     if (!window.matchMedia('(max-width: 1023px)').matches) return undefined;
-    if (window.localStorage.getItem(`memory98-menu-hint-seen:${profile.uid}`)) return undefined;
+    if (window.localStorage.getItem(menuHintStorageKey(profile.uid))) return undefined;
 
     menuHintTimerRef.current = window.setTimeout(() => {
       setMenuHintVisible(true);
@@ -384,11 +387,13 @@ export default function App() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') dismissMenuHint();
     };
+    const autoDismissTimer = window.setTimeout(dismissMenuHint, 2000);
 
     window.addEventListener('pointerdown', onDismiss, { capture: true });
     window.addEventListener('keydown', onKeyDown);
 
     return () => {
+      window.clearTimeout(autoDismissTimer);
       window.removeEventListener('pointerdown', onDismiss, { capture: true });
       window.removeEventListener('keydown', onKeyDown);
     };
@@ -2254,21 +2259,28 @@ export default function App() {
 
         <AnimatePresence>
           {menuHintVisible && bootSplashDone && route !== 'landing' && !menuOpen && (
-            <m.div
-              className="menu-discovery-hint pointer-events-none fixed z-[90] lg:hidden"
+            <m.button
+              type="button"
+              className={`menu-discovery-hint fixed z-[90] text-left lg:hidden ${reduceHeavyMotion ? 'menu-hint-static' : ''}`}
               initial={reduceHeavyMotion ? false : { opacity: 0, y: -8, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={reduceHeavyMotion ? undefined : { opacity: 0, y: -6, scale: 0.98 }}
               transition={{ duration: reduceHeavyMotion ? 0 : 0.18, ease: 'easeOut' }}
-              aria-hidden="true"
+              onClick={dismissMenuHint}
+              aria-label="Ẩn gợi ý mở menu"
             >
               <span className="menu-hint-ring" />
               <div className="menu-hint-card">
                 <span className="menu-hint-arrow" />
+                <span className="menu-hint-kicker">
+                  <Sparkles size={14} aria-hidden="true" />
+                  Gợi ý nhanh
+                </span>
                 <p>Khám phá thêm những tính năng mới mẻ</p>
-                <small>Chạm nút 3 gạch ở trên để mở menu.</small>
+                <small>Chạm nút 3 gạch ở góc trên để mở menu.</small>
+                <span className="menu-hint-dismiss">Chạm vào màn hình để ẩn</span>
               </div>
-            </m.div>
+            </m.button>
           )}
         </AnimatePresence>
 
