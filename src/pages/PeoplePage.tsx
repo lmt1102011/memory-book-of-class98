@@ -40,6 +40,16 @@ type YouthBadge = {
   className: string;
 };
 
+type YouthBadgeGoal = {
+  id: string;
+  label: string;
+  description: string;
+  current: number;
+  target: number;
+  unit: string;
+  done: boolean;
+};
+
 const defaultTags = ['ấm áp', 'hài hước', 'đáng nhớ'];
 
 const loadImage = (src: string) =>
@@ -168,6 +178,87 @@ const getYouthBadges = (
   return badges.slice(0, 5);
 };
 
+const getProfileProgress = (person: ClassmateProfile) =>
+  [
+    Boolean(person.avatarDataUrl),
+    Boolean(person.nickname?.trim()),
+    Boolean(person.quote?.trim()),
+    Boolean(person.classMessage?.trim()),
+    person.personalityTags.length >= 3,
+  ].filter(Boolean).length;
+
+const getYouthBadgeGoals = (
+  person: ClassmateProfile,
+  stats: PersonStats,
+  classMax: { memories: number; hearts: number; comments: number },
+) => {
+  const profileProgress = getProfileProgress(person);
+  const goals: YouthBadgeGoal[] = [
+    {
+      id: 'first-memory',
+      label: 'Kỷ niệm đầu tiên',
+      description: 'Đăng ít nhất một ảnh hoặc video để album riêng bắt đầu có dấu ấn.',
+      current: Math.min(stats.memories.length, 1),
+      target: 1,
+      unit: 'mục',
+      done: stats.memories.length >= 1,
+    },
+    {
+      id: 'album-builder',
+      label: 'Album có hồn',
+      description: 'Đăng đủ 3 kỷ niệm để hồ sơ nhìn như một trang kỷ yếu nhỏ.',
+      current: Math.min(stats.memories.length, 3),
+      target: 3,
+      unit: 'mục',
+      done: stats.memories.length >= 3,
+    },
+    {
+      id: 'profile-polished',
+      label: 'Hồ sơ chỉn chu',
+      description: 'Hoàn thiện ảnh đại diện, biệt danh, câu nói riêng, lời gửi lớp và 3 tag.',
+      current: profileProgress,
+      target: 5,
+      unit: 'phần',
+      done: profileProgress >= 5,
+    },
+    {
+      id: 'video-moment',
+      label: 'Có video thanh xuân',
+      description: 'Đăng một video ngắn để album có thêm chuyển động và âm sắc đời học trò.',
+      current: Math.min(stats.videos, 1),
+      target: 1,
+      unit: 'video',
+      done: stats.videos >= 1,
+    },
+  ];
+
+  if (classMax.hearts > 0) {
+    goals.push({
+      id: 'most-loved',
+      label: 'Được yêu thương nhất',
+      description: 'Cần thêm tim để chạm mốc kỷ niệm được yêu thích nhất lớp.',
+      current: Math.min(stats.hearts, classMax.hearts),
+      target: classMax.hearts,
+      unit: 'tim',
+      done: stats.hearts >= classMax.hearts,
+    });
+  }
+
+  if (classMax.comments > 0) {
+    goals.push({
+      id: 'story-spark',
+      label: 'Gợi nhiều lời nhắn',
+      description: 'Cần thêm bình luận quanh album để mở huy hiệu tương tác.',
+      current: Math.min(stats.comments, classMax.comments),
+      target: classMax.comments,
+      unit: 'bình luận',
+      done: stats.comments >= classMax.comments,
+    });
+  }
+
+  return goals.sort((left, right) => Number(left.done) - Number(right.done)).slice(0, 5);
+};
+
 export default function PeoplePage({
   classmates,
   memories,
@@ -188,8 +279,11 @@ export default function PeoplePage({
   onClearFocusedProfile,
 }: PeoplePageProps) {
   const uploadRef = useRef<HTMLInputElement | null>(null);
+  const yearbookTouchStartRef = useRef(0);
   const [query, setQuery] = useState('');
   const [selectedNameKey, setSelectedNameKey] = useState('');
+  const [isYearbookOpen, setIsYearbookOpen] = useState(false);
+  const [yearbookIndex, setYearbookIndex] = useState(0);
   const [avatarDataUrl, setAvatarDataUrl] = useState('');
   const [nickname, setNickname] = useState('');
   const [quote, setQuote] = useState('');
@@ -266,6 +360,15 @@ export default function PeoplePage({
     return badges;
   }, [badgeClassMax, sortedClassmates, statsByKey]);
 
+  const badgeGoalsByKey = useMemo(() => {
+    const goals: Record<string, YouthBadgeGoal[]> = {};
+    sortedClassmates.forEach((person) => {
+      const key = getPersonKey(person);
+      goals[key] = getYouthBadgeGoals(person, statsByKey[key] || emptyPersonStats, badgeClassMax);
+    });
+    return goals;
+  }, [badgeClassMax, sortedClassmates, statsByKey]);
+
   const filteredClassmates = useMemo(() => {
     const classmatesWithoutSelf = sortedClassmates.filter((person) => person.nameKey !== profile?.nameKey);
     const keyword = query.trim().toLowerCase();
@@ -294,9 +397,28 @@ export default function PeoplePage({
       : statsByKey[getPersonKey(selectedPerson)]
     : undefined;
   const selectedBadges = selectedPerson ? badgesByKey[getPersonKey(selectedPerson)] || [] : [];
+  const selectedBadgeGoals = selectedPerson ? badgeGoalsByKey[getPersonKey(selectedPerson)] || [] : [];
   const selfBadges = selfProfile ? badgesByKey[getPersonKey(selfProfile)] || [] : [];
   const totalMemories = memories.length;
   const totalHearts = memories.reduce((sum, memory) => sum + memory.reactions, 0);
+
+  const openYearbook = () => {
+    if (!sortedClassmates.length) return;
+    const focusedIndex = sortedClassmates.findIndex((person) => person.nameKey === selectedNameKey || person.nameKey === profile?.nameKey);
+    setYearbookIndex(focusedIndex >= 0 ? focusedIndex : 0);
+    setIsYearbookOpen(true);
+  };
+
+  const moveYearbook = (direction: 1 | -1) => {
+    if (!sortedClassmates.length) return;
+    setYearbookIndex((index) => (index + direction + sortedClassmates.length) % sortedClassmates.length);
+  };
+
+  const handleYearbookTouchEnd = (clientX: number) => {
+    const delta = clientX - yearbookTouchStartRef.current;
+    if (Math.abs(delta) < 42) return;
+    moveYearbook(delta < 0 ? 1 : -1);
+  };
 
   const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -360,10 +482,24 @@ export default function PeoplePage({
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 rounded-[1.35rem] border border-white/60 bg-white/48 p-4 text-center shadow-paper backdrop-blur-xl">
-            <Stat value={sortedClassmates.length} label="hồ sơ" />
-            <Stat value={totalMemories} label="ảnh lớp" tone="bg-blush/30" />
-            <Stat value={totalHearts} label="tim" tone="bg-skySoft/30" />
+          <div className="rounded-[1.35rem] border border-white/60 bg-white/48 p-4 shadow-paper backdrop-blur-xl">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <Stat value={sortedClassmates.length} label="hồ sơ" />
+              <Stat value={totalMemories} label="ảnh lớp" tone="bg-blush/30" />
+              <Stat value={totalHearts} label="tim" tone="bg-skySoft/30" />
+            </div>
+            <button
+              type="button"
+              className="primary-button mt-3 w-full justify-center"
+              onClick={openYearbook}
+              disabled={!sortedClassmates.length}
+            >
+              <BadgeCheck size={17} />
+              Xem như kỷ yếu
+            </button>
+            <p className="mt-2 text-center text-xs leading-5 text-ink/55">
+              Lật từng hồ sơ, vuốt trái/phải trên điện thoại.
+            </p>
           </div>
         </div>
       </section>
@@ -426,10 +562,14 @@ export default function PeoplePage({
                 </div>
 
                 {(localError || localSuccess) && (
-                  <p className={`mt-3 text-sm font-bold ${localError ? 'text-[#9d3b4b]' : 'text-chalk'}`}>
+                <p className={`mt-3 text-sm font-bold ${localError ? 'text-[#9d3b4b]' : 'text-chalk'}`}>
                     {localError || localSuccess}
                   </p>
                 )}
+                <button type="button" className="secondary-button mt-3 w-full justify-center" onClick={openYearbook}>
+                  <BadgeCheck size={16} />
+                  Mở kỷ yếu lớp
+                </button>
               </>
             )}
           </div>
@@ -513,6 +653,7 @@ export default function PeoplePage({
           stats={selectedStats}
           isSelf={selectedIsSelf}
           badges={selectedBadges}
+          badgeGoals={selectedBadgeGoals}
           isOwnMemoriesLoading={isOwnMemoriesLoading}
           onPhotobook={onPhotobook}
           onDeleteMemory={onDeleteMemory}
@@ -613,6 +754,35 @@ export default function PeoplePage({
         )}
       </ActionModal>
 
+      <ActionModal
+        isOpen={isYearbookOpen && sortedClassmates.length > 0}
+        title="Kỷ yếu lớp 9/8"
+        description="Xem lần lượt từng hồ sơ như một cuốn kỷ yếu nhỏ. Trên điện thoại có thể vuốt trái/phải để lật trang."
+        icon={<BadgeCheck size={20} />}
+        wide
+        onClose={() => setIsYearbookOpen(false)}
+      >
+        {sortedClassmates.length > 0 && (
+          <YearbookReader
+            person={sortedClassmates[yearbookIndex]}
+            stats={statsByKey[getPersonKey(sortedClassmates[yearbookIndex])] || emptyPersonStats}
+            badges={badgesByKey[getPersonKey(sortedClassmates[yearbookIndex])] || []}
+            index={yearbookIndex}
+            total={sortedClassmates.length}
+            onPrevious={() => moveYearbook(-1)}
+            onNext={() => moveYearbook(1)}
+            onTouchStart={(clientX) => {
+              yearbookTouchStartRef.current = clientX;
+            }}
+            onTouchEnd={handleYearbookTouchEnd}
+            onOpenProfile={() => {
+              setSelectedNameKey(sortedClassmates[yearbookIndex].nameKey);
+              setIsYearbookOpen(false);
+            }}
+          />
+        )}
+      </ActionModal>
+
       <FirebaseNotice message={firebaseNotice} />
     </div>
   );
@@ -707,6 +877,178 @@ function YouthBadgePill({ badge, compact = false }: { badge: YouthBadge; compact
   );
 }
 
+function BadgeProgressList({ goals }: { goals: YouthBadgeGoal[] }) {
+  if (!goals.length) return null;
+
+  return (
+    <div className="mt-4 grid gap-2">
+      <p className="text-xs font-black uppercase text-coffee/68">Tiến trình mở huy hiệu</p>
+      {goals.map((goal) => {
+        const percent = goal.target > 0 ? Math.min(100, Math.round((goal.current / goal.target) * 100)) : 0;
+
+        return (
+          <div key={goal.id} className="rounded-[0.85rem] bg-white/58 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-black text-ink">{goal.label}</p>
+                <p className="mt-1 text-xs leading-5 text-ink/58">{goal.done ? 'Đã mở huy hiệu này.' : goal.description}</p>
+              </div>
+              <span
+                className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-black ${
+                  goal.done ? 'bg-chalk/14 text-chalk' : 'bg-coffee/10 text-coffee'
+                }`}
+              >
+                {goal.done ? 'Đã mở' : `${goal.current}/${goal.target} ${goal.unit}`}
+              </span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-coffee/10">
+              <span className="block h-full rounded-full bg-coffee transition-[width] duration-300" style={{ width: `${percent}%` }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function YearbookReader({
+  person,
+  stats,
+  badges,
+  index,
+  total,
+  onPrevious,
+  onNext,
+  onTouchStart,
+  onTouchEnd,
+  onOpenProfile,
+}: {
+  person: ClassmateProfile;
+  stats: PersonStats;
+  badges: YouthBadge[];
+  index: number;
+  total: number;
+  onPrevious: () => void;
+  onNext: () => void;
+  onTouchStart: (clientX: number) => void;
+  onTouchEnd: (clientX: number) => void;
+  onOpenProfile: () => void;
+}) {
+  const albumPreview = stats.memories.slice(0, 4);
+
+  return (
+    <div
+      className="overflow-hidden rounded-[1rem] border border-coffee/10 bg-white shadow-[inset_0_0_0_1px_rgba(122,86,57,0.06)]"
+      onTouchStart={(event) => onTouchStart(event.touches[0]?.clientX || 0)}
+      onTouchEnd={(event) => onTouchEnd(event.changedTouches[0]?.clientX || 0)}
+    >
+      <div className="grid gap-0 md:grid-cols-[0.9fr_1.1fr]">
+        <section className="relative min-h-[22rem] overflow-hidden bg-ink p-5 text-paper">
+          <div className="absolute inset-0 opacity-20">
+            {person.avatarDataUrl ? <img src={person.avatarDataUrl} alt="" className="h-full w-full object-cover blur-2xl" /> : null}
+          </div>
+          <div className="relative z-[1] flex h-full flex-col justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-paper/58">
+                Trang {index + 1}/{total}
+              </p>
+              <div className="mt-5 grid place-items-center">
+                <span className="grid h-36 w-36 place-items-center overflow-hidden rounded-full bg-paper/16 text-paper shadow-paper ring-1 ring-paper/25">
+                  {person.avatarDataUrl ? <img src={person.avatarDataUrl} alt="" className="h-full w-full object-cover" /> : <UserRound size={46} />}
+                </span>
+              </div>
+              <h3 className="mt-6 break-words text-center font-display text-6xl leading-none">{person.name}</h3>
+              <p className="mt-2 text-center text-sm font-bold text-paper/72">{person.nickname || 'Bạn lớp 9/8'}</p>
+            </div>
+
+            <div className="mt-6 grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-[0.8rem] bg-paper/12 px-2 py-3">
+                <strong className="block text-xl">{stats.memories.length}</strong>
+                <span className="text-[10px] font-bold uppercase text-paper/58">kỷ niệm</span>
+              </div>
+              <div className="rounded-[0.8rem] bg-paper/12 px-2 py-3">
+                <strong className="block text-xl">{stats.hearts}</strong>
+                <span className="text-[10px] font-bold uppercase text-paper/58">tim</span>
+              </div>
+              <div className="rounded-[0.8rem] bg-paper/12 px-2 py-3">
+                <strong className="block text-xl">{stats.comments}</strong>
+                <span className="text-[10px] font-bold uppercase text-paper/58">bình luận</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="p-4 sm:p-5">
+          <p className="rounded-[1rem] bg-paper/72 px-4 py-4 text-sm leading-7 text-ink/72">
+            {person.quote || 'Chưa có câu nói riêng, nhưng thanh xuân vẫn đang ở đây.'}
+          </p>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {(person.personalityTags.length ? person.personalityTags : ['9/8', 'memory']).map((tag) => (
+              <span key={tag} className="rounded-full bg-blush/30 px-2.5 py-1 text-xs font-bold text-coffee">
+                {tag}
+              </span>
+            ))}
+          </div>
+
+          <p className="mt-4 text-sm leading-7 text-ink/68">
+            {person.classMessage || 'Một lời gửi lớp 9/8 đang chờ được viết.'}
+          </p>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {badges.length ? (
+              badges.slice(0, 4).map((badge) => <YouthBadgePill key={badge.id} badge={badge} />)
+            ) : (
+              <p className="rounded-[0.85rem] bg-paper/72 px-3 py-3 text-sm font-bold text-ink/62 sm:col-span-2">
+                Hồ sơ này chưa có huy hiệu. Khi có thêm ảnh, tim hoặc thông tin cá nhân, huy hiệu sẽ tự mở.
+              </p>
+            )}
+          </div>
+
+          <div className="mt-4">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-xs font-black uppercase text-coffee/68">Album xem nhanh</p>
+              <button type="button" className="text-xs font-black text-coffee underline-offset-4 hover:underline" onClick={onOpenProfile}>
+                Xem hồ sơ đầy đủ
+              </button>
+            </div>
+            {albumPreview.length ? (
+              <div className="grid grid-cols-4 gap-2">
+                {albumPreview.map((memory) => (
+                  <img
+                    key={`${memory.storageCollection || 'memories98'}-${memory.id}`}
+                    src={memory.imageUrl}
+                    alt={`Kỷ niệm của ${person.name}`}
+                    className="aspect-square rounded-[0.65rem] object-cover shadow-sm"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-[0.85rem] bg-paper/72 px-3 py-3 text-sm font-bold text-ink/62">
+                Chưa có ảnh/video trong album riêng.
+              </p>
+            )}
+          </div>
+
+          <div className="mt-5 grid grid-cols-[auto_1fr_auto] items-center gap-3">
+            <button type="button" className="secondary-button justify-center" onClick={onPrevious}>
+              Trước
+            </button>
+            <div className="h-2 overflow-hidden rounded-full bg-coffee/10">
+              <span className="block h-full rounded-full bg-coffee" style={{ width: `${((index + 1) / total) * 100}%` }} />
+            </div>
+            <button type="button" className="primary-button justify-center" onClick={onNext}>
+              Tiếp
+            </button>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 const safeFilePart = (value: string) =>
   value
     .normalize('NFD')
@@ -722,6 +1064,7 @@ function PersonDetail({
   person,
   stats,
   badges,
+  badgeGoals,
   isSelf = false,
   isOwnMemoriesLoading = false,
   onPhotobook,
@@ -731,6 +1074,7 @@ function PersonDetail({
   person: ClassmateProfile | null;
   stats?: PersonStats;
   badges: YouthBadge[];
+  badgeGoals: YouthBadgeGoal[];
   isSelf?: boolean;
   isOwnMemoriesLoading?: boolean;
   onPhotobook: () => void;
@@ -789,6 +1133,8 @@ function PersonDetail({
             Chưa có huy hiệu nào. Khi bạn này hoàn thiện hồ sơ hoặc đăng thêm kỷ niệm, huy hiệu sẽ xuất hiện ở đây.
           </p>
         )}
+
+        <BadgeProgressList goals={badgeGoals} />
       </div>
 
       <p className="mt-4 text-sm leading-7 text-ink/68">

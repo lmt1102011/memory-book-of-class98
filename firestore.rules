@@ -263,6 +263,14 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    match /siteSettings98/{settingId} {
+      allow read: if true;
+      allow create, update: if settingId == 'memoryRecap'
+        && isManagerWrite()
+        && request.resource.data.enabled is bool;
+      allow delete: if false;
+    }
+
     match /guestbook98/{entryId} {
       allow read: if true;
       allow create: if request.auth != null

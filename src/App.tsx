@@ -149,6 +149,7 @@ export default function App() {
   const [notificationActivityLoading, setNotificationActivityLoading] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsSeenAt, setNotificationsSeenAt] = useState(() => new Date(0).toISOString());
+  const [memoryRecapEnabled, setMemoryRecapEnabled] = useState(false);
   const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [openNavGroup, setOpenNavGroup] = useState<NavGroupId | null>(null);
@@ -333,6 +334,36 @@ export default function App() {
       unsubscribe?.();
     };
   }, [bootSplashDone, profile]);
+
+  useEffect(() => {
+    if (!bootSplashDone) return undefined;
+
+    let unsubscribe: (() => void) | undefined;
+    let isActive = true;
+
+    void import('./services/firebaseMemoryBook')
+      .then((service) => {
+        if (!isActive) return;
+        unsubscribe = service.subscribeMemoryRecapSettings(
+          (settings) => {
+            if (!isActive) return;
+            setMemoryRecapEnabled(settings.enabled);
+          },
+          () => {
+            if (!isActive) return;
+            setMemoryRecapEnabled(false);
+          },
+        );
+      })
+      .catch(() => {
+        if (isActive) setMemoryRecapEnabled(false);
+      });
+
+    return () => {
+      isActive = false;
+      unsubscribe?.();
+    };
+  }, [bootSplashDone]);
 
   useEffect(() => {
     if (route === 'landing' || route === 'join') return undefined;
@@ -1650,6 +1681,7 @@ export default function App() {
           commentsByMemory={commentsByMemory}
           firebaseNotice={firebaseNotice}
           isLoadingMemories={memoriesLoading}
+          memoryRecapEnabled={memoryRecapEnabled}
           profile={profile}
           pendingReactionIds={pendingReactionIds}
           onJoin={() => navigate('join')}

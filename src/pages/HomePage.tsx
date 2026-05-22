@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
 import { Camera, Download, Filter, Heart, Lock, RotateCcw, Search, UserRound, Video, X } from 'lucide-react';
 import FirebaseNotice from '../components/FirebaseNotice';
@@ -33,11 +33,51 @@ const formatVideoDuration = (seconds: number) => `${Math.max(1, Math.round(secon
 
 const clampZoom = (value: number) => Math.min(4, Math.max(1, value));
 
+const loadCanvasImage = (src: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
+  });
+
+const wrapCanvasText = (
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  maxLines = 3,
+) => {
+  const words = text.split(/\s+/).filter(Boolean);
+  let line = '';
+  let lineCount = 0;
+
+  words.forEach((word, index) => {
+    if (lineCount >= maxLines) return;
+    const testLine = line ? `${line} ${word}` : word;
+    const isLast = index === words.length - 1;
+    if (ctx.measureText(testLine).width > maxWidth && line) {
+      ctx.fillText(lineCount === maxLines - 1 ? `${line}...` : line, x, y + lineCount * lineHeight);
+      line = word;
+      lineCount += 1;
+      return;
+    }
+    line = testLine;
+    if (isLast && lineCount < maxLines) {
+      ctx.fillText(line, x, y + lineCount * lineHeight);
+      lineCount += 1;
+    }
+  });
+};
+
 interface HomePageProps {
   memories: MemoryItem[];
   commentsByMemory: Record<string, MemoryComment[]>;
   firebaseNotice: string;
   isLoadingMemories: boolean;
+  memoryRecapEnabled: boolean;
   profile: UserProfile | null;
   pendingReactionIds: string[];
   onJoin: () => void;
@@ -54,6 +94,7 @@ export default function HomePage({
   commentsByMemory,
   firebaseNotice,
   isLoadingMemories,
+  memoryRecapEnabled,
   profile,
   pendingReactionIds,
   onJoin,
@@ -81,6 +122,7 @@ export default function HomePage({
   const [selectedVideoUrl, setSelectedVideoUrl] = useState('');
   const [selectedVideoLoading, setSelectedVideoLoading] = useState(false);
   const [selectedVideoError, setSelectedVideoError] = useState('');
+  const [isRecapDownloading, setIsRecapDownloading] = useState(false);
 
   const debouncedName = useDebounce(nameQuery);
   const debouncedKeyword = useDebounce(keywordQuery);
@@ -296,6 +338,186 @@ export default function HomePage({
     return Array.from(unique.values()).sort((left, right) => right.count - left.count).slice(0, 16);
   }, [memories]);
 
+  const memoryRecap = useMemo(() => {
+    const totalComments = Object.values(commentsByMemory).reduce((total, comments) => total + comments.length, 0);
+    const totalHearts = memories.reduce((total, memory) => total + memory.reactions, 0);
+    const videos = memories.filter((memory) => memory.mediaType === 'video').length;
+    const photos = Math.max(0, memories.length - videos);
+    const contributorMap = new Map<string, { name: string; nameKey: string; memories: number; hearts: number }>();
+
+    memories.forEach((memory) => {
+      const key = memory.nameKey || memory.uid || memory.name.toLowerCase();
+      const current = contributorMap.get(key) || {
+        name: memory.name,
+        nameKey: memory.nameKey || key,
+        memories: 0,
+        hearts: 0,
+      };
+      current.memories += 1;
+      current.hearts += memory.reactions;
+      contributorMap.set(key, current);
+    });
+
+    const topContributor = Array.from(contributorMap.values()).sort(
+      (left, right) => right.memories - left.memories || right.hearts - left.hearts,
+    )[0];
+    const topLovedMemory = [...memories].sort(
+      (left, right) =>
+        right.reactions - left.reactions ||
+        (commentsByMemory[right.id]?.length || 0) - (commentsByMemory[left.id]?.length || 0),
+    )[0];
+    const topCommentedMemory = [...memories].sort(
+      (left, right) => (commentsByMemory[right.id]?.length || 0) - (commentsByMemory[left.id]?.length || 0),
+    )[0];
+
+    return {
+      photos,
+      videos,
+      totalMemories: memories.length,
+      totalComments,
+      totalHearts,
+      contributors: contributorMap.size,
+      topContributor,
+      topLovedMemory,
+      topCommentedMemory,
+      coverMemory: topLovedMemory || memories[0],
+    };
+  }, [commentsByMemory, memories]);
+
+  const handleDownloadRecap = useCallback(async () => {
+    setIsRecapDownloading(true);
+
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1080;
+      canvas.height = 1350;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas is not supported.');
+
+      ctx.fillStyle = '#fbf3e7';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      gradient.addColorStop(0, 'rgba(247,183,199,0.55)');
+      gradient.addColorStop(0.48, 'rgba(255,250,241,0.92)');
+      gradient.addColorStop(1, 'rgba(169,205,232,0.58)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (memoryRecap.coverMemory?.imageUrl) {
+        try {
+          const image = await loadCanvasImage(memoryRecap.coverMemory.imageUrl);
+          const frameX = 620;
+          const frameY = 112;
+          const frameW = 340;
+          const frameH = 430;
+          const scale = Math.max(frameW / image.width, frameH / image.height);
+          const drawW = image.width * scale;
+          const drawH = image.height * scale;
+          ctx.save();
+          ctx.translate(frameX + frameW / 2, frameY + frameH / 2);
+          ctx.rotate(0.055);
+          ctx.fillStyle = '#fffaf1';
+          ctx.shadowColor = 'rgba(53,41,31,0.18)';
+          ctx.shadowBlur = 28;
+          ctx.shadowOffsetY = 18;
+          ctx.fillRect(-frameW / 2 - 22, -frameH / 2 - 22, frameW + 44, frameH + 70);
+          ctx.shadowColor = 'transparent';
+          ctx.drawImage(image, -drawW / 2, -drawH / 2, drawW, drawH);
+          ctx.restore();
+        } catch {
+          // Poster still downloads without a cover image.
+        }
+      }
+
+      ctx.fillStyle = '#35291f';
+      ctx.font = '900 76px Arial, sans-serif';
+      ctx.fillText('MEMORY98', 92, 160);
+      ctx.font = '700 28px Arial, sans-serif';
+      ctx.fillStyle = '#7a5639';
+      ctx.fillText('Recap thanh xuân lớp 9/8', 96, 205);
+
+      ctx.fillStyle = '#35291f';
+      ctx.font = '800 48px Arial, sans-serif';
+      wrapCanvasText(
+        ctx,
+        'Những khoảnh khắc mình đã cùng giữ lại',
+        96,
+        300,
+        470,
+        58,
+        3,
+      );
+
+      const stats = [
+        ['Kỷ niệm', memoryRecap.totalMemories],
+        ['Ảnh', memoryRecap.photos],
+        ['Video', memoryRecap.videos],
+        ['Tim', memoryRecap.totalHearts],
+        ['Bình luận', memoryRecap.totalComments],
+        ['Bạn góp mặt', memoryRecap.contributors],
+      ];
+
+      stats.forEach(([label, value], index) => {
+        const col = index % 3;
+        const row = Math.floor(index / 3);
+        const x = 96 + col * 296;
+        const y = 620 + row * 170;
+        ctx.fillStyle = 'rgba(255,250,241,0.78)';
+        ctx.fillRect(x, y, 242, 116);
+        ctx.fillStyle = '#35291f';
+        ctx.font = '900 50px Arial, sans-serif';
+        ctx.fillText(String(value), x + 24, y + 58);
+        ctx.fillStyle = '#7a5639';
+        ctx.font = '700 22px Arial, sans-serif';
+        ctx.fillText(String(label), x + 24, y + 91);
+      });
+
+      ctx.fillStyle = '#35291f';
+      ctx.font = '900 34px Arial, sans-serif';
+      ctx.fillText('Điểm sáng của lớp', 96, 1030);
+      ctx.font = '700 24px Arial, sans-serif';
+      ctx.fillStyle = '#7a5639';
+      wrapCanvasText(
+        ctx,
+        memoryRecap.topContributor
+          ? `Người giữ nhiều ký ức: ${memoryRecap.topContributor.name} (${memoryRecap.topContributor.memories} mục).`
+          : 'Chờ kỷ niệm đầu tiên được đăng lên.',
+        96,
+        1080,
+        860,
+        34,
+        2,
+      );
+      wrapCanvasText(
+        ctx,
+        memoryRecap.topLovedMemory
+          ? `Kỷ niệm được yêu thích nhất: ${memoryRecap.topLovedMemory.name} với ${memoryRecap.topLovedMemory.reactions} tim.`
+          : '',
+        96,
+        1160,
+        860,
+        34,
+        2,
+      );
+
+      ctx.fillStyle = '#35291f';
+      ctx.font = '800 24px Arial, sans-serif';
+      ctx.fillText('memory-book-of-class98.github.io', 96, 1270);
+
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((result) => (result ? resolve(result) : reject(new Error('Không thể tạo poster recap.'))), 'image/jpeg', 0.94);
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'memory98-recap-lop-9-8.jpg';
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } finally {
+      setIsRecapDownloading(false);
+    }
+  }, [memoryRecap]);
+
   const filteredMemories = useMemo(() => {
     const name = debouncedName.trim().toLowerCase();
     const keyword = debouncedKeyword.trim().toLowerCase();
@@ -397,6 +619,92 @@ export default function HomePage({
           </div>
         </div>
       </section>
+
+      {memoryRecapEnabled && (
+        <section className="mx-auto max-w-7xl px-4 pb-7 sm:px-6 lg:px-8">
+          <div className="grid overflow-hidden rounded-[1.6rem] border border-white/70 bg-[#fffaf1] shadow-[0_28px_90px_rgba(53,41,31,0.18)] lg:grid-cols-[1.08fr_0.92fr]">
+            <div className="relative min-h-[20rem] overflow-hidden bg-ink p-5 text-paper sm:p-7">
+              {memoryRecap.coverMemory?.imageUrl && (
+                <img
+                  src={memoryRecap.coverMemory.imageUrl}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover opacity-[0.34] blur-[2px]"
+                  loading="lazy"
+                  decoding="async"
+                />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-br from-ink via-ink/82 to-coffee/56" aria-hidden="true" />
+              <div className="relative z-[1] flex h-full flex-col justify-between">
+                <div>
+                  <span className="inline-flex rounded-full bg-paper px-3 py-1.5 text-xs font-black uppercase text-coffee shadow-paper">
+                    Manager đã mở
+                  </span>
+                  <h2 className="mt-5 max-w-xl font-display text-6xl leading-[0.86] sm:text-7xl">
+                    Recap thanh xuân 9/8
+                  </h2>
+                  <p className="mt-4 max-w-lg text-sm leading-7 text-paper/72">
+                    Một tấm tổng kết nổi bật từ ảnh, video, tim và bình luận của lớp. Có thể tải thành poster để lưu lại.
+                  </p>
+                </div>
+
+                <div className="mt-6 grid grid-cols-3 gap-2 text-center">
+                  <RecapStat value={memoryRecap.totalMemories} label="kỷ niệm" dark />
+                  <RecapStat value={memoryRecap.totalHearts} label="tim" dark />
+                  <RecapStat value={memoryRecap.totalComments} label="bình luận" dark />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 sm:p-7">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <RecapStat value={memoryRecap.photos} label="ảnh" />
+                <RecapStat value={memoryRecap.videos} label="video" />
+                <RecapStat value={memoryRecap.contributors} label="bạn góp mặt" />
+              </div>
+
+              <div className="mt-5 grid gap-3">
+                <RecapHighlight
+                  icon={<UserRound size={16} />}
+                  label="Người giữ nhiều ký ức"
+                  value={
+                    memoryRecap.topContributor
+                      ? `${memoryRecap.topContributor.name} · ${memoryRecap.topContributor.memories} mục`
+                      : 'Đang chờ kỷ niệm đầu tiên'
+                  }
+                />
+                <RecapHighlight
+                  icon={<Heart size={16} fill="currentColor" />}
+                  label="Kỷ niệm được yêu thích"
+                  value={
+                    memoryRecap.topLovedMemory
+                      ? `${memoryRecap.topLovedMemory.name} · ${memoryRecap.topLovedMemory.reactions} tim`
+                      : 'Chưa có lượt tim'
+                  }
+                />
+                <RecapHighlight
+                  icon={<Camera size={16} />}
+                  label="Nhiều bình luận nhất"
+                  value={
+                    memoryRecap.topCommentedMemory && (commentsByMemory[memoryRecap.topCommentedMemory.id]?.length || 0) > 0
+                      ? `${memoryRecap.topCommentedMemory.name} · ${commentsByMemory[memoryRecap.topCommentedMemory.id]?.length || 0} bình luận`
+                      : 'Chưa có bình luận'
+                  }
+                />
+              </div>
+
+              <button
+                type="button"
+                className="primary-button mt-5 w-full justify-center"
+                onClick={() => void handleDownloadRecap()}
+                disabled={isRecapDownloading}
+              >
+                <Download size={17} />
+                {isRecapDownloading ? 'Đang tạo poster...' : 'Tải poster recap'}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="sticky top-16 z-30 border-y border-white/55 bg-cream/75 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-3 lg:grid-cols-[1fr_1fr_auto]">
@@ -706,6 +1014,27 @@ export default function HomePage({
       )}
 
       <FirebaseNotice message={firebaseNotice} />
+    </div>
+  );
+}
+
+function RecapStat({ value, label, dark = false }: { value: number; label: string; dark?: boolean }) {
+  return (
+    <div className={`rounded-[0.9rem] px-3 py-4 ${dark ? 'bg-paper/12 text-paper' : 'bg-paper/75 text-ink'}`}>
+      <strong className="block font-display text-4xl leading-none">{value}</strong>
+      <span className={`mt-1 block text-[11px] font-black uppercase ${dark ? 'text-paper/62' : 'text-coffee/62'}`}>{label}</span>
+    </div>
+  );
+}
+
+function RecapHighlight({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex min-w-0 items-start gap-3 rounded-[1rem] bg-paper/72 p-3">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-coffee shadow-sm">{icon}</span>
+      <div className="min-w-0">
+        <p className="text-[11px] font-black uppercase text-coffee/62">{label}</p>
+        <p className="mt-1 break-words text-sm font-black text-ink">{value}</p>
+      </div>
     </div>
   );
 }

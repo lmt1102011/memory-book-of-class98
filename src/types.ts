@@ -226,6 +226,11 @@ export interface VoteRecord {
   updatedAt?: string;
 }
 
+export interface MemoryRecapSettings {
+  enabled: boolean;
+  updatedAt?: string;
+}
+
 export interface YouthProfileDraft {
   avatarDataUrl?: string;
   nickname: string;

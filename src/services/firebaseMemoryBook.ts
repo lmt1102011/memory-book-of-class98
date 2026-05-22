@@ -31,6 +31,7 @@ import type {
   GuestbookEntry,
   MemoryComment,
   MemoryItem,
+  MemoryRecapSettings,
   NotificationActivity,
   PublishMemoryDraft,
   RememberNote,
@@ -58,6 +59,8 @@ const SECRET_MAILBOX_PRIVATE_COLLECTION = 'secretMailboxPrivate98';
 const REMEMBER_NOTES_COLLECTION = 'rememberNotes98';
 const VOTE_CATEGORIES_COLLECTION = 'voteCategories98';
 const VOTES_SUBCOLLECTION = 'votes';
+const SITE_SETTINGS_COLLECTION = 'siteSettings98';
+const MEMORY_RECAP_SETTING_ID = 'memoryRecap';
 const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
 const FIREBASE_RETRY_DELAYS = [0, 450, 1000, 1800];
 const FIREBASE_TIMEOUT_MS = 12_000;
@@ -375,6 +378,11 @@ const voteRecordFromDoc = (categoryId: string, id: string, data: DocumentData): 
   updatedAt: data.updatedAt ? timestampToIso(data.updatedAt) : undefined,
 });
 
+const memoryRecapSettingsFromData = (data?: DocumentData): MemoryRecapSettings => ({
+  enabled: Boolean(data?.enabled),
+  updatedAt: data?.updatedAt ? timestampToIso(data.updatedAt) : undefined,
+});
+
 export const checkStudentName = async (name: string) => {
   const nameKey = makeNameKey(name);
   if (!nameKey) throw new Error('Hãy nhập họ tên hợp lệ.');
@@ -618,6 +626,24 @@ export const subscribeClassmates = (
           .map((item) => classmateFromDoc(item.id, item.data()))
           .filter((item) => item.nameKey && item.className === CLASS_NAME),
       );
+    } catch (error) {
+      onError(friendlyFirebaseError(error));
+    }
+  };
+  void load();
+  const interval = createVisiblePolling(load);
+  return () => window.clearInterval(interval);
+};
+
+export const subscribeMemoryRecapSettings = (
+  onNext: (settings: MemoryRecapSettings) => void,
+  onError: (error: Error) => void,
+) => {
+  const settingRef = doc(db, SITE_SETTINGS_COLLECTION, MEMORY_RECAP_SETTING_ID);
+  const load = async () => {
+    try {
+      const snapshot = await withFirebaseRetry(() => getDoc(settingRef));
+      onNext(memoryRecapSettingsFromData(snapshot.exists() ? snapshot.data() : undefined));
     } catch (error) {
       onError(friendlyFirebaseError(error));
     }
