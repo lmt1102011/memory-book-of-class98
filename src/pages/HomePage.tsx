@@ -84,6 +84,7 @@ export default function HomePage({
   const [selectedVideoLoading, setSelectedVideoLoading] = useState(false);
   const [selectedVideoError, setSelectedVideoError] = useState('');
   const [isRecapDownloading, setIsRecapDownloading] = useState(false);
+  const [recapPosterError, setRecapPosterError] = useState('');
 
   const debouncedName = useDebounce(nameQuery);
   const debouncedKeyword = useDebounce(keywordQuery);
@@ -311,25 +312,24 @@ export default function HomePage({
 
   const handleDownloadRecap = useCallback(async () => {
     setIsRecapDownloading(true);
+    setRecapPosterError('');
 
     try {
-      let posterMemories = memories;
-      if (profile) {
-        try {
-          const service = await import('../services/firebaseMemoryBook');
-          const fullMemories = await service.loadClassPosterMemories(profile);
-          posterMemories = fullMemories.length ? fullMemories : posterMemories;
-        } catch {
-          // If Firebase blocks the full fetch, still create the poster from the feed currently loaded.
-        }
+      if (!profile) {
+        onJoin();
+        return;
       }
 
-      const { downloadClassPhotoPoster } = await import('../utils/classPhotoPoster');
-      await downloadClassPhotoPoster({ memories: posterMemories });
+      const service = await import('../services/firebaseMemoryBook');
+      const posterData = await service.loadClassPosterData(profile);
+      const { downloadClassMemoryPoster } = await import('../utils/classMemoryPoster');
+      await downloadClassMemoryPoster(posterData);
+    } catch (caught) {
+      setRecapPosterError(caught instanceof Error ? caught.message : 'Không thể tạo poster recap lúc này.');
     } finally {
       setIsRecapDownloading(false);
     }
-  }, [memories, profile]);
+  }, [onJoin, profile]);
 
   const filteredMemories = useMemo(() => {
     const name = debouncedName.trim().toLowerCase();
@@ -452,7 +452,7 @@ export default function HomePage({
                   Recap thanh xuân 9/8
                 </h2>
                 <p className="mt-4 max-w-2xl text-sm leading-7 text-ink/66 sm:text-base">
-                  Recap được rút gọn để nhìn thật sạch: chỉ hiện tổng số kỷ niệm và một nút tải poster ảnh của lớp.
+                  Recap chỉ hiện số kỷ niệm ở đây. Khi tải poster, web sẽ ghép đầy đủ ảnh và lời chúc thư lớp thành một scrapbook rõ ràng.
                 </p>
 
                 <div className="mt-6 max-w-sm rounded-[1.25rem] border border-coffee/10 bg-white/70 p-5 text-center shadow-paper">
@@ -465,11 +465,16 @@ export default function HomePage({
                   type="button"
                   className="primary-button mt-5 w-full justify-center sm:w-auto"
                   onClick={() => void handleDownloadRecap()}
-                  disabled={isRecapDownloading || memoryRecap.imageCount === 0}
+                  disabled={isRecapDownloading}
                 >
                   <Download size={17} />
-                  {isRecapDownloading ? 'Đang tạo poster ảnh...' : 'Tải poster ảnh'}
+                  {isRecapDownloading ? 'Đang tạo poster...' : 'Tải poster ảnh + lời chúc'}
                 </button>
+                {recapPosterError && (
+                  <p className="mt-3 max-w-lg rounded-2xl bg-blush/30 px-4 py-3 text-sm font-bold leading-6 text-coffee">
+                    {recapPosterError}
+                  </p>
+                )}
               </div>
 
               <aside className="relative border-t border-coffee/10 bg-[#f7e7ca]/45 p-5 sm:p-7 lg:border-l lg:border-t-0">
@@ -499,7 +504,7 @@ export default function HomePage({
                   </div>
 
                   <p className="mt-5 rounded-[1rem] bg-paper/72 px-4 py-3 text-center text-xs font-bold leading-5 text-ink/62">
-                    Poster tải về chỉ gồm ảnh, không kèm chữ, caption hay thư lớp để nhìn gọn và dễ in hơn.
+                    Poster mới dán ảnh và lời chúc xen kẽ theo bố cục masonry, lệch nhẹ như scrapbook nhưng vẫn đọc rõ từng lời chúc.
                   </p>
                 </div>
               </aside>
