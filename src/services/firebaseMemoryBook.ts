@@ -67,6 +67,7 @@ const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
 const FIREBASE_RETRY_DELAYS = [0, 450, 1000, 1800];
 const FIREBASE_TIMEOUT_MS = 12_000;
 const FIREBASE_POLL_MS = 20_000;
+const SITE_SETTINGS_POLL_MS = 4_000;
 const REMEMBER_REACTION_LABELS: Record<RememberReactionId, string> = {
   'miss-you': 'Nhớ cậu',
   'thank-you': 'Cảm ơn',
@@ -224,10 +225,10 @@ const withFirebaseRetry = async <T,>(operation: () => Promise<T>) => {
   throw friendlyFirebaseError(lastError);
 };
 
-const createVisiblePolling = (load: () => Promise<void>) =>
+const createVisiblePolling = (load: () => Promise<void>, intervalMs = FIREBASE_POLL_MS) =>
   window.setInterval(() => {
     if (document.visibilityState === 'visible') void load();
-  }, FIREBASE_POLL_MS);
+  }, intervalMs);
 
 const timestampToIso = (value: unknown) => {
   if (value instanceof Timestamp) return value.toDate().toISOString();
@@ -552,7 +553,7 @@ export const subscribeMemories = (
     }
   };
   void load();
-  const interval = createVisiblePolling(load);
+  const interval = createVisiblePolling(load, SITE_SETTINGS_POLL_MS);
   return () => window.clearInterval(interval);
 };
 
@@ -570,7 +571,7 @@ export const subscribeMemoryComments = (
     }
   };
   void load();
-  const interval = createVisiblePolling(load);
+  const interval = createVisiblePolling(load, SITE_SETTINGS_POLL_MS);
   return () => window.clearInterval(interval);
 };
 

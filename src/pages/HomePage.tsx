@@ -320,6 +320,11 @@ export default function HomePage({
   }, [slideshowMemories.length]);
 
   useEffect(() => {
+    if (!cinematicSlideshowEnabled) {
+      setIsSlideshowOpen(false);
+      return;
+    }
+
     if (!slideshowMemories.length) {
       setIsSlideshowOpen(false);
       setSlideIndex(0);
@@ -327,7 +332,7 @@ export default function HomePage({
     }
 
     setSlideIndex((index) => Math.min(index, slideshowMemories.length - 1));
-  }, [slideshowMemories.length]);
+  }, [cinematicSlideshowEnabled, slideshowMemories.length]);
 
   useEffect(() => {
     if (!isSlideshowOpen || slideshowMemories.length <= 1) return undefined;
@@ -571,7 +576,7 @@ export default function HomePage({
         </section>
       )}
 
-      {cinematicSlideshowEnabled && slideshowMemories.length > 0 && (
+      {cinematicSlideshowEnabled && (
         <section className="mx-auto max-w-7xl px-4 pb-7 sm:px-6 lg:px-8">
           <div className="relative overflow-hidden rounded-[1.7rem] border border-white/75 bg-ink text-paper shadow-[0_28px_80px_rgba(53,41,31,0.22)]">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(247,183,199,0.24),transparent_32%),radial-gradient(circle_at_82%_22%,rgba(169,205,232,0.24),transparent_34%)]" />
@@ -582,7 +587,7 @@ export default function HomePage({
                     Slideshow được manager bật
                   </span>
                   <span className="rounded-full bg-white/12 px-3 py-1.5 text-[11px] font-black uppercase text-paper/80">
-                    {slideshowMemories.length} ảnh
+                    {isLoadingMemories ? 'Đang tải ảnh' : `${slideshowMemories.length} ảnh`}
                   </span>
                 </div>
 
@@ -595,35 +600,51 @@ export default function HomePage({
 
                 <button
                   type="button"
-                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-paper px-5 py-3 text-sm font-black text-ink shadow-paper transition hover:-translate-y-0.5 sm:w-auto"
+                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-paper px-5 py-3 text-sm font-black text-ink shadow-paper transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   onClick={() => {
+                    if (!slideshowMemories.length) return;
                     setSlideIndex(0);
                     setIsSlideshowOpen(true);
                   }}
+                  disabled={!slideshowMemories.length}
                 >
                   <Camera size={17} />
-                  Mở slideshow
+                  {slideshowMemories.length ? 'Mở slideshow' : isLoadingMemories ? 'Đang chuẩn bị ảnh' : 'Chưa có ảnh để chiếu'}
                 </button>
               </div>
 
               <aside className="relative min-h-[17rem] overflow-hidden border-t border-white/10 bg-white/8 p-5 sm:p-7 lg:border-l lg:border-t-0">
                 <div className="relative mx-auto grid max-w-[20rem] grid-cols-3 gap-2">
-                  {slideshowMemories.slice(0, 6).map((memory, index) => (
-                    <div
-                      key={memory.id}
-                      className={`overflow-hidden rounded-[0.7rem] bg-paper/12 shadow-paper ${
-                        index === 0 ? 'col-span-2 row-span-2 aspect-[4/5]' : 'aspect-square'
-                      }`}
-                    >
-                      <img
-                        src={memory.imageUrl}
-                        alt={`Ảnh slideshow của ${memory.name}`}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                        decoding="async"
-                      />
+                  {slideshowMemories.length ? (
+                    slideshowMemories.slice(0, 6).map((memory, index) => (
+                      <div
+                        key={memory.id}
+                        className={`overflow-hidden rounded-[0.7rem] bg-paper/12 shadow-paper ${
+                          index === 0 ? 'col-span-2 row-span-2 aspect-[4/5]' : 'aspect-square'
+                        }`}
+                      >
+                        <img
+                          src={memory.imageUrl}
+                          alt={`Ảnh slideshow của ${memory.name}`}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-span-3 grid aspect-[16/10] place-items-center rounded-[1rem] border border-white/12 bg-paper/10 px-5 text-center shadow-paper">
+                      <div>
+                        <div className="memory-loading-spinner mx-auto mb-4 h-10 w-10 rounded-full border-4 border-paper/20 border-t-paper" />
+                        <p className="text-sm font-black text-paper">
+                          {isLoadingMemories ? 'Đang tải ảnh từ database...' : 'Slideshow đã bật, nhưng chưa có ảnh nào để chiếu.'}
+                        </p>
+                        <p className="mt-2 text-xs font-bold leading-5 text-paper/54">
+                          Ảnh sẽ tự hiện ở đây khi feed Ký ức tải xong hoặc khi lớp đăng ảnh mới.
+                        </p>
+                      </div>
                     </div>
-                  ))}
+                  )}
                 </div>
                 <p className="mx-auto mt-4 max-w-[20rem] rounded-[1rem] bg-paper/10 px-4 py-3 text-center text-xs font-bold leading-5 text-paper/68">
                   Bố cục được giữ gọn: một nút mở, ảnh tự chạy, có nút lùi/tiến và đóng.
