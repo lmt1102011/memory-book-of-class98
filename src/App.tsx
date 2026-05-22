@@ -15,6 +15,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import AccountLockScreen from './components/AccountLockScreen';
 import AppStatusToast from './components/AppStatusToast';
 import BootSplash from './components/BootSplash';
 import FutureMessagePopup from './components/FutureMessagePopup';
@@ -60,7 +61,7 @@ const VotesPage = lazy(() => import('./pages/VotesPage'));
 const MyMemoriesPage = lazy(() => import('./pages/MyMemoriesPage'));
 
 const appRoutes: AppRoute[] = ['landing', 'join', 'home', 'letters', 'future', 'remember', 'diary', 'photobook', 'people', 'votes', 'mine'];
-const MENU_HINT_STORAGE_VERSION = 'v3';
+const MENU_HINT_STORAGE_VERSION = 'v4';
 
 const menuHintStorageKey = (uid: string) => `memory98-menu-hint-seen:${MENU_HINT_STORAGE_VERSION}:${uid}`;
 
@@ -94,6 +95,11 @@ const routeFromHash = (respectBrowserHash = false): AppRoute => {
 };
 
 type NavGroupId = 'memories' | 'class' | 'messages' | 'me';
+
+type AccountBlockState = {
+  kind: 'disabled';
+  name: string;
+};
 
 type NavMenuItem = {
   id: string;
@@ -189,6 +195,8 @@ export default function App() {
   const [firebaseNotice, setFirebaseNotice] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuHintVisible, setMenuHintVisible] = useState(false);
+  const [accountBlock, setAccountBlock] = useState<AccountBlockState | null>(null);
+  const [sessionNotice, setSessionNotice] = useState('');
   const [openNavGroup, setOpenNavGroup] = useState<NavGroupId | null>(null);
   const [bootSplashDone, setBootSplashDone] = useState(false);
   const [routeFeedbackVisible, setRouteFeedbackVisible] = useState(false);
@@ -198,6 +206,7 @@ export default function App() {
   const routeFeedbackTimerRef = useRef(0);
   const notificationPopupTimerRef = useRef(0);
   const menuHintTimerRef = useRef(0);
+  const menuHintDismissTimerRef = useRef(0);
   const previousUnreadNotificationCountRef = useRef(0);
   const desktopNavRef = useRef<HTMLDivElement | null>(null);
   const installedBackGuardReadyRef = useRef(false);
@@ -280,6 +289,8 @@ export default function App() {
   useEffect(
     () => () => {
       if (routeFeedbackTimerRef.current) window.clearTimeout(routeFeedbackTimerRef.current);
+      if (menuHintTimerRef.current) window.clearTimeout(menuHintTimerRef.current);
+      if (menuHintDismissTimerRef.current) window.clearTimeout(menuHintDismissTimerRef.current);
     },
     [],
   );
@@ -328,7 +339,19 @@ export default function App() {
 
   useEffect(() => {
     if (!profile) {
+      memoriesLoadedOnceRef.current = false;
       setMenuHintVisible(false);
+      setAccountBlock(null);
+      setRemoteMemories([]);
+      setRemoteComments([]);
+      setRemoteGuestbook([]);
+      setTimeCapsules([]);
+      setClassmates([]);
+      setVoteCategories([]);
+      setVoteRecords([]);
+      setRememberNotes([]);
+      setSentRememberNotes([]);
+      setSecretDiaries([]);
       setNotificationsSeenAt(new Date(0).toISOString());
       setNotificationReadIds(new Set());
       setNotificationActivity({
@@ -341,6 +364,12 @@ export default function App() {
       return;
     }
 
+    if (profile.disabled || profile.deleted) {
+      setAccountBlock({ kind: 'disabled', name: profile.name });
+    } else {
+      setAccountBlock(null);
+    }
+
     setNotificationsSeenAt(
       window.localStorage.getItem(`memory98-notifications-seen:${profile.uid}`) || new Date(0).toISOString(),
     );
@@ -348,17 +377,31 @@ export default function App() {
   }, [profile]);
 
   const dismissMenuHint = useCallback(() => {
+    if (menuHintDismissTimerRef.current) {
+      window.clearTimeout(menuHintDismissTimerRef.current);
+      menuHintDismissTimerRef.current = 0;
+    }
     setMenuHintVisible(false);
     if (profile) {
       window.localStorage.setItem(menuHintStorageKey(profile.uid), '1');
     }
   }, [profile]);
 
+  const scheduleMenuHintDismiss = useCallback(() => {
+    if (menuHintDismissTimerRef.current) return;
+    menuHintDismissTimerRef.current = window.setTimeout(() => {
+      menuHintDismissTimerRef.current = 0;
+      dismissMenuHint();
+    }, 2600);
+  }, [dismissMenuHint]);
+
   useEffect(() => {
     window.clearTimeout(menuHintTimerRef.current);
+    window.clearTimeout(menuHintDismissTimerRef.current);
+    menuHintDismissTimerRef.current = 0;
     setMenuHintVisible(false);
 
-    if (!profile || !bootSplashDone || route === 'landing' || route === 'join') return undefined;
+    if (!profile || accountBlock || !bootSplashDone || route === 'landing' || route === 'join') return undefined;
     if (menuOpen || notificationsOpen || futureMessagePopupOpen) return undefined;
     if (!window.matchMedia('(max-width: 1023px)').matches) return undefined;
     if (window.localStorage.getItem(menuHintStorageKey(profile.uid))) return undefined;
@@ -372,6 +415,7 @@ export default function App() {
     };
   }, [
     bootSplashDone,
+    accountBlock,
     futureMessagePopupOpen,
     menuOpen,
     notificationsOpen,
@@ -383,18 +427,20 @@ export default function App() {
   useEffect(() => {
     if (!menuHintVisible) return undefined;
 
+    const onPointerDown = () => scheduleMenuHintDismiss();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') dismissMenuHint();
+      if (event.key === 'Escape') dismissMenuHint();
+      if (event.key === 'Enter' || event.key === ' ') scheduleMenuHintDismiss();
     };
-    const autoDismissTimer = window.setTimeout(dismissMenuHint, 2000);
 
+    window.addEventListener('pointerdown', onPointerDown, { capture: true });
     window.addEventListener('keydown', onKeyDown);
 
     return () => {
-      window.clearTimeout(autoDismissTimer);
+      window.removeEventListener('pointerdown', onPointerDown, { capture: true });
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [dismissMenuHint, menuHintVisible]);
+  }, [dismissMenuHint, menuHintVisible, scheduleMenuHintDismiss]);
 
   useEffect(() => {
     if (!profile || !bootSplashDone) return undefined;
@@ -432,6 +478,12 @@ export default function App() {
       unsubscribe?.();
     };
   }, [bootSplashDone, profile?.uid]);
+
+  useEffect(() => {
+    if (!sessionNotice) return undefined;
+    const timer = window.setTimeout(() => setSessionNotice(''), 5200);
+    return () => window.clearTimeout(timer);
+  }, [sessionNotice]);
 
   useEffect(() => {
     if (!bootSplashDone) return undefined;
@@ -539,6 +591,14 @@ export default function App() {
 
   useEffect(() => {
     if (route === 'landing' || route === 'join') return undefined;
+    if (accountBlock) {
+      setMemoriesLoading(false);
+      setClassmatesLoading(false);
+      setRememberNotesLoading(false);
+      setSentRememberNotesLoading(false);
+      setVotesLoading(false);
+      return undefined;
+    }
 
     let unsubscribeMemories: (() => void) | undefined;
     let unsubscribeComments: (() => void) | undefined;
@@ -755,7 +815,7 @@ export default function App() {
       unsubscribeDiaries?.();
       unsubscribeVoteBoard?.();
     };
-  }, [profile, route]);
+  }, [accountBlock, profile, route]);
 
   const navigate = useCallback(
     (nextRoute: AppRoute) => {
@@ -783,6 +843,130 @@ export default function App() {
     },
     [reduceHeavyMotion, route],
   );
+
+  const resetAuthenticatedState = useCallback(() => {
+    memoriesLoadedOnceRef.current = false;
+    setRemoteMemories([]);
+    setRemoteComments([]);
+    setRemoteGuestbook([]);
+    setTimeCapsules([]);
+    setClassmates([]);
+    setVoteCategories([]);
+    setVoteRecords([]);
+    setRememberNotes([]);
+    setSentRememberNotes([]);
+    setSecretDiaries([]);
+    setNotificationActivity({
+      ownMemories: [],
+      ownMemoryComments: [],
+      receivedNotes: [],
+      sentNotes: [],
+      voteCategories: [],
+    });
+    setNotificationReadIds(new Set());
+  }, []);
+
+  const signOutToJoin = useCallback(
+    (notice?: string) => {
+      setMenuOpen(false);
+      setOpenNavGroup(null);
+      setNotificationsOpen(false);
+      setFutureMessagePopupOpen(false);
+      setAccountBlock(null);
+      resetAuthenticatedState();
+      setSessionNotice(notice || '');
+      setProfile(null);
+      navigate('join');
+
+      void import('./services/firebaseMemoryBook')
+        .then((service) => service.logoutStudent())
+        .catch(() => undefined);
+    },
+    [navigate, resetAuthenticatedState],
+  );
+
+  useEffect(() => {
+    if (!profile?.uid || !profile.nameKey) return undefined;
+
+    let unsubscribe: (() => void) | undefined;
+    let isActive = true;
+
+    void import('./services/firebaseRealtimeMemoryBook')
+      .then((service) => {
+        if (!isActive) return;
+
+        unsubscribe = service.subscribeStudentAccountRealtime(
+          profile,
+          (status) => {
+            if (!isActive) return;
+
+            if (status.state === 'deleted') {
+              signOutToJoin('Tài khoản của bạn đã bị manager xóa khỏi database lớp 9/8.');
+              return;
+            }
+
+            if (status.state === 'disabled') {
+              setMenuOpen(false);
+              setOpenNavGroup(null);
+              setNotificationsOpen(false);
+              setFutureMessagePopupOpen(false);
+              setAccountBlock({ kind: 'disabled', name: status.profile.name });
+              setProfile((current) => {
+                if (!current || current.uid !== status.profile.uid) return current;
+                return {
+                  ...current,
+                  name: status.profile.name,
+                  nameKey: status.profile.nameKey,
+                  className: status.profile.className,
+                  joinedAt: status.profile.joinedAt,
+                  disabled: true,
+                  deleted: false,
+                };
+              });
+              return;
+            }
+
+            setAccountBlock(null);
+            setProfile((current) => {
+              if (!current || current.uid !== status.profile.uid) return current;
+              if (
+                current.name === status.profile.name &&
+                current.nameKey === status.profile.nameKey &&
+                current.className === status.profile.className &&
+                current.joinedAt === status.profile.joinedAt &&
+                !current.disabled &&
+                !current.deleted
+              ) {
+                return current;
+              }
+
+              return {
+                ...current,
+                name: status.profile.name,
+                nameKey: status.profile.nameKey,
+                className: status.profile.className,
+                joinedAt: status.profile.joinedAt,
+                disabled: false,
+                deleted: false,
+              };
+            });
+          },
+          (error) => {
+            if (!isActive) return;
+            setFirebaseNotice(error.message);
+          },
+        );
+      })
+      .catch((caught) => {
+        if (!isActive) return;
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể theo dõi trạng thái tài khoản lúc này.');
+      });
+
+    return () => {
+      isActive = false;
+      unsubscribe?.();
+    };
+  }, [profile?.uid, profile?.nameKey, signOutToJoin]);
 
   const handleBootSplashComplete = useCallback(() => {
     setBootSplashDone(true);
@@ -1983,6 +2167,16 @@ export default function App() {
           {!bootSplashDone && <BootSplash logoSrc={logoSrc} onComplete={handleBootSplashComplete} />}
         </AnimatePresence>
 
+        {bootSplashDone && sessionNotice && (
+          <div
+            className="fixed left-1/2 top-[max(1rem,env(safe-area-inset-top))] z-[125] w-[min(92vw,28rem)] -translate-x-1/2 rounded-3xl border border-roseDust/20 bg-[#fffaf1] px-4 py-3 text-sm font-extrabold leading-6 text-coffee shadow-[0_18px_46px_rgba(53,41,31,0.2)]"
+            role="status"
+            aria-live="polite"
+          >
+            {sessionNotice}
+          </div>
+        )}
+
         {bootSplashDone && route !== 'landing' && (
           <header className="app-header fixed left-0 right-0 top-0 z-[70] border-b border-coffee/10 bg-[#fbf3e7] shadow-[0_8px_28px_rgba(53,41,31,0.08)]">
             <nav className="app-header-nav mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -2263,7 +2457,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={reduceHeavyMotion ? undefined : { opacity: 0, y: -6, scale: 0.98 }}
               transition={{ duration: reduceHeavyMotion ? 0 : 0.18, ease: 'easeOut' }}
-              onClick={dismissMenuHint}
+              onClick={scheduleMenuHintDismiss}
               aria-label="Ẩn gợi ý mở menu"
             >
               <span className="menu-hint-ring" />
@@ -2275,7 +2469,7 @@ export default function App() {
                 </span>
                 <p>Khám phá thêm những tính năng mới mẻ</p>
                 <small>Chạm nút 3 gạch ở góc trên để mở menu.</small>
-                <span className="menu-hint-dismiss">Tự ẩn sau 2 giây</span>
+                <span className="menu-hint-dismiss">Chạm màn hình, tự ẩn sau vài giây</span>
               </div>
             </m.button>
           )}
@@ -2317,6 +2511,9 @@ export default function App() {
               />
             )}
           </AnimatePresence>
+        )}
+        {bootSplashDone && accountBlock && (
+          <AccountLockScreen name={accountBlock.name} onSignOut={() => signOutToJoin('Bạn đã rời khỏi tài khoản bị khóa.')} />
         )}
         {bootSplashDone && <AppStatusToast isOnline={isOnline} justRestored={justRestored} />}
       </div>

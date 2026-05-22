@@ -1,5 +1,6 @@
 import {
   collection,
+  doc,
   getFirestore,
   limit,
   onSnapshot,
@@ -15,6 +16,7 @@ import type { MemoryComment, MemoryItem, UserProfile } from '../types';
 const MEMORIES_COLLECTION = 'memories98';
 const PRIVATE_MEMORIES_COLLECTION = 'privateMemories98';
 const MEMORY_COMMENTS_COLLECTION = 'memoryComments98';
+const STUDENTS_COLLECTION = 'students98';
 const CLASS_NAME = '9/8';
 
 const realtimeDb = getFirestore(firebaseApp);
@@ -82,6 +84,50 @@ const memoryCommentFromDoc = (id: string, data: DocumentData): MemoryComment => 
   message: String(data.message || ''),
   createdAt: timestampToIso(data.createdAt),
 });
+
+type StudentAccountRealtimeStatus =
+  | { state: 'active'; profile: UserProfile }
+  | { state: 'disabled'; profile: UserProfile }
+  | { state: 'deleted'; nameKey: string; name: string };
+
+const profileFromStudentDoc = (id: string, data: DocumentData, fallback: UserProfile): UserProfile => ({
+  uid: String(data.uid || fallback.uid),
+  name: String(data.name || fallback.name || id),
+  nameKey: String(data.nameKey || id),
+  className: String(data.className || CLASS_NAME),
+  joinedAt: timestampToIso(data.createdAt || fallback.joinedAt),
+  disabled: Boolean(data.disabled),
+  deleted: Boolean(data.deleted),
+});
+
+export const subscribeStudentAccountRealtime = (
+  profile: UserProfile,
+  onNext: (status: StudentAccountRealtimeStatus) => void,
+  onError: (error: Error) => void,
+) =>
+  onSnapshot(
+    doc(realtimeDb, STUDENTS_COLLECTION, profile.nameKey),
+    (snapshot) => {
+      if (!snapshot.exists()) {
+        onNext({ state: 'deleted', nameKey: profile.nameKey, name: profile.name });
+        return;
+      }
+
+      const nextProfile = profileFromStudentDoc(snapshot.id, snapshot.data(), profile);
+      if (nextProfile.deleted) {
+        onNext({ state: 'deleted', nameKey: nextProfile.nameKey, name: nextProfile.name });
+        return;
+      }
+
+      if (nextProfile.disabled) {
+        onNext({ state: 'disabled', profile: nextProfile });
+        return;
+      }
+
+      onNext({ state: 'active', profile: nextProfile });
+    },
+    (error) => onError(friendlyRealtimeError(error)),
+  );
 
 export const subscribeMemoriesRealtime = (
   profile: UserProfile | null,

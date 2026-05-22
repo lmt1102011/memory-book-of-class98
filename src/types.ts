@@ -37,6 +37,8 @@ export interface UserProfile {
   nameKey: string;
   className: string;
   joinedAt: string;
+  disabled?: boolean;
+  deleted?: boolean;
 }
 
 export interface ClassmateProfile {

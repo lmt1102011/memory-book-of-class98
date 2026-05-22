@@ -246,6 +246,8 @@ const profileFromData = (id: string, data: DocumentData, user?: User | null): Us
   nameKey: String(data.nameKey || id),
   className: CLASS_NAME,
   joinedAt: timestampToIso(data.createdAt),
+  disabled: Boolean(data.disabled),
+  deleted: Boolean(data.deleted),
 });
 
 const memoryCollectionForItem = (memory: MemoryItem) =>
@@ -528,16 +530,18 @@ export const observeStudentSession = (onProfile: (profile: UserProfile | null) =
       onProfile(null);
       return;
     }
-    if (snapshot.exists() && !snapshot.data().disabled && !snapshot.data().deleted) {
+    if (snapshot.exists()) {
       onProfile(profileFromData(nameKey, snapshot.data(), user));
       return;
     }
 
-    if (snapshot.exists() && (snapshot.data().disabled || snapshot.data().deleted)) {
-      await signOut(auth);
-    }
+    await signOut(auth);
     onProfile(null);
   });
+
+export const logoutStudent = async () => {
+  await signOut(auth);
+};
 
 export const subscribeMemories = (
   profile: UserProfile | null,
