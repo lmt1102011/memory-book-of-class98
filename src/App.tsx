@@ -23,7 +23,7 @@ import { useMobilePerformanceMode } from './hooks/useMobilePerformanceMode';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion';
 import LandingPage from './pages/LandingPage';
-import { shouldSkipIntroOnInstalledLaunch } from './pwaInstallPrompt';
+import { isStandaloneMode, shouldSkipIntroOnInstalledLaunch } from './pwaInstallPrompt';
 import type {
   AppRoute,
   ClassmateProfile,
@@ -54,9 +54,28 @@ const PeoplePage = lazy(() => import('./pages/PeoplePage'));
 const VotesPage = lazy(() => import('./pages/VotesPage'));
 const MyMemoriesPage = lazy(() => import('./pages/MyMemoriesPage'));
 
+const appRoutes: AppRoute[] = ['landing', 'join', 'home', 'letters', 'remember', 'diary', 'photobook', 'people', 'votes', 'mine'];
+
+type Memory98HistoryState = {
+  memory98?: true;
+  route?: AppRoute;
+  rootAnchor?: boolean;
+  rootGuard?: boolean;
+};
+
+const isAppRoute = (value: string): value is AppRoute => appRoutes.includes(value as AppRoute);
+const routeHash = (nextRoute: AppRoute) => `#/${nextRoute}`;
+const makeHistoryState = (nextRoute: AppRoute, extra: Omit<Memory98HistoryState, 'memory98' | 'route'> = {}): Memory98HistoryState => ({
+  memory98: true,
+  route: nextRoute,
+  ...extra,
+});
+
+const isRootAnchorState = (state: unknown) => Boolean((state as Memory98HistoryState | null)?.memory98 && (state as Memory98HistoryState | null)?.rootAnchor);
+
 const routeFromHash = (respectBrowserHash = false): AppRoute => {
   const route = window.location.hash.replace('#/', '') as AppRoute;
-  const isKnownRoute = ['landing', 'join', 'home', 'letters', 'remember', 'diary', 'photobook', 'people', 'votes', 'mine'].includes(route);
+  const isKnownRoute = isAppRoute(route);
   const skipIntro = shouldSkipIntroOnInstalledLaunch();
 
   if (!isKnownRoute) return skipIntro ? 'home' : 'landing';
@@ -141,29 +160,58 @@ export default function App() {
   const pendingReactionIdsRef = useRef(new Set<string>());
   const routeFeedbackTimerRef = useRef(0);
   const desktopNavRef = useRef<HTMLDivElement | null>(null);
+  const installedBackGuardReadyRef = useRef(false);
   const mobilePerformanceMode = useMobilePerformanceMode();
   const { isOnline, justRestored } = useNetworkStatus();
   const prefersReducedMotion = usePrefersReducedMotion();
   const reduceHeavyMotion = prefersReducedMotion || mobilePerformanceMode;
 
   useEffect(() => {
-    const onPopState = () => setRoute(routeFromHash(true));
+    const onPopState = (event: PopStateEvent) => {
+      const nextRoute = routeFromHash(true);
+
+      setFirebaseNotice('');
+      setMenuOpen(false);
+      setOpenNavGroup(null);
+      setNotificationsOpen(false);
+      setRoute(nextRoute);
+
+      if (!isStandaloneMode() || !isRootAnchorState(event.state)) return;
+
+      window.setTimeout(() => {
+        window.history.pushState(makeHistoryState(nextRoute, { rootGuard: true }), '', routeHash(nextRoute));
+      }, 0);
+    };
+
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (!isStandaloneMode() || installedBackGuardReadyRef.current) return;
+    installedBackGuardReadyRef.current = true;
+
+    const currentRoute = routeFromHash(true);
+    const currentState = window.history.state as Memory98HistoryState | null;
+    if (currentState?.memory98 && currentState.rootGuard) return;
+
+    window.history.replaceState(makeHistoryState(currentRoute, { rootAnchor: true }), '', routeHash(currentRoute));
+    window.history.pushState(makeHistoryState(currentRoute, { rootGuard: true }), '', routeHash(currentRoute));
+    setRoute(currentRoute);
   }, []);
 
   useEffect(() => {
     if (route !== 'landing' || !shouldSkipIntroOnInstalledLaunch()) return;
 
     setRoute('home');
-    window.history.replaceState(null, '', '#/home');
+    window.history.replaceState(makeHistoryState('home'), '', routeHash('home'));
   }, [route]);
 
   useEffect(() => {
     if (route !== 'landing' || shouldSkipIntroOnInstalledLaunch()) return;
     if (window.location.hash === '#/landing') return;
 
-    window.history.replaceState(null, '', '#/landing');
+    window.history.replaceState(makeHistoryState('landing'), '', routeHash('landing'));
   }, [route]);
 
   useEffect(() => {
@@ -528,7 +576,7 @@ export default function App() {
       );
 
       setRoute(nextRoute);
-      window.history.pushState(null, '', `#/${nextRoute}`);
+      window.history.pushState(makeHistoryState(nextRoute), '', routeHash(nextRoute));
     },
     [reduceHeavyMotion, route],
   );
