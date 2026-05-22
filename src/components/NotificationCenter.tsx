@@ -36,7 +36,8 @@ export default function NotificationCenter({
 }: NotificationCenterProps) {
   if (!open) return null;
 
-  const latestItem = items.find((item) => item.unread) || items[0];
+  const latestItem = items[0];
+  const listItems = latestItem ? items.filter((item) => item.id !== latestItem.id) : items;
   const messageCount = items.filter((item) => item.kind === 'message' || item.kind === 'reaction').length;
   const memoryCount = items.filter((item) => item.kind === 'comment' || item.kind === 'like').length;
   const voteCount = items.filter((item) => item.kind === 'vote').length;
@@ -62,9 +63,9 @@ export default function NotificationCenter({
               </span>
               <div className="min-w-0">
                 <p className="section-kicker">Thông báo</p>
-                <h2 className="font-display text-5xl leading-none">Chuông Memory98</h2>
+                <h2 className="font-display text-5xl leading-none">Thông báo mới</h2>
                 <p className="mt-2 text-xs leading-5 text-ink/58">
-                  Secret Message, tim, bình luận và bình chọn mới được gom vào một pop-up gọn để bạn không bỏ lỡ.
+                  Chỉ hiện những thông báo bạn chưa xem. Bấm vào một thông báo để mở, xem rồi thông báo đó sẽ biến mất.
                 </p>
               </div>
             </div>
@@ -77,7 +78,7 @@ export default function NotificationCenter({
             <div className="flex items-center justify-between gap-3">
               <span className="inline-flex min-w-0 items-center gap-2 text-sm font-bold">
                 <Bell size={17} />
-                {unreadCount ? `${unreadCount} thông báo mới` : 'Không có thông báo mới'}
+                {unreadCount ? `${unreadCount} thông báo chưa xem` : 'Bạn đã xem hết thông báo'}
               </span>
               <button
                 className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full bg-paper px-3 text-xs font-black text-ink transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-55"
@@ -85,7 +86,7 @@ export default function NotificationCenter({
                 disabled={!items.length || unreadCount === 0}
               >
                 <CheckCheck size={14} />
-                Đã đọc
+                Đã xem hết
               </button>
             </div>
 
@@ -105,7 +106,7 @@ export default function NotificationCenter({
             >
               <span className="inline-flex items-center gap-2 rounded-full bg-ink px-3 py-1.5 text-[11px] font-black uppercase text-paper">
                 <Bell size={17} />
-                {latestItem.unread ? 'Mới nhất' : 'Gần đây'}
+                Mới nhất
               </span>
               <strong className="mt-3 block line-clamp-2 text-base leading-6 text-ink">{latestItem.title}</strong>
               <span className="mt-1 block line-clamp-2 text-sm leading-6 text-ink/64">{latestItem.body}</span>
@@ -117,15 +118,13 @@ export default function NotificationCenter({
 
           {items.length ? (
             <div className="grid gap-2">
-              {items.map((item) => {
+              {listItems.map((item) => {
                 const Icon = iconByKind[item.kind] || Sparkles;
 
                 return (
                   <button
                     key={item.id}
-                    className={`grid grid-cols-[2.65rem_minmax(0,1fr)] gap-3 rounded-[1rem] p-3 text-left transition hover:bg-white/80 ${
-                      item.unread ? 'bg-white shadow-paper ring-1 ring-blush/28' : 'bg-white/55 ring-1 ring-coffee/6'
-                    }`}
+                    className="grid grid-cols-[2.65rem_minmax(0,1fr)] gap-3 rounded-[1rem] bg-white p-3 text-left shadow-paper ring-1 ring-blush/28 transition hover:bg-white/80"
                     onClick={() => onOpenItem(item)}
                   >
                     <span className={`grid h-10 w-10 place-items-center rounded-full ${accentClass[item.accent]}`}>
@@ -134,7 +133,9 @@ export default function NotificationCenter({
                     <span className="min-w-0">
                       <span className="flex items-center justify-between gap-2">
                         <strong className="line-clamp-1 text-sm">{item.title}</strong>
-                        {item.unread && <span className="h-2 w-2 shrink-0 rounded-full bg-roseDust" aria-hidden="true" />}
+                        <span className="shrink-0 rounded-full bg-roseDust px-2 py-0.5 text-[10px] font-black uppercase text-white">
+                          Chưa xem
+                        </span>
                       </span>
                       <span className="mt-1 line-clamp-2 text-xs leading-5 text-ink/62">{item.body}</span>
                       <span className="mt-2 block text-[11px] font-bold uppercase text-coffee/60">
@@ -151,9 +152,9 @@ export default function NotificationCenter({
                 <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-paper text-coffee shadow-paper">
                   <MessageCircle size={27} />
                 </span>
-                <h3 className="mt-3 font-display text-4xl leading-none">Chưa có thông báo</h3>
+                <h3 className="mt-3 font-display text-4xl leading-none">Đã xem hết</h3>
                 <p className="mt-2 text-sm leading-6 text-ink/58">
-                  Khi có tương tác mới, Memory98 sẽ để lại chấm đỏ ở chuông và gom chi tiết tại đây.
+                  Khi có Secret Message, tim, bình luận hoặc bình chọn mới, popup này sẽ hiện rõ để bạn mở xem.
                 </p>
               </div>
             </div>

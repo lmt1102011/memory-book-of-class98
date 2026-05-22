@@ -126,6 +126,17 @@ const logoSrc = `${import.meta.env.BASE_URL}logo-web-class-98.svg?v=20260521-log
 const sortCommentsNewestFirst = (comments: MemoryComment[]) =>
   [...comments].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
 
+const readNotificationIdsKey = (uid: string) => `memory98-notifications-read-ids:${uid}`;
+
+const readStoredNotificationIds = (uid: string) => {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(readNotificationIdsKey(uid)) || '[]');
+    return new Set(Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : []);
+  } catch {
+    return new Set<string>();
+  }
+};
+
 const defaultCinematicSlideshowSettings: CinematicSlideshowSettings = {
   enabled: false,
   mood: 'cinematic',
@@ -163,6 +174,7 @@ export default function App() {
   const [notificationActivityLoading, setNotificationActivityLoading] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsSeenAt, setNotificationsSeenAt] = useState(() => new Date(0).toISOString());
+  const [notificationReadIds, setNotificationReadIds] = useState<Set<string>>(() => new Set());
   const [futureMessagePopupOpen, setFutureMessagePopupOpen] = useState(false);
   const [memoryRecapEnabled, setMemoryRecapEnabled] = useState(false);
   const [cinematicSlideshowSettings, setCinematicSlideshowSettings] = useState<CinematicSlideshowSettings>(
@@ -180,6 +192,8 @@ export default function App() {
   const memoriesLoadedOnceRef = useRef(false);
   const pendingReactionIdsRef = useRef(new Set<string>());
   const routeFeedbackTimerRef = useRef(0);
+  const notificationPopupTimerRef = useRef(0);
+  const previousUnreadNotificationCountRef = useRef(0);
   const desktopNavRef = useRef<HTMLDivElement | null>(null);
   const installedBackGuardReadyRef = useRef(false);
   const mobilePerformanceMode = useMobilePerformanceMode();
@@ -310,6 +324,7 @@ export default function App() {
   useEffect(() => {
     if (!profile) {
       setNotificationsSeenAt(new Date(0).toISOString());
+      setNotificationReadIds(new Set());
       setNotificationActivity({
         ownMemories: [],
         ownMemoryComments: [],
@@ -323,6 +338,7 @@ export default function App() {
     setNotificationsSeenAt(
       window.localStorage.getItem(`memory98-notifications-seen:${profile.uid}`) || new Date(0).toISOString(),
     );
+    setNotificationReadIds(readStoredNotificationIds(profile.uid));
   }, [profile]);
 
   useEffect(() => {
@@ -764,21 +780,23 @@ export default function App() {
     if (!profile) return [];
 
     const seenAt = new Date(notificationsSeenAt).getTime();
-    const makeUnread = (createdAt: string) => new Date(createdAt).getTime() > seenAt;
+    const makeUnread = (id: string, createdAt: string) =>
+      new Date(createdAt).getTime() > seenAt && !notificationReadIds.has(id);
     const items: NotificationItem[] = [];
 
     notificationActivity.receivedNotes
       .filter((note) => note.fromUid !== profile.uid)
       .slice(0, 24)
       .forEach((note) => {
+        const id = `message-${note.id}`;
         items.push({
-          id: `message-${note.id}`,
+          id,
           kind: 'message',
           route: 'remember',
           title: note.anonymous ? 'Secret Message mới' : `${note.fromName} gửi Secret Message`,
           body: note.message,
           createdAt: note.createdAt,
-          unread: makeUnread(note.createdAt),
+          unread: makeUnread(id, note.createdAt),
           accent: 'pink',
         });
       });
@@ -788,14 +806,15 @@ export default function App() {
       .slice(0, 24)
       .forEach((note) => {
         const createdAt = note.reactedAt || note.createdAt;
+        const id = `reaction-${note.id}-${note.reactionId}`;
         items.push({
-          id: `reaction-${note.id}-${note.reactionId}`,
+          id,
           kind: 'reaction',
           route: 'remember',
           title: `${note.toName} đã phản hồi`,
           body: `Người nhận đã thả: ${note.reactionLabel || rememberReactionLabels[note.reactionId!]}`,
           createdAt,
-          unread: makeUnread(createdAt),
+          unread: makeUnread(id, createdAt),
           accent: 'blue',
         });
       });
@@ -806,14 +825,15 @@ export default function App() {
       .slice(0, 32)
       .forEach((comment) => {
         const memory = ownMemoryById.get(comment.memoryId);
+        const id = `comment-${comment.id}`;
         items.push({
-          id: `comment-${comment.id}`,
+          id,
           kind: 'comment',
           route: 'mine',
           title: `${comment.name} bình luận`,
           body: memory?.caption ? `${comment.message} · ${memory.caption}` : comment.message,
           createdAt: comment.createdAt,
-          unread: makeUnread(comment.createdAt),
+          unread: makeUnread(id, comment.createdAt),
           accent: 'cream',
         });
       });
@@ -824,14 +844,15 @@ export default function App() {
       .forEach((memory) => {
         const otherLikes = memory.likedBy.filter((uid) => uid !== profile.uid).length;
         const createdAt = memory.updatedAt || memory.createdAt;
+        const id = `like-${memory.storageCollection || 'memories98'}-${memory.id}-${otherLikes}`;
         items.push({
-          id: `like-${memory.storageCollection || 'memories98'}-${memory.id}-${otherLikes}`,
+          id,
           kind: 'like',
           route: 'mine',
           title: `${otherLikes} tim mới trên ${memory.mediaType === 'video' ? 'video' : 'ảnh'} của bạn`,
           body: memory.caption || 'Một kỷ niệm của bạn vừa được lớp tương tác.',
           createdAt,
-          unread: makeUnread(createdAt),
+          unread: makeUnread(id, createdAt),
           accent: 'pink',
         });
       });
@@ -840,14 +861,15 @@ export default function App() {
       .filter((category) => category.uid !== profile.uid)
       .slice(0, 16)
       .forEach((category) => {
+        const id = `vote-${category.id}`;
         items.push({
-          id: `vote-${category.id}`,
+          id,
           kind: 'vote',
           route: 'votes',
           title: 'Có hạng mục bình chọn mới',
           body: category.title,
           createdAt: category.createdAt,
-          unread: makeUnread(category.createdAt),
+          unread: makeUnread(id, category.createdAt),
           accent: 'chalk',
         });
       });
@@ -855,10 +877,14 @@ export default function App() {
     return items
       .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
       .slice(0, 60);
-  }, [notificationActivity, notificationsSeenAt, profile]);
+  }, [notificationActivity, notificationReadIds, notificationsSeenAt, profile]);
 
   const unreadNotificationCount = useMemo(
     () => notificationItems.filter((item) => item.unread).length,
+    [notificationItems],
+  );
+  const unreadNotificationItems = useMemo(
+    () => notificationItems.filter((item) => item.unread),
     [notificationItems],
   );
 
@@ -878,16 +904,70 @@ export default function App() {
     void badgeNavigator.clearAppBadge().catch(() => undefined);
   }, [unreadNotificationCount]);
 
+  useEffect(() => {
+    if (!bootSplashDone || !profile || notificationsOpen || notificationActivityLoading) return undefined;
+    if (route === 'landing' || route === 'join') return undefined;
+
+    const latestUnread = unreadNotificationItems[0];
+    if (!latestUnread || unreadNotificationCount === 0) {
+      previousUnreadNotificationCountRef.current = 0;
+      return undefined;
+    }
+
+    const previousUnreadCount = previousUnreadNotificationCountRef.current;
+    previousUnreadNotificationCountRef.current = unreadNotificationCount;
+    if (previousUnreadCount !== 0 && unreadNotificationCount <= previousUnreadCount) return undefined;
+
+    const popupKey = `memory98-notification-popup:${profile.uid}:${latestUnread.id}`;
+    if (window.sessionStorage.getItem(popupKey)) return undefined;
+    window.sessionStorage.setItem(popupKey, '1');
+
+    notificationPopupTimerRef.current = window.setTimeout(() => {
+      setNotificationsOpen(true);
+    }, reduceHeavyMotion ? 220 : 520);
+
+    return () => {
+      window.clearTimeout(notificationPopupTimerRef.current);
+    };
+  }, [
+    bootSplashDone,
+    notificationActivityLoading,
+    notificationsOpen,
+    profile,
+    reduceHeavyMotion,
+    route,
+    unreadNotificationCount,
+    unreadNotificationItems,
+  ]);
+
   const markNotificationsRead = useCallback(() => {
     if (!profile) return;
     const now = new Date().toISOString();
     window.localStorage.setItem(`memory98-notifications-seen:${profile.uid}`, now);
+    window.localStorage.removeItem(readNotificationIdsKey(profile.uid));
     setNotificationsSeenAt(now);
+    setNotificationReadIds(new Set());
+    previousUnreadNotificationCountRef.current = 0;
   }, [profile]);
+
+  const markNotificationRead = useCallback(
+    (item: NotificationItem) => {
+      if (!profile) return;
+      setNotificationReadIds((current) => {
+        if (current.has(item.id)) return current;
+        const next = new Set(current);
+        next.add(item.id);
+        const stored = Array.from(next).slice(-240);
+        window.localStorage.setItem(readNotificationIdsKey(profile.uid), JSON.stringify(stored));
+        return new Set(stored);
+      });
+    },
+    [profile],
+  );
 
   const handleOpenNotification = useCallback(
     (item: NotificationItem) => {
-      markNotificationsRead();
+      markNotificationRead(item);
       setNotificationsOpen(false);
       if (item.route === 'mine' && profile) {
         setFocusedPersonKey(profile.nameKey);
@@ -896,7 +976,7 @@ export default function App() {
       }
       navigate(item.route);
     },
-    [markNotificationsRead, navigate, profile],
+    [markNotificationRead, navigate, profile],
   );
 
   const navBadgeCount = useCallback(
@@ -2137,7 +2217,7 @@ export default function App() {
         {bootSplashDone && (
           <NotificationCenter
             open={notificationsOpen}
-            items={notificationItems}
+            items={unreadNotificationItems}
             unreadCount={unreadNotificationCount}
             onClose={() => setNotificationsOpen(false)}
             onMarkAllRead={markNotificationsRead}
