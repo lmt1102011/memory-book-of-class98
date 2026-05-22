@@ -842,6 +842,9 @@
               </div>
               <p class="muted">key: ${escapeHtml(letter.nameKey || '')} | UID: ${escapeHtml(letter.uid || '')}</p>
               <p class="message">${escapeHtml(letter.message || '')}</p>
+              <div class="row" style="margin-top: 10px">
+                <button class="danger" data-capsule-action="delete" data-id="${escapeHtml(letter.id)}">Xóa lời nhắn</button>
+              </div>
             </article>
           `)
           .join('');
@@ -1257,6 +1260,33 @@
           memoryStatus.textContent = 'Đã xóa kỷ niệm khỏi feed lớp.';
         } catch (error) {
           memoryStatus.textContent = error.message || 'Không thể xóa kỷ niệm lúc này.';
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      $('classLetters').addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-capsule-action="delete"][data-id]');
+        if (!button) return;
+
+        const id = button.dataset.id;
+        const letter = timeCapsules.find((item) => item.id === id);
+        if (!id || !letter) return;
+        if (!window.confirm(`Xóa lời nhắn tương lai của ${letter.name || 'học sinh này'}?`)) return;
+
+        button.disabled = true;
+        try {
+          await updateDoc(doc(db, TIME_CAPSULE_COLLECTION, id), {
+            managerKey: MANAGER_PASSWORD,
+            managerDeletedAt: serverTimestamp(),
+          });
+          await deleteDoc(doc(db, TIME_CAPSULE_COLLECTION, id));
+          timeCapsules = timeCapsules.filter((item) => item.id !== id);
+          renderLetters();
+          updateStats();
+          timeCapsuleStatus.textContent = 'Đã xóa lời nhắn tương lai.';
+        } catch (error) {
+          timeCapsuleStatus.textContent = error.message || 'Không thể xóa lời nhắn tương lai lúc này.';
         } finally {
           button.disabled = false;
         }

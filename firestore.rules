@@ -313,7 +313,8 @@ service cloud.firestore {
     match /timeCapsules98/{entryId} {
       allow read: if true;
       allow create: if validTimeCapsuleCreate();
-      allow update: if false;
+      allow update: if isManagerWrite()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['managerKey', 'managerDeletedAt']);
       allow delete: if ownsResource() || isManagerMarkedResource();
     }
 
