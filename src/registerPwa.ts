@@ -1,7 +1,7 @@
 import { showAppUpdateOverlay } from './utils/appUpdateRecovery';
 import { isStandaloneMode } from './pwaInstallPrompt';
 
-const SW_VERSION = '20260522-auto-update-4';
+const SW_VERSION = '20260522-auto-update-5';
 const UPDATE_CHECK_INTERVAL = 60_000;
 const UPDATE_RELOAD_DELAY = 850;
 const INITIAL_UPDATE_CHECK_DELAY = 1_500;

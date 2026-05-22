@@ -33,6 +33,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Stamp app version
+        run: |
+          echo "VITE_APP_VERSION=${GITHUB_SHA}" >> "$GITHUB_ENV"
+          node -e "const fs=require('fs'); fs.writeFileSync('public/app-version.json', JSON.stringify({ version: process.env.GITHUB_SHA, builtAt: new Date().toISOString() }, null, 2));"
+
       - name: Build
         run: npm run build
 

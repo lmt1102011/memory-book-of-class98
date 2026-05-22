@@ -1,4 +1,4 @@
-const CACHE_NAME = 'memory98-app-shell-v15';
+const CACHE_NAME = 'memory98-app-shell-v16';
 const APP_SHELL_PATHS = [
   './',
   './index.html',
@@ -36,6 +36,7 @@ const shouldHandleRequest = (request) => {
   if (request.method !== 'GET') return false;
   if (url.origin !== self.location.origin) return false;
   if (url.pathname.endsWith('/manager.html')) return false;
+  if (url.pathname.endsWith('/app-version.json')) return false;
   return true;
 };
 
