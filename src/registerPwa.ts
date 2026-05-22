@@ -5,9 +5,14 @@ export const registerPwa = () => {
     const baseUrl = new URL(import.meta.env.BASE_URL || './', window.location.href);
     const swUrl = new URL('sw.js', baseUrl).toString();
 
-    navigator.serviceWorker.register(swUrl, { scope: baseUrl.pathname }).catch(() => {
-      // The app must keep working even when the browser refuses service workers.
-    });
+    navigator.serviceWorker
+      .register(swUrl, { scope: baseUrl.pathname })
+      .then((registration) => {
+        void registration.update().catch(() => undefined);
+      })
+      .catch(() => {
+        // The app must keep working even when the browser refuses service workers.
+      });
   };
 
   register();
