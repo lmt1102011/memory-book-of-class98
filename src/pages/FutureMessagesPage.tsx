@@ -78,7 +78,7 @@ export default function FutureMessagesPage({
       setMessage('');
       setIsWriterOpen(false);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Không thể gửi lời nhắn cho tương lai lúc này.');
+      setError(caught instanceof Error ? caught.message : 'Không thể gửi lời nhắn cho lớp trong tương lai lúc này.');
     } finally {
       setIsSending(false);
     }
@@ -94,13 +94,13 @@ export default function FutureMessagesPage({
               <div className="relative">
                 <span className="inline-flex items-center gap-2 rounded-full bg-paper px-3 py-1.5 text-[11px] font-black uppercase text-ink">
                   <Sparkles size={13} />
-                  Gửi cho tương lai
+                  Gửi cho lớp trong tương lai
                 </span>
                 <h1 className="mt-5 max-w-3xl font-display text-6xl leading-[0.86] sm:text-8xl">
-                  Một lá thư nhỏ gửi cho chính mình sau này
+                  Một lá thư nhỏ gửi cho lớp mình sau này
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-7 text-paper/72 sm:text-base">
-                  Viết lại điều bạn muốn nhắn với bản thân trong tương lai. Trước giờ mở, nơi này chỉ hiện số lời nhắn đã gửi; đến giờ, phong bì lớp sẽ mở ra tất cả lời nhắn của mọi người.
+                  Viết lại điều bạn muốn nhắn với lớp 9/8 trong tương lai. Trước giờ mở, nơi này chỉ hiện số lời nhắn đã gửi; đến giờ, phong bì lớp sẽ mở ra tất cả lời nhắn của mọi người.
                 </p>
 
                 <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -130,7 +130,7 @@ export default function FutureMessagesPage({
                     onClick={() => (profile ? setIsWriterOpen(true) : onJoin())}
                   >
                     <Send size={17} />
-                    Gửi cho tương lai
+                    Gửi cho lớp trong tương lai
                   </button>
                   {isUnlocked && timeCapsules.length > 0 && (
                     <button
@@ -152,20 +152,20 @@ export default function FutureMessagesPage({
               <div className="absolute right-5 top-5 grid h-12 w-12 place-items-center rounded-full bg-ink text-paper shadow-paper">
                 {isUnlocked ? <Sparkles size={22} /> : <Lock size={22} />}
               </div>
-              <p className="section-kicker pr-16">Future Letter</p>
+              <p className="section-kicker pr-16">Thư lớp tương lai</p>
               <h2 className="pr-12 font-display text-5xl leading-none text-ink">
                 {isUnlocked ? 'Đã đến lúc mở thư' : 'Đang giữ bí mật'}
               </h2>
               <p className="mt-3 text-sm leading-7 text-ink/64">
                 {isUnlocked
-                  ? 'Khi bạn vào app, một phong bì sẽ hiện lên. Bấm mở để đọc tất cả lời nhắn mà lớp đã gửi cho tương lai.'
+                  ? 'Khi bạn vào app, một phong bì sẽ hiện lên. Bấm mở để đọc tất cả lời nhắn mà lớp đã gửi cho lớp trong tương lai.'
                   : 'Không hiện phong bì, không hiện nội dung trước giờ mở. Mọi thứ được cất lại để khoảnh khắc mở thư thật đáng nhớ.'}
               </p>
 
               <div className="mt-5 rounded-[1.2rem] border border-coffee/10 bg-white/70 p-5 text-center shadow-paper">
                 <span className="text-[11px] font-black uppercase tracking-[0.16em] text-coffee/55">Tổng đã gửi</span>
                 <strong className="mt-2 block font-display text-8xl leading-none text-ink">{timeCapsules.length}</strong>
-                <span className="mt-1 block text-xs font-black uppercase text-coffee/60">lời nhắn tương lai</span>
+                <span className="mt-1 block text-xs font-black uppercase text-coffee/60">lời nhắn cho lớp sau này</span>
               </div>
 
               <p className="mt-4 rounded-[1rem] bg-paper/72 px-4 py-3 text-xs font-bold leading-5 text-ink/58">
@@ -178,8 +178,8 @@ export default function FutureMessagesPage({
 
       <ActionModal
         isOpen={Boolean(profile && isWriterOpen)}
-        title="Gửi cho tương lai"
-        description="Trước giờ mở, mọi người chỉ thấy số lời nhắn đã gửi. Nội dung của bạn được cất lại cho chính bạn sau này."
+        title="Gửi cho lớp trong tương lai"
+        description="Trước giờ mở, mọi người chỉ thấy số lời nhắn đã gửi. Nội dung sẽ được cất lại để cả lớp cùng mở sau này."
         icon={<Sparkles size={20} />}
         onClose={() => setIsWriterOpen(false)}
       >
@@ -189,19 +189,19 @@ export default function FutureMessagesPage({
             <p className="mt-1 text-sm font-bold leading-6 text-paper/82">{unlockLabel}</p>
           </div>
           <label className="grid gap-2">
-            <span className="text-xs font-black uppercase text-coffee/70">Lời nhắn gửi cho tương lai</span>
+            <span className="text-xs font-black uppercase text-coffee/70">Lời nhắn gửi cho lớp trong tương lai</span>
             <textarea
               className="input-field min-h-40 resize-none"
               value={message}
               onChange={(event) => setMessage(event.target.value.slice(0, 900))}
-              placeholder="Viết điều bạn muốn nhắn với bản thân trong tương lai..."
+              placeholder="Viết điều bạn muốn nhắn với lớp 9/8 trong tương lai..."
               maxLength={900}
             />
           </label>
           <p className="text-xs font-bold text-ink/48">{message.length}/900 ký tự</p>
           <button className="primary-button justify-center" disabled={isSending || !message.trim()}>
             <Send size={17} />
-            {isSending ? 'Đang gửi...' : 'Gửi cho tương lai'}
+            {isSending ? 'Đang gửi...' : 'Gửi cho lớp trong tương lai'}
           </button>
         </form>
       </ActionModal>

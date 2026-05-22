@@ -35,7 +35,7 @@ export default function FutureMessagePopup({ isOpen, entries, unlockAt, onClose 
       className="app-safe-modal-overlay fixed inset-0 z-[120] grid place-items-center overflow-hidden bg-ink/72 p-3 text-ink sm:p-6"
       role="dialog"
       aria-modal="true"
-      aria-label="Gửi cho tương lai đã đến ngày mở"
+      aria-label="Gửi cho lớp trong tương lai đã đến ngày mở"
       onClick={onClose}
       initial={mobilePerformanceMode ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -53,7 +53,7 @@ export default function FutureMessagePopup({ isOpen, entries, unlockAt, onClose 
         <button
           className="absolute right-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-full bg-ink text-paper shadow-paper transition hover:bg-coffee"
           onClick={onClose}
-          aria-label="Đóng gửi cho tương lai"
+          aria-label="Đóng Gửi cho lớp trong tương lai"
         >
           <X size={18} />
         </button>
@@ -65,7 +65,7 @@ export default function FutureMessagePopup({ isOpen, entries, unlockAt, onClose 
             <div className="relative mx-auto flex min-h-[31rem] max-w-xl flex-col items-center justify-center">
               <span className="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-paper shadow-paper">
                 <Sparkles size={14} />
-                Gửi cho tương lai
+                Gửi cho lớp trong tương lai
               </span>
 
               <div className="relative mt-7 h-64 w-[20rem] max-w-full sm:h-72 sm:w-[23rem]" aria-hidden="true">
@@ -94,7 +94,7 @@ export default function FutureMessagePopup({ isOpen, entries, unlockAt, onClose 
                 Đến lúc mở lời nhắn rồi
               </h2>
               <p className="mt-4 max-w-lg text-sm leading-7 text-ink/66 sm:text-base">
-                Lớp mình có {entries.length} lời nhắn từng gửi cho tương lai. Bấm mở phong bì để đọc lại tất cả điều mọi người đã cất giữ.
+                Lớp mình có {entries.length} lời nhắn từng gửi cho lớp trong tương lai. Bấm mở phong bì để đọc lại tất cả điều mọi người đã cất giữ.
               </p>
               <p className="mt-3 rounded-full bg-white/70 px-4 py-2 text-xs font-black uppercase text-coffee/62 shadow-paper">
                 Mở lúc {formatVietnamDate(unlockAt)}
@@ -109,7 +109,7 @@ export default function FutureMessagePopup({ isOpen, entries, unlockAt, onClose 
         ) : (
           <div className="grid max-h-[92svh] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
             <div className="border-b border-coffee/10 bg-[#2f2118] px-5 py-5 pr-16 text-paper sm:px-7">
-              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-paper/48">Gửi cho tương lai</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-paper/48">Gửi cho lớp trong tương lai</p>
               <h2 className="mt-1 font-display text-5xl leading-none sm:text-6xl">Những lời nhắn của lớp</h2>
               <p className="mt-2 text-sm leading-6 text-paper/66">
                 Tất cả lời nhắn được mở cùng lúc khi đến giờ.

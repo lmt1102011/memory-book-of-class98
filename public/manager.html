@@ -422,7 +422,7 @@
 
         <section class="card setting-card">
           <div>
-            <strong>Gửi cho tương lai</strong>
+            <strong>Gửi cho lớp trong tương lai</strong>
             <p class="muted">
               Đây là mục riêng trong nhóm Lời nhắn. Trước giờ mở, học sinh chỉ thấy số lời nhắn đã gửi.
             </p>
@@ -441,7 +441,7 @@
           <button class="tab active" data-tab="accounts">Tài khoản</button>
           <button class="tab" data-tab="memories">Ảnh/video</button>
           <button class="tab" data-tab="letters">Thư lớp</button>
-          <button class="tab" data-tab="future">Gửi cho tương lai</button>
+          <button class="tab" data-tab="future">Gửi cho lớp trong tương lai</button>
           <button class="tab" data-tab="remember">Secret Message</button>
           <button class="tab" data-tab="diaries">Nhật ký</button>
           <button class="tab" data-tab="downloads">Lượt tải</button>
@@ -484,9 +484,9 @@
 
         <section class="panel" data-panel="future">
           <section class="card">
-            <h2>Gửi cho tương lai</h2>
+            <h2>Gửi cho lớp trong tương lai</h2>
             <p class="muted" style="margin-bottom: 12px">
-              Manager thấy người viết, nội dung lời nhắn và có thể xóa lời nhắn tương lai khi cần.
+              Manager thấy người viết, nội dung lời nhắn cho lớp trong tương lai và có thể xóa khi cần.
             </p>
             <div id="futureMessages" class="list"></div>
           </section>
@@ -852,7 +852,7 @@
             .map((letter) => `
             <article class="item">
               <div class="row">
-                <strong>Gửi cho tương lai: ${escapeHtml(letter.name || 'Không rõ tên')}</strong>
+                <strong>Gửi cho lớp trong tương lai: ${escapeHtml(letter.name || 'Không rõ tên')}</strong>
                 <span class="pill blue">${formatDate(letter.createdAt)}</span>
                 <span class="pill dark">Mở theo giờ VN: ${formatDate(timeCapsuleSetting.unlockAt)}</span>
               </div>
@@ -863,7 +863,7 @@
               </div>
             </article>
           `)
-            .join('') || '<p class="muted">Chưa có lời nhắn tương lai nào.</p>';
+            .join('') || '<p class="muted">Chưa có lời nhắn cho lớp trong tương lai nào.</p>';
       };
 
       const renderRememberNotes = () => {
@@ -1165,7 +1165,7 @@
         }
 
         $('saveTimeCapsuleButton').disabled = true;
-        timeCapsuleStatus.textContent = 'Đang lưu giờ mở Gửi cho tương lai...';
+        timeCapsuleStatus.textContent = 'Đang lưu giờ mở Gửi cho lớp trong tương lai...';
         try {
           await setDoc(
             doc(db, SITE_SETTINGS_COLLECTION, TIME_CAPSULE_SETTING_ID),
@@ -1180,7 +1180,7 @@
           timeCapsuleSetting = { unlockAt };
           renderSettings();
         } catch (error) {
-          timeCapsuleStatus.textContent = error.message || 'Không thể lưu giờ mở Gửi cho tương lai.';
+          timeCapsuleStatus.textContent = error.message || 'Không thể lưu giờ mở Gửi cho lớp trong tương lai.';
         } finally {
           $('saveTimeCapsuleButton').disabled = false;
         }
@@ -1283,7 +1283,7 @@
         const id = button.dataset.id;
         const letter = timeCapsules.find((item) => item.id === id);
         if (!id || !letter) return;
-        if (!window.confirm(`Xóa lời nhắn tương lai của ${letter.name || 'học sinh này'}?`)) return;
+        if (!window.confirm(`Xóa lời nhắn cho lớp trong tương lai của ${letter.name || 'học sinh này'}?`)) return;
 
         button.disabled = true;
         try {
@@ -1295,9 +1295,9 @@
           timeCapsules = timeCapsules.filter((item) => item.id !== id);
           renderFutureMessages();
           updateStats();
-          timeCapsuleStatus.textContent = 'Đã xóa lời nhắn tương lai.';
+          timeCapsuleStatus.textContent = 'Đã xóa lời nhắn cho lớp trong tương lai.';
         } catch (error) {
-          timeCapsuleStatus.textContent = error.message || 'Không thể xóa lời nhắn tương lai lúc này.';
+          timeCapsuleStatus.textContent = error.message || 'Không thể xóa lời nhắn cho lớp trong tương lai lúc này.';
         } finally {
           button.disabled = false;
         }

@@ -446,7 +446,7 @@ export default function App() {
       })
       .catch((caught) => {
         if (!isActive) return;
-        setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể tải Gửi cho tương lai lúc này.');
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể tải Gửi cho lớp trong tương lai lúc này.');
       });
 
     return () => {
@@ -996,8 +996,8 @@ export default function App() {
           },
           {
             id: 'future',
-            label: 'Gửi cho tương lai',
-            description: 'Viết lời nhắn để mở lại sau này.',
+            label: 'Gửi cho lớp trong tương lai',
+            description: 'Viết lời nhắn để cả lớp mở lại sau này.',
             icon: Sparkles,
             isActive: route === 'future',
             onSelect: () => navigate('future'),
@@ -1695,7 +1695,7 @@ export default function App() {
 
     if (route === 'future') {
       return (
-        <Suspense fallback={<LoadingScreen label="Đang mở Gửi cho tương lai" />}>
+        <Suspense fallback={<LoadingScreen label="Đang mở Gửi cho lớp trong tương lai" />}>
           <FutureMessagesPage
             timeCapsules={timeCapsules}
             timeCapsuleSettings={timeCapsuleSettings}
