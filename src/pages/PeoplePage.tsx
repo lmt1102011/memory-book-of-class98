@@ -887,7 +887,7 @@ export default function PeoplePage({
 
             <ProfileFormSection
               title="2. Thông tin nhận diện"
-              description="Biệt danh và câu nói riêng sẽ hiện trên thẻ hồ sơ."
+              description="Mỗi biệt danh chỉ thuộc về một bạn trong lớp, giống một chiếc tên riêng nhỏ."
               icon={<UserRound size={16} />}
             >
               <div className="grid gap-3">
@@ -895,6 +895,7 @@ export default function PeoplePage({
                   <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Biệt danh</span>
                   <input
                     className="input-field"
+                    placeholder="Ví dụ: Chủ tịch hội mượn bút"
                     value={nickname}
                     onChange={(event) => {
                       setIsProfileDraftDirty(true);

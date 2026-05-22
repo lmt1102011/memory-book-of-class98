@@ -1255,6 +1255,15 @@
 
       const deleteAccountRecord = async (account) => {
         if (!account || account.id === MANAGER_NAME_KEY) return;
+        const nicknameKey = account.nicknameKey || makeNameKey(account.nickname || '');
+        if (nicknameKey) {
+          await updateDoc(doc(db, 'nicknameClaims98', nicknameKey), {
+            managerKey: MANAGER_PASSWORD,
+            managerDeletedAt: serverTimestamp(),
+            managerUpdatedAt: serverTimestamp(),
+          }).catch(() => undefined);
+          await deleteDoc(doc(db, 'nicknameClaims98', nicknameKey)).catch(() => undefined);
+        }
         await updateDoc(doc(db, 'students98', account.id), {
           managerKey: MANAGER_PASSWORD,
           managerDeletedAt: serverTimestamp(),

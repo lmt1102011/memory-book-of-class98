@@ -48,6 +48,7 @@ export interface ClassmateProfile {
   className: string;
   avatarDataUrl?: string;
   nickname?: string;
+  nicknameKey?: string;
   quote?: string;
   classMessage?: string;
   personalityTags: string[];

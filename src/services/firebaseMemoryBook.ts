@@ -18,6 +18,7 @@ import {
   limit,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   Timestamp,
@@ -52,6 +53,7 @@ import { makeId } from '../utils/ids';
 export const CLASS_NAME = '9/8';
 
 const STUDENTS_COLLECTION = 'students98';
+const NICKNAME_CLAIMS_COLLECTION = 'nicknameClaims98';
 const MEMORIES_COLLECTION = 'memories98';
 const PRIVATE_MEMORIES_COLLECTION = 'privateMemories98';
 const MEMORY_VIDEO_CHUNKS_COLLECTION = 'memoryVideoChunks98';
@@ -345,6 +347,7 @@ const classmateFromDoc = (id: string, data: DocumentData): ClassmateProfile => (
   className: String(data.className || CLASS_NAME),
   avatarDataUrl: data.avatarDataUrl ? String(data.avatarDataUrl) : undefined,
   nickname: data.nickname ? String(data.nickname) : undefined,
+  nicknameKey: data.nicknameKey ? String(data.nicknameKey) : undefined,
   quote: data.quote ? String(data.quote) : undefined,
   classMessage: data.classMessage ? String(data.classMessage) : undefined,
   personalityTags: Array.isArray(data.personalityTags) ? data.personalityTags.map(String).slice(0, 3) : [],
@@ -1365,14 +1368,78 @@ const normalizeTags = (tags: string[]) =>
     .slice(0, 3);
 
 export const updateStudentYouthProfile = async (profile: UserProfile, draft: YouthProfileDraft) => {
+  const nickname = cleanDisplayName(draft.nickname).slice(0, 36);
+  const nicknameKey = nickname ? makeNameKey(nickname) : '';
+  const studentRef = doc(db, STUDENTS_COLLECTION, profile.nameKey);
+
+  if (nicknameKey) {
+    const studentsSnapshot = await withFirebaseRetry(() => getDocs(collection(db, STUDENTS_COLLECTION)));
+    const nicknameOwner = studentsSnapshot.docs.find((student) => {
+      const data = student.data();
+      if (data.deleted) return false;
+      const ownerUid = String(data.uid || '');
+      if (ownerUid === profile.uid) return false;
+      const existingNickname = cleanDisplayName(String(data.nickname || ''));
+      return Boolean(existingNickname && makeNameKey(existingNickname) === nicknameKey);
+    });
+
+    if (nicknameOwner) {
+      throw new Error('Biệt danh này đã có người sở hữu rồi. Hãy chọn biệt danh khác nha.');
+    }
+  }
+
   await withFirebaseRetry(() =>
-    updateDoc(doc(db, STUDENTS_COLLECTION, profile.nameKey), {
-      avatarDataUrl: draft.avatarDataUrl || '',
-      nickname: cleanDisplayName(draft.nickname).slice(0, 36),
-      quote: cleanDisplayName(draft.quote).slice(0, 120),
-      classMessage: draft.classMessage.trim().slice(0, 360),
-      personalityTags: normalizeTags(draft.personalityTags),
-      profileUpdatedAt: serverTimestamp(),
+    runTransaction(db, async (transaction) => {
+      const studentSnapshot = await transaction.get(studentRef);
+      if (!studentSnapshot.exists()) throw new Error('Không tìm thấy hồ sơ của bạn để cập nhật.');
+
+      const studentData = studentSnapshot.data();
+      if (studentData.uid !== profile.uid) throw new Error('Bạn chỉ có thể sửa hồ sơ của chính mình.');
+      if (studentData.disabled || studentData.deleted) throw new Error('Tài khoản này đang bị khóa khỏi lớp 9/8.');
+
+      const oldNickname = cleanDisplayName(String(studentData.nickname || ''));
+      const oldNicknameKey = String(studentData.nicknameKey || (oldNickname ? makeNameKey(oldNickname) : ''));
+      const newClaimRef = nicknameKey ? doc(db, NICKNAME_CLAIMS_COLLECTION, nicknameKey) : null;
+      const oldClaimRef =
+        oldNicknameKey && oldNicknameKey !== nicknameKey ? doc(db, NICKNAME_CLAIMS_COLLECTION, oldNicknameKey) : null;
+
+      const [newClaimSnapshot, oldClaimSnapshot] = await Promise.all([
+        newClaimRef ? transaction.get(newClaimRef) : Promise.resolve(null),
+        oldClaimRef ? transaction.get(oldClaimRef) : Promise.resolve(null),
+      ]);
+
+      if (newClaimSnapshot?.exists()) {
+        const ownerUid = String(newClaimSnapshot.data().uid || '');
+        if (ownerUid && ownerUid !== profile.uid) {
+          throw new Error('Biệt danh này đã có người sở hữu rồi. Hãy chọn biệt danh khác nha.');
+        }
+      }
+
+      if (newClaimRef) {
+        transaction.set(newClaimRef, {
+          uid: profile.uid,
+          name: profile.name,
+          nameKey: profile.nameKey,
+          nickname,
+          nicknameKey,
+          className: profile.className || CLASS_NAME,
+          updatedAt: serverTimestamp(),
+        });
+      }
+
+      if (oldClaimRef && oldClaimSnapshot?.exists() && String(oldClaimSnapshot.data().uid || '') === profile.uid) {
+        transaction.delete(oldClaimRef);
+      }
+
+      transaction.update(studentRef, {
+        avatarDataUrl: draft.avatarDataUrl || '',
+        nickname,
+        nicknameKey,
+        quote: cleanDisplayName(draft.quote).slice(0, 120),
+        classMessage: draft.classMessage.trim().slice(0, 360),
+        personalityTags: normalizeTags(draft.personalityTags),
+        profileUpdatedAt: serverTimestamp(),
+      });
     }),
   );
 };

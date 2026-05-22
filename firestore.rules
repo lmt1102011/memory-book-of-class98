@@ -214,15 +214,31 @@ service cloud.firestore {
         && resource.data.deleted == true;
     }
 
-    function validStudentOwnerUpdate() {
+    function validStudentNicknameOwnership(nameKey) {
+      return !request.resource.data.keys().hasAny(['nicknameKey'])
+        || request.resource.data.nicknameKey == ''
+        || (
+          request.resource.data.nicknameKey is string
+          && existsAfter(/databases/$(database)/documents/nicknameClaims98/$(request.resource.data.nicknameKey))
+          && getAfter(/databases/$(database)/documents/nicknameClaims98/$(request.resource.data.nicknameKey)).data.uid == request.auth.uid
+          && getAfter(/databases/$(database)/documents/nicknameClaims98/$(request.resource.data.nicknameKey)).data.nameKey == nameKey
+        );
+    }
+
+    function validStudentOwnerUpdate(nameKey) {
       return request.auth != null
         && resource.data.uid == request.auth.uid
         && !studentIsDisabled()
         && !studentIsDeleted()
         && request.resource.data.uid == resource.data.uid
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['nickname', 'nicknameKey'])
+          || validStudentNicknameOwnership(nameKey)
+        )
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'avatarDataUrl',
           'nickname',
+          'nicknameKey',
           'quote',
           'classMessage',
           'personalityTags',
@@ -252,13 +268,43 @@ service cloud.firestore {
         ]);
     }
 
+    function validNicknameClaimBase(nicknameKey) {
+      return request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.nameKey is string
+        && request.resource.data.nickname is string
+        && request.resource.data.nicknameKey == nicknameKey
+        && request.resource.data.className == '9/8';
+    }
+
+    function validNicknameClaimCreate(nicknameKey) {
+      return validNicknameClaimBase(nicknameKey);
+    }
+
+    function validNicknameClaimUpdate(nicknameKey) {
+      return validNicknameClaimBase(nicknameKey)
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid;
+    }
+
     match /students98/{nameKey} {
       allow read: if true;
       allow create: if validStudentCreate(nameKey);
-      allow update: if validStudentOwnerUpdate()
+      allow update: if validStudentOwnerUpdate(nameKey)
         || validStudentDeletedRestore()
         || isManagerWrite();
       allow delete: if isManagerMarkedResource();
+    }
+
+    match /nicknameClaims98/{nicknameKey} {
+      allow read: if request.auth != null;
+      allow create: if validNicknameClaimCreate(nicknameKey);
+      allow update: if validNicknameClaimUpdate(nicknameKey) || isManagerWrite();
+      allow delete: if (
+          request.auth != null
+          && resource.data.uid == request.auth.uid
+        )
+        || isManagerMarkedResource();
     }
 
     match /memories98/{memoryId} {
