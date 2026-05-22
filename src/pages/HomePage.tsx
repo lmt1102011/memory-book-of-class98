@@ -622,85 +622,107 @@ export default function HomePage({
 
       {memoryRecapEnabled && (
         <section className="mx-auto max-w-7xl px-4 pb-7 sm:px-6 lg:px-8">
-          <div className="grid overflow-hidden rounded-[1.6rem] border border-white/70 bg-[#fffaf1] shadow-[0_28px_90px_rgba(53,41,31,0.18)] lg:grid-cols-[1.08fr_0.92fr]">
-            <div className="relative min-h-[20rem] overflow-hidden bg-ink p-5 text-paper sm:p-7">
-              {memoryRecap.coverMemory?.imageUrl && (
-                <img
-                  src={memoryRecap.coverMemory.imageUrl}
-                  alt=""
-                  className="absolute inset-0 h-full w-full object-cover opacity-[0.34] blur-[2px]"
-                  loading="lazy"
-                  decoding="async"
-                />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-br from-ink via-ink/82 to-coffee/56" aria-hidden="true" />
-              <div className="relative z-[1] flex h-full flex-col justify-between">
-                <div>
-                  <span className="inline-flex rounded-full bg-paper px-3 py-1.5 text-xs font-black uppercase text-coffee shadow-paper">
-                    Manager đã mở
+          <div className="relative overflow-hidden rounded-[1.7rem] border border-white/75 bg-paper shadow-[0_24px_70px_rgba(84,57,35,0.16)]">
+            <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blush via-[#f4dfbf] to-skySoft" aria-hidden="true" />
+            <div className="grid lg:grid-cols-[minmax(0,1fr)_23rem]">
+              <div className="relative min-w-0 p-5 sm:p-7 lg:p-8">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-ink px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.08em] text-paper">
+                    Recap được manager mở
                   </span>
-                  <h2 className="mt-5 max-w-xl font-display text-6xl leading-[0.86] sm:text-7xl">
-                    Recap thanh xuân 9/8
-                  </h2>
-                  <p className="mt-4 max-w-lg text-sm leading-7 text-paper/72">
-                    Một tấm tổng kết nổi bật từ ảnh, video, tim và bình luận của lớp. Có thể tải thành poster để lưu lại.
+                  <span className="rounded-full bg-skySoft/30 px-3 py-1.5 text-[11px] font-black uppercase text-chalk">
+                    Lớp 9/8
+                  </span>
+                </div>
+
+                <h2 className="mt-5 max-w-2xl font-display text-6xl leading-[0.86] text-ink sm:text-7xl">
+                  Recap thanh xuân 9/8
+                </h2>
+                <p className="mt-4 max-w-2xl text-sm leading-7 text-ink/66 sm:text-base">
+                  Một poster tổng kết những gì lớp mình đã cùng giữ lại: ảnh, video, tim, bình luận và những gương mặt xuất hiện nhiều nhất.
+                </p>
+
+                <div className="mt-6 grid grid-cols-3 gap-2 text-center sm:grid-cols-6">
+                  <RecapStat value={memoryRecap.totalMemories} label="kỷ niệm" featured />
+                  <RecapStat value={memoryRecap.photos} label="ảnh" />
+                  <RecapStat value={memoryRecap.videos} label="video" />
+                  <RecapStat value={memoryRecap.totalHearts} label="tim" featured />
+                  <RecapStat value={memoryRecap.totalComments} label="bình luận" />
+                  <RecapStat value={memoryRecap.contributors} label="góp mặt" />
+                </div>
+
+                <div className="mt-5 grid gap-3 md:grid-cols-3">
+                  <RecapHighlight
+                    icon={<UserRound size={16} />}
+                    label="Giữ nhiều ký ức"
+                    value={
+                      memoryRecap.topContributor
+                        ? `${memoryRecap.topContributor.name} · ${memoryRecap.topContributor.memories} mục`
+                        : 'Đang chờ kỷ niệm đầu tiên'
+                    }
+                  />
+                  <RecapHighlight
+                    icon={<Heart size={16} fill="currentColor" />}
+                    label="Được yêu thích"
+                    value={
+                      memoryRecap.topLovedMemory
+                        ? `${memoryRecap.topLovedMemory.name} · ${memoryRecap.topLovedMemory.reactions} tim`
+                        : 'Chưa có lượt tim'
+                    }
+                  />
+                  <RecapHighlight
+                    icon={<Camera size={16} />}
+                    label="Nhiều bình luận"
+                    value={
+                      memoryRecap.topCommentedMemory && (commentsByMemory[memoryRecap.topCommentedMemory.id]?.length || 0) > 0
+                        ? `${memoryRecap.topCommentedMemory.name} · ${commentsByMemory[memoryRecap.topCommentedMemory.id]?.length || 0} bình luận`
+                        : 'Chưa có bình luận'
+                    }
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  className="primary-button mt-5 w-full justify-center sm:w-auto"
+                  onClick={() => void handleDownloadRecap()}
+                  disabled={isRecapDownloading}
+                >
+                  <Download size={17} />
+                  {isRecapDownloading ? 'Đang tạo poster...' : 'Tải poster recap'}
+                </button>
+              </div>
+
+              <aside className="relative border-t border-coffee/10 bg-[#f7e7ca]/45 p-5 sm:p-7 lg:border-l lg:border-t-0">
+                <div className="mx-auto max-w-[18rem]">
+                  <div className="relative">
+                    <span className="scrapbook-tape left-8 top-0 z-[3] -rotate-6" />
+                    <figure className="relative rotate-[1.6deg] rounded-[0.55rem] bg-white p-3 pb-8 shadow-paper">
+                      <div className="aspect-[4/5] overflow-hidden rounded-[0.35rem] bg-coffee/10">
+                        {memoryRecap.coverMemory?.imageUrl ? (
+                          <img
+                            src={memoryRecap.coverMemory.imageUrl}
+                            alt={`Kỷ niệm nổi bật của ${memoryRecap.coverMemory.name}`}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        ) : (
+                          <div className="grid h-full place-items-center px-4 text-center text-sm font-black text-coffee/58">
+                            Chờ kỷ niệm đầu tiên
+                          </div>
+                        )}
+                      </div>
+                      <figcaption className="mt-3 line-clamp-2 text-center font-hand text-2xl font-bold leading-6 text-coffee">
+                        {memoryRecap.coverMemory?.caption || 'Memory98 recap'}
+                      </figcaption>
+                    </figure>
+                  </div>
+
+                  <p className="mt-5 rounded-[1rem] bg-paper/72 px-4 py-3 text-center text-xs font-bold leading-5 text-ink/62">
+                    Poster tải về sẽ dùng ảnh nổi bật nhất làm điểm nhấn và giữ đúng tinh thần scrapbook của lớp.
                   </p>
                 </div>
-
-                <div className="mt-6 grid grid-cols-3 gap-2 text-center">
-                  <RecapStat value={memoryRecap.totalMemories} label="kỷ niệm" dark />
-                  <RecapStat value={memoryRecap.totalHearts} label="tim" dark />
-                  <RecapStat value={memoryRecap.totalComments} label="bình luận" dark />
-                </div>
-              </div>
-            </div>
-
-            <div className="p-5 sm:p-7">
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <RecapStat value={memoryRecap.photos} label="ảnh" />
-                <RecapStat value={memoryRecap.videos} label="video" />
-                <RecapStat value={memoryRecap.contributors} label="bạn góp mặt" />
-              </div>
-
-              <div className="mt-5 grid gap-3">
-                <RecapHighlight
-                  icon={<UserRound size={16} />}
-                  label="Người giữ nhiều ký ức"
-                  value={
-                    memoryRecap.topContributor
-                      ? `${memoryRecap.topContributor.name} · ${memoryRecap.topContributor.memories} mục`
-                      : 'Đang chờ kỷ niệm đầu tiên'
-                  }
-                />
-                <RecapHighlight
-                  icon={<Heart size={16} fill="currentColor" />}
-                  label="Kỷ niệm được yêu thích"
-                  value={
-                    memoryRecap.topLovedMemory
-                      ? `${memoryRecap.topLovedMemory.name} · ${memoryRecap.topLovedMemory.reactions} tim`
-                      : 'Chưa có lượt tim'
-                  }
-                />
-                <RecapHighlight
-                  icon={<Camera size={16} />}
-                  label="Nhiều bình luận nhất"
-                  value={
-                    memoryRecap.topCommentedMemory && (commentsByMemory[memoryRecap.topCommentedMemory.id]?.length || 0) > 0
-                      ? `${memoryRecap.topCommentedMemory.name} · ${commentsByMemory[memoryRecap.topCommentedMemory.id]?.length || 0} bình luận`
-                      : 'Chưa có bình luận'
-                  }
-                />
-              </div>
-
-              <button
-                type="button"
-                className="primary-button mt-5 w-full justify-center"
-                onClick={() => void handleDownloadRecap()}
-                disabled={isRecapDownloading}
-              >
-                <Download size={17} />
-                {isRecapDownloading ? 'Đang tạo poster...' : 'Tải poster recap'}
-              </button>
+              </aside>
             </div>
           </div>
         </section>
@@ -1018,19 +1040,25 @@ export default function HomePage({
   );
 }
 
-function RecapStat({ value, label, dark = false }: { value: number; label: string; dark?: boolean }) {
+function RecapStat({ value, label, featured = false }: { value: number; label: string; featured?: boolean }) {
   return (
-    <div className={`rounded-[0.9rem] px-3 py-4 ${dark ? 'bg-paper/12 text-paper' : 'bg-paper/75 text-ink'}`}>
+    <div
+      className={`rounded-[0.95rem] border px-3 py-4 ${
+        featured
+          ? 'border-blush/45 bg-blush/25 text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]'
+          : 'border-coffee/8 bg-white/62 text-ink'
+      }`}
+    >
       <strong className="block font-display text-4xl leading-none">{value}</strong>
-      <span className={`mt-1 block text-[11px] font-black uppercase ${dark ? 'text-paper/62' : 'text-coffee/62'}`}>{label}</span>
+      <span className="mt-1 block text-[11px] font-black uppercase text-coffee/62">{label}</span>
     </div>
   );
 }
 
 function RecapHighlight({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
-    <div className="flex min-w-0 items-start gap-3 rounded-[1rem] bg-paper/72 p-3">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-coffee shadow-sm">{icon}</span>
+    <div className="flex min-w-0 items-start gap-3 rounded-[1rem] border border-coffee/8 bg-white/58 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-paper text-coffee shadow-sm">{icon}</span>
       <div className="min-w-0">
         <p className="text-[11px] font-black uppercase text-coffee/62">{label}</p>
         <p className="mt-1 break-words text-sm font-black text-ink">{value}</p>

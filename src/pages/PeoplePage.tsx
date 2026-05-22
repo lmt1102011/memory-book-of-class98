@@ -881,13 +881,19 @@ function BadgeProgressList({ goals }: { goals: YouthBadgeGoal[] }) {
   if (!goals.length) return null;
 
   return (
-    <div className="mt-4 grid gap-2">
-      <p className="text-xs font-black uppercase text-coffee/68">Tiến trình mở huy hiệu</p>
+    <div className="mt-4 rounded-[1rem] border border-white/70 bg-white/50 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.74)]">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase text-coffee/68">Tiến trình mở huy hiệu</p>
+        <span className="rounded-full bg-coffee/10 px-2 py-1 text-[10px] font-black uppercase text-coffee/68">
+          Tự cập nhật
+        </span>
+      </div>
+      <div className="mt-3 grid gap-2">
       {goals.map((goal) => {
         const percent = goal.target > 0 ? Math.min(100, Math.round((goal.current / goal.target) * 100)) : 0;
 
         return (
-          <div key={goal.id} className="rounded-[0.85rem] bg-white/58 p-3">
+          <div key={goal.id} className="rounded-[0.85rem] bg-paper/72 p-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-sm font-black text-ink">{goal.label}</p>
@@ -895,18 +901,24 @@ function BadgeProgressList({ goals }: { goals: YouthBadgeGoal[] }) {
               </div>
               <span
                 className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-black ${
-                  goal.done ? 'bg-chalk/14 text-chalk' : 'bg-coffee/10 text-coffee'
+                  goal.done ? 'bg-chalk/14 text-chalk' : 'bg-white text-coffee shadow-sm'
                 }`}
               >
                 {goal.done ? 'Đã mở' : `${goal.current}/${goal.target} ${goal.unit}`}
               </span>
             </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-coffee/10">
-              <span className="block h-full rounded-full bg-coffee transition-[width] duration-300" style={{ width: `${percent}%` }} />
+            <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-coffee/10">
+              <span
+                className={`block h-full rounded-full transition-[width] duration-300 ${
+                  goal.done ? 'bg-chalk' : 'bg-gradient-to-r from-blush via-[#e9bc9b] to-skySoft'
+                }`}
+                style={{ width: `${percent}%` }}
+              />
             </div>
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
@@ -938,60 +950,65 @@ function YearbookReader({
 
   return (
     <div
-      className="overflow-hidden rounded-[1rem] border border-coffee/10 bg-white shadow-[inset_0_0_0_1px_rgba(122,86,57,0.06)]"
+      className="overflow-hidden rounded-[1.2rem] border border-white/75 bg-gradient-to-br from-paper via-white to-[#f4dfbf]/45 p-2 shadow-paper"
       onTouchStart={(event) => onTouchStart(event.touches[0]?.clientX || 0)}
       onTouchEnd={(event) => onTouchEnd(event.changedTouches[0]?.clientX || 0)}
     >
-      <div className="grid gap-0 md:grid-cols-[0.9fr_1.1fr]">
-        <section className="relative min-h-[22rem] overflow-hidden bg-ink p-5 text-paper">
-          <div className="absolute inset-0 opacity-20">
-            {person.avatarDataUrl ? <img src={person.avatarDataUrl} alt="" className="h-full w-full object-cover blur-2xl" /> : null}
+      <div className="overflow-hidden rounded-[1rem] border border-coffee/10 bg-white/72 md:grid md:grid-cols-[0.92fr_1.08fr]">
+        <section className="relative border-b border-coffee/10 bg-[#fff6e7] p-5 md:border-b-0 md:border-r sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <p className="rounded-full bg-ink px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-paper">
+              Trang {index + 1}/{total}
+            </p>
+            <p className="font-hand text-2xl font-bold text-coffee/72">Memory98</p>
           </div>
-          <div className="relative z-[1] flex h-full flex-col justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-paper/58">
-                Trang {index + 1}/{total}
-              </p>
-              <div className="mt-5 grid place-items-center">
-                <span className="grid h-36 w-36 place-items-center overflow-hidden rounded-full bg-paper/16 text-paper shadow-paper ring-1 ring-paper/25">
-                  {person.avatarDataUrl ? <img src={person.avatarDataUrl} alt="" className="h-full w-full object-cover" /> : <UserRound size={46} />}
-                </span>
-              </div>
-              <h3 className="mt-6 break-words text-center font-display text-6xl leading-none">{person.name}</h3>
-              <p className="mt-2 text-center text-sm font-bold text-paper/72">{person.nickname || 'Bạn lớp 9/8'}</p>
-            </div>
 
-            <div className="mt-6 grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-[0.8rem] bg-paper/12 px-2 py-3">
-                <strong className="block text-xl">{stats.memories.length}</strong>
-                <span className="text-[10px] font-bold uppercase text-paper/58">kỷ niệm</span>
-              </div>
-              <div className="rounded-[0.8rem] bg-paper/12 px-2 py-3">
-                <strong className="block text-xl">{stats.hearts}</strong>
-                <span className="text-[10px] font-bold uppercase text-paper/58">tim</span>
-              </div>
-              <div className="rounded-[0.8rem] bg-paper/12 px-2 py-3">
-                <strong className="block text-xl">{stats.comments}</strong>
-                <span className="text-[10px] font-bold uppercase text-paper/58">bình luận</span>
+          <div className="mt-6 grid place-items-center">
+            <div className="relative w-full max-w-[15rem]">
+              <span className="scrapbook-tape left-8 top-0 z-[3] -rotate-6" />
+              <div className="-rotate-[1.6deg] rounded-[0.55rem] bg-white p-3 pb-9 shadow-paper">
+                <div className="aspect-[4/5] overflow-hidden rounded-[0.35rem] bg-paper text-coffee">
+                  {person.avatarDataUrl ? (
+                    <img src={person.avatarDataUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="grid h-full place-items-center">
+                      <UserRound size={54} />
+                    </div>
+                  )}
+                </div>
+                <p className="mt-3 truncate text-center font-hand text-2xl font-bold text-coffee">
+                  {person.nickname || 'Bạn lớp 9/8'}
+                </p>
               </div>
             </div>
           </div>
-        </section>
 
-        <section className="p-4 sm:p-5">
-          <p className="rounded-[1rem] bg-paper/72 px-4 py-4 text-sm leading-7 text-ink/72">
-            {person.quote || 'Chưa có câu nói riêng, nhưng thanh xuân vẫn đang ở đây.'}
-          </p>
-
-          <div className="mt-4 flex flex-wrap gap-2">
+          <h3 className="mt-6 break-words text-center font-display text-6xl leading-none text-ink">{person.name}</h3>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
             {(person.personalityTags.length ? person.personalityTags : ['9/8', 'memory']).map((tag) => (
               <span key={tag} className="rounded-full bg-blush/30 px-2.5 py-1 text-xs font-bold text-coffee">
                 {tag}
               </span>
             ))}
           </div>
+        </section>
 
-          <p className="mt-4 text-sm leading-7 text-ink/68">
+        <section className="p-4 sm:p-6">
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
+            <div>
+              <p className="section-kicker">Kỷ yếu lớp 9/8</p>
+              <p className="mt-2 rounded-[1rem] bg-paper/72 px-4 py-4 text-sm leading-7 text-ink/72">
+                {person.quote || 'Chưa có câu nói riêng, nhưng thanh xuân vẫn đang ở đây.'}
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center sm:w-64">
+              <MiniYearbookStat value={stats.memories.length} label="kỷ niệm" />
+              <MiniYearbookStat value={stats.hearts} label="tim" />
+              <MiniYearbookStat value={stats.comments} label="bình luận" />
+            </div>
+          </div>
+
+          <p className="mt-4 rounded-[1rem] border border-coffee/8 bg-white/58 px-4 py-4 text-sm leading-7 text-ink/68">
             {person.classMessage || 'Một lời gửi lớp 9/8 đang chờ được viết.'}
           </p>
 
@@ -1008,7 +1025,7 @@ function YearbookReader({
           <div className="mt-4">
             <div className="mb-2 flex items-center justify-between gap-3">
               <p className="text-xs font-black uppercase text-coffee/68">Album xem nhanh</p>
-              <button type="button" className="text-xs font-black text-coffee underline-offset-4 hover:underline" onClick={onOpenProfile}>
+              <button type="button" className="rounded-full bg-coffee/10 px-3 py-1.5 text-xs font-black text-coffee transition hover:bg-coffee/15" onClick={onOpenProfile}>
                 Xem hồ sơ đầy đủ
               </button>
             </div>
@@ -1032,19 +1049,29 @@ function YearbookReader({
             )}
           </div>
 
-          <div className="mt-5 grid grid-cols-[auto_1fr_auto] items-center gap-3">
+          <div className="mt-5 grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-[1rem] bg-paper/60 p-2">
             <button type="button" className="secondary-button justify-center" onClick={onPrevious}>
               Trước
             </button>
             <div className="h-2 overflow-hidden rounded-full bg-coffee/10">
-              <span className="block h-full rounded-full bg-coffee" style={{ width: `${((index + 1) / total) * 100}%` }} />
+              <span className="block h-full rounded-full bg-gradient-to-r from-blush via-[#e9bc9b] to-skySoft" style={{ width: `${((index + 1) / total) * 100}%` }} />
             </div>
             <button type="button" className="primary-button justify-center" onClick={onNext}>
               Tiếp
             </button>
           </div>
+          <p className="mt-2 text-center text-[11px] font-bold text-ink/45">Vuốt trái/phải trên điện thoại để lật trang.</p>
         </section>
       </div>
+    </div>
+  );
+}
+
+function MiniYearbookStat({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="rounded-[0.85rem] bg-paper/72 px-2 py-3">
+      <strong className="block font-display text-3xl leading-none text-ink">{value}</strong>
+      <span className="mt-1 block text-[10px] font-black uppercase text-coffee/58">{label}</span>
     </div>
   );
 }
@@ -1111,7 +1138,7 @@ function PersonDetail({
         ))}
       </div>
 
-      <div className="mt-5 rounded-[1rem] border border-coffee/10 bg-paper/58 p-3">
+      <div className="mt-5 overflow-hidden rounded-[1.15rem] border border-white/70 bg-gradient-to-br from-paper via-white to-skySoft/20 p-3 shadow-[0_14px_36px_rgba(84,57,35,0.10)]">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="text-sm font-black uppercase text-coffee/72">Huy hiệu thanh xuân</h3>
