@@ -195,6 +195,13 @@ const friendlyFirebaseError = (error: unknown) => {
   return new Error('Không thể kết nối Firebase lúc này. Hãy reload lại trang và thử lại sau vài giây.');
 };
 
+const isAuthEmailAlreadyInUse = (error: unknown) => firebaseErrorText(error).includes('auth/email-already-in-use');
+
+const isInvalidAuthCredential = (error: unknown) => {
+  const text = firebaseErrorText(error);
+  return text.includes('auth/invalid-credential') || text.includes('auth/wrong-password');
+};
+
 export const forceFirebaseOnline = async () => {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     throw new Error('Thiết bị đang mất internet, nên Firebase không thể online.');
@@ -422,13 +429,51 @@ export const checkStudentName = async (name: string) => {
   const nameKey = makeNameKey(name);
   if (!nameKey) throw new Error('Hãy nhập họ tên hợp lệ.');
   const snapshot = await withFirebaseRetry(() => getDoc(doc(db, STUDENTS_COLLECTION, nameKey)));
-  if (snapshot.exists() && (snapshot.data().disabled || snapshot.data().deleted)) {
-    throw new Error('Tài khoản này đã bị khóa hoặc xóa khỏi lớp 9/8.');
+  if (snapshot.exists() && snapshot.data().disabled) {
+    throw new Error('Tài khoản này đang bị khóa khỏi lớp 9/8.');
   }
   return {
-    exists: snapshot.exists(),
+    exists: snapshot.exists() && !snapshot.data().deleted,
     nameKey,
-    profile: snapshot.exists() ? profileFromData(nameKey, snapshot.data()) : null,
+    profile: snapshot.exists() && !snapshot.data().deleted ? profileFromData(nameKey, snapshot.data()) : null,
+  };
+};
+
+const writeRestoredStudentProfile = async (
+  user: User,
+  displayName: string,
+  nameKey: string,
+  options: { includeCreatedAt: boolean },
+) => {
+  await withTimeout(user.getIdToken(true), 'Auth token refresh');
+
+  const studentRef = doc(db, STUDENTS_COLLECTION, nameKey);
+  await withFirebaseRetry(() =>
+    setDoc(
+      studentRef,
+      {
+        uid: user.uid,
+        name: displayName,
+        nameKey,
+        className: CLASS_NAME,
+        disabled: false,
+        deleted: false,
+        repairedAt: serverTimestamp(),
+        ...(options.includeCreatedAt ? { createdAt: serverTimestamp() } : {}),
+        lastLoginAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+
+  return {
+    uid: user.uid,
+    name: displayName,
+    nameKey,
+    className: CLASS_NAME,
+    joinedAt: new Date().toISOString(),
+    disabled: false,
+    deleted: false,
   };
 };
 
@@ -447,11 +492,27 @@ export const registerStudent = async (name: string, password: string) => {
     throw new Error('Tên này đã có trong lớp 9/8. Hãy nhập mật khẩu để tiếp tục.');
   }
 
-  const credential = await withTimeout(
-    createUserWithEmailAndPassword(auth, makeStudentEmail(nameKey), password),
-    'Auth register',
-  );
+  let credential;
+  try {
+    credential = await withTimeout(
+      createUserWithEmailAndPassword(auth, makeStudentEmail(nameKey), password),
+      'Auth register',
+    );
+  } catch (error) {
+    if (!isAuthEmailAlreadyInUse(error)) throw error;
+
+    try {
+      return await loginStudent(name, password);
+    } catch (loginError) {
+      if (isInvalidAuthCredential(loginError)) {
+        throw new Error('Tên này từng được tạo trước đó. Hãy nhập mật khẩu cũ để khôi phục tài khoản.');
+      }
+      throw loginError;
+    }
+  }
+
   await withTimeout(updateProfile(credential.user, { displayName }), 'Auth profile');
+  await withTimeout(credential.user.getIdToken(true), 'Auth token refresh');
 
   const profile: UserProfile = {
     uid: credential.user.uid,
@@ -467,6 +528,7 @@ export const registerStudent = async (name: string, password: string) => {
     nameKey,
     className: CLASS_NAME,
     disabled: false,
+    deleted: false,
     createdAt: serverTimestamp(),
     lastLoginAt: serverTimestamp(),
   }));
@@ -487,30 +549,25 @@ export const loginStudent = async (name: string, password: string) => {
 
   if (!snapshot.exists()) {
     const displayName = cleanDisplayName(name);
-    await withFirebaseRetry(() => setDoc(studentRef, {
-      uid: credential.user.uid,
-      name: displayName,
-      nameKey,
-      className: CLASS_NAME,
-      disabled: false,
-      repairedAt: serverTimestamp(),
-      createdAt: serverTimestamp(),
-      lastLoginAt: serverTimestamp(),
-    }));
-    return {
-      uid: credential.user.uid,
-      name: displayName,
-      nameKey,
-      className: CLASS_NAME,
-      joinedAt: new Date().toISOString(),
-    };
+    return writeRestoredStudentProfile(credential.user, displayName, nameKey, { includeCreatedAt: true });
   }
 
-  if (snapshot.data().disabled || snapshot.data().deleted) {
+  if (snapshot.data().disabled) {
     await signOut(auth);
-    throw new Error('Tài khoản này đã bị khóa hoặc xóa khỏi lớp 9/8.');
+    throw new Error('Tài khoản này đang bị khóa khỏi lớp 9/8.');
   }
 
+  if (snapshot.data().deleted) {
+    if (snapshot.data().uid && snapshot.data().uid !== credential.user.uid) {
+      await signOut(auth);
+      throw new Error('Tên này đang thuộc về một tài khoản khác.');
+    }
+
+    const displayName = cleanDisplayName(name);
+    return writeRestoredStudentProfile(credential.user, displayName, nameKey, { includeCreatedAt: false });
+  }
+
+  await withTimeout(credential.user.getIdToken(true), 'Auth token refresh');
   await withFirebaseRetry(() => updateDoc(studentRef, { lastLoginAt: serverTimestamp() }));
   return profileFromData(nameKey, snapshot.data(), credential.user);
 };

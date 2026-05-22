@@ -189,16 +189,65 @@ service cloud.firestore {
         );
     }
 
+    function validStudentCreate(nameKey) {
+      return request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.nameKey == nameKey
+        && request.resource.data.className == '9/8'
+        && (
+          !request.resource.data.keys().hasAny(['disabled'])
+          || request.resource.data.disabled == false
+        )
+        && (
+          !request.resource.data.keys().hasAny(['deleted'])
+          || request.resource.data.deleted == false
+        );
+    }
+
+    function validStudentOwnerUpdate() {
+      return request.auth != null
+        && resource.data.uid == request.auth.uid
+        && resource.data.disabled != true
+        && resource.data.deleted != true
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'avatarDataUrl',
+          'nickname',
+          'quote',
+          'classMessage',
+          'personalityTags',
+          'profileUpdatedAt',
+          'lastLoginAt'
+        ]);
+    }
+
+    function validStudentDeletedRestore() {
+      return request.auth != null
+        && resource.data.uid == request.auth.uid
+        && resource.data.disabled != true
+        && resource.data.deleted == true
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.nameKey == resource.data.nameKey
+        && request.resource.data.className == '9/8'
+        && request.resource.data.disabled == false
+        && request.resource.data.deleted == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name',
+          'nameKey',
+          'className',
+          'disabled',
+          'deleted',
+          'repairedAt',
+          'lastLoginAt'
+        ]);
+    }
+
     match /students98/{nameKey} {
       allow read: if true;
-      allow create: if request.auth != null
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.className == '9/8';
-      allow update: if (
-        request.auth != null
-        && resource.data.uid == request.auth.uid
-        && request.resource.data.uid == resource.data.uid
-      ) || isManagerWrite();
+      allow create: if validStudentCreate(nameKey);
+      allow update: if validStudentOwnerUpdate()
+        || validStudentDeletedRestore()
+        || isManagerWrite();
       allow delete: if isManagerMarkedResource();
     }
 
