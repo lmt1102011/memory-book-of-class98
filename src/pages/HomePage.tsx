@@ -131,6 +131,11 @@ export default function HomePage({
   onDownloadMemory,
 }: HomePageProps) {
   const mediaStageRef = useRef<HTMLDivElement | null>(null);
+  const zoomImageRef = useRef<HTMLImageElement | null>(null);
+  const zoomFrameRef = useRef<number | null>(null);
+  const zoomStateSyncTimerRef = useRef<number | null>(null);
+  const zoomInteractionTimerRef = useRef<number | null>(null);
+  const zoomStateRef = useRef({ zoom: 1, x: 0, y: 0 });
   const activePointersRef = useRef(new Map<number, { x: number; y: number }>());
   const panGestureRef = useRef({ startX: 0, startY: 0, panX: 0, panY: 0, lastTapAt: 0 });
   const pinchGestureRef = useRef({ distance: 0, zoom: 1 });
@@ -155,23 +160,98 @@ export default function HomePage({
   const debouncedName = useDebounce(nameQuery);
   const debouncedKeyword = useDebounce(keywordQuery);
 
+  const syncZoomState = useCallback((immediate = false) => {
+    const publish = () => {
+      zoomStateSyncTimerRef.current = null;
+      const current = zoomStateRef.current;
+      setImageZoom(current.zoom);
+      setImagePan({ x: current.x, y: current.y });
+    };
+
+    if (immediate) {
+      if (zoomStateSyncTimerRef.current !== null) {
+        window.clearTimeout(zoomStateSyncTimerRef.current);
+        zoomStateSyncTimerRef.current = null;
+      }
+      publish();
+      return;
+    }
+
+    if (zoomStateSyncTimerRef.current !== null) return;
+    zoomStateSyncTimerRef.current = window.setTimeout(publish, 72);
+  }, []);
+
+  const scheduleZoomTransform = useCallback((nextState: { zoom: number; x: number; y: number }, syncState = false) => {
+    zoomStateRef.current = nextState;
+
+    if (zoomFrameRef.current === null) {
+      zoomFrameRef.current = window.requestAnimationFrame(() => {
+        zoomFrameRef.current = null;
+        const current = zoomStateRef.current;
+        if (zoomImageRef.current) {
+          zoomImageRef.current.style.transform = `translate3d(${current.x}px, ${current.y}px, 0) scale(${current.zoom})`;
+        }
+      });
+    }
+
+    syncZoomState(syncState);
+  }, [syncZoomState]);
+
+  const setZoomInteractionMode = useCallback((active: boolean) => {
+    if (zoomInteractionTimerRef.current !== null) {
+      window.clearTimeout(zoomInteractionTimerRef.current);
+      zoomInteractionTimerRef.current = null;
+    }
+
+    const image = zoomImageRef.current;
+    if (!image) return;
+
+    if (active) {
+      image.style.transition = 'none';
+      return;
+    }
+
+    zoomInteractionTimerRef.current = window.setTimeout(() => {
+      zoomInteractionTimerRef.current = null;
+      if (zoomImageRef.current) zoomImageRef.current.style.transition = '';
+    }, 80);
+  }, []);
+
   const clampImagePan = useCallback((x: number, y: number, zoom: number) => {
     if (zoom <= 1) return { x: 0, y: 0 };
     const rect = mediaStageRef.current?.getBoundingClientRect();
+    const image = zoomImageRef.current;
     const width = rect?.width || window.innerWidth || 360;
     const height = rect?.height || window.innerHeight || 640;
-    const limitX = Math.max(0, (width * (zoom - 1)) / 2);
-    const limitY = Math.max(0, (height * (zoom - 1)) / 2);
+    const imageWidth = image?.clientWidth || width;
+    const imageHeight = image?.clientHeight || height;
+    const limitX = Math.max(0, (imageWidth * zoom - width) / 2);
+    const limitY = Math.max(0, (imageHeight * zoom - height) / 2);
     return {
       x: Math.min(limitX, Math.max(-limitX, x)),
       y: Math.min(limitY, Math.max(-limitY, y)),
     };
   }, []);
 
+  const zoomAroundPoint = useCallback(
+    (nextZoom: number, clientX: number, clientY: number) => {
+      const current = zoomStateRef.current;
+      const rect = mediaStageRef.current?.getBoundingClientRect();
+      const stageWidth = rect?.width || window.innerWidth || 360;
+      const stageHeight = rect?.height || window.innerHeight || 640;
+      const focusX = clientX - (rect?.left || 0) - stageWidth / 2;
+      const focusY = clientY - (rect?.top || 0) - stageHeight / 2;
+      const ratio = nextZoom / Math.max(0.001, current.zoom);
+      const nextPan = clampImagePan(current.x * ratio + focusX * (1 - ratio), current.y * ratio + focusY * (1 - ratio), nextZoom);
+      return { zoom: nextZoom, x: nextPan.x, y: nextPan.y };
+    },
+    [clampImagePan],
+  );
+
   const resetImageZoom = useCallback(() => {
-    setImageZoom(1);
-    setImagePan({ x: 0, y: 0 });
-  }, []);
+    setZoomInteractionMode(false);
+    scheduleZoomTransform({ zoom: 1, x: 0, y: 0 }, true);
+  }, [scheduleZoomTransform, setZoomInteractionMode]);
 
   const closeSelectedMemory = useCallback(() => {
     setSelectedMemory(null);
@@ -262,18 +342,33 @@ export default function HomePage({
     return Math.hypot(second.x - first.x, second.y - first.y);
   };
 
+  const getPointerCenter = () => {
+    const points = Array.from(activePointersRef.current.values());
+    if (!points.length) return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    const sum = points.reduce(
+      (total, point) => ({
+        x: total.x + point.x,
+        y: total.y + point.y,
+      }),
+      { x: 0, y: 0 },
+    );
+    return { x: sum.x / points.length, y: sum.y / points.length };
+  };
+
   const handleImagePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (!isImageZoomOpen || selectedMemory?.mediaType === 'video') return;
       event.currentTarget.setPointerCapture(event.pointerId);
       activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      setZoomInteractionMode(true);
 
       const now = performance.now();
       if (activePointersRef.current.size === 1) {
+        const current = zoomStateRef.current;
         if (now - panGestureRef.current.lastTapAt < 280) {
-          const nextZoom = imageZoom > 1 ? 1 : 2.35;
-          setImageZoom(nextZoom);
-          setImagePan((pan) => clampImagePan(pan.x, pan.y, nextZoom));
+          const nextZoom = current.zoom > 1 ? 1 : 2.35;
+          const nextState = nextZoom === 1 ? { zoom: 1, x: 0, y: 0 } : zoomAroundPoint(nextZoom, event.clientX, event.clientY);
+          scheduleZoomTransform(nextState, true);
           panGestureRef.current.lastTapAt = 0;
         } else {
           panGestureRef.current.lastTapAt = now;
@@ -283,19 +378,19 @@ export default function HomePage({
           ...panGestureRef.current,
           startX: event.clientX,
           startY: event.clientY,
-          panX: imagePan.x,
-          panY: imagePan.y,
+          panX: zoomStateRef.current.x,
+          panY: zoomStateRef.current.y,
         };
       }
 
       if (activePointersRef.current.size === 2) {
         pinchGestureRef.current = {
           distance: getPointerDistance(),
-          zoom: imageZoom,
+          zoom: zoomStateRef.current.zoom,
         };
       }
     },
-    [clampImagePan, imagePan.x, imagePan.y, imageZoom, isImageZoomOpen, selectedMemory?.mediaType],
+    [isImageZoomOpen, scheduleZoomTransform, selectedMemory?.mediaType, setZoomInteractionMode, zoomAroundPoint],
   );
 
   const handleImagePointerMove = useCallback(
@@ -309,40 +404,74 @@ export default function HomePage({
         const distance = getPointerDistance();
         if (!pinchGestureRef.current.distance || !distance) return;
         const nextZoom = clampZoom((pinchGestureRef.current.zoom * distance) / pinchGestureRef.current.distance);
-        setImageZoom(nextZoom);
-        setImagePan((pan) => clampImagePan(pan.x, pan.y, nextZoom));
+        const center = getPointerCenter();
+        scheduleZoomTransform(zoomAroundPoint(nextZoom, center.x, center.y));
         return;
       }
 
-      if (imageZoom <= 1) return;
+      const current = zoomStateRef.current;
+      if (current.zoom <= 1) return;
       event.preventDefault();
       const nextX = panGestureRef.current.panX + event.clientX - panGestureRef.current.startX;
       const nextY = panGestureRef.current.panY + event.clientY - panGestureRef.current.startY;
-      setImagePan(clampImagePan(nextX, nextY, imageZoom));
+      const nextPan = clampImagePan(nextX, nextY, current.zoom);
+      scheduleZoomTransform({ zoom: current.zoom, x: nextPan.x, y: nextPan.y });
     },
-    [clampImagePan, imageZoom, isImageZoomOpen],
+    [clampImagePan, isImageZoomOpen, scheduleZoomTransform, zoomAroundPoint],
   );
 
-  const handleImagePointerEnd = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    activePointersRef.current.delete(event.pointerId);
-    try {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    } catch {
-      // Some browsers release capture automatically after a pinch.
-    }
-  }, []);
+  const handleImagePointerEnd = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      activePointersRef.current.delete(event.pointerId);
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      } catch {
+        // Some browsers release capture automatically after a pinch.
+      }
+
+      if (activePointersRef.current.size === 1) {
+        const [remaining] = Array.from(activePointersRef.current.values());
+        panGestureRef.current = {
+          ...panGestureRef.current,
+          startX: remaining.x,
+          startY: remaining.y,
+          panX: zoomStateRef.current.x,
+          panY: zoomStateRef.current.y,
+        };
+      }
+
+      if (activePointersRef.current.size < 2) {
+        pinchGestureRef.current = { distance: 0, zoom: zoomStateRef.current.zoom };
+      }
+
+      if (activePointersRef.current.size === 0) {
+        setZoomInteractionMode(false);
+        syncZoomState(true);
+      }
+    },
+    [setZoomInteractionMode, syncZoomState],
+  );
 
   const handleImageWheel = useCallback(
     (event: ReactWheelEvent<HTMLDivElement>) => {
       event.preventDefault();
-      const delta = event.deltaY > 0 ? -0.22 : 0.22;
-      setImageZoom((current) => {
-        const next = clampZoom(current + delta);
-        setImagePan((pan) => clampImagePan(pan.x, pan.y, next));
-        return next;
-      });
+      setZoomInteractionMode(true);
+      const current = zoomStateRef.current;
+      const factor = Math.exp(-event.deltaY * 0.0014);
+      const nextZoom = clampZoom(current.zoom * factor);
+      scheduleZoomTransform(zoomAroundPoint(nextZoom, event.clientX, event.clientY));
+      setZoomInteractionMode(false);
     },
-    [clampImagePan],
+    [scheduleZoomTransform, setZoomInteractionMode, zoomAroundPoint],
+  );
+
+  useEffect(
+    () => () => {
+      if (zoomFrameRef.current !== null) window.cancelAnimationFrame(zoomFrameRef.current);
+      if (zoomStateSyncTimerRef.current !== null) window.clearTimeout(zoomStateSyncTimerRef.current);
+      if (zoomInteractionTimerRef.current !== null) window.clearTimeout(zoomInteractionTimerRef.current);
+    },
+    [],
   );
 
   const tags = useMemo(() => {
@@ -1109,10 +1238,12 @@ export default function HomePage({
             onWheel={handleImageWheel}
           >
             <img
+              ref={zoomImageRef}
               src={selectedMemory.imageUrl}
               alt={`Ảnh kỷ niệm của ${selectedMemory.name}`}
               className="zoomable-memory-image max-h-[92svh] w-auto max-w-full object-contain"
               decoding="async"
+              loading="eager"
               draggable={false}
               style={{
                 transform: `translate3d(${imagePan.x}px, ${imagePan.y}px, 0) scale(${imageZoom})`,
