@@ -64,6 +64,12 @@ service cloud.firestore {
         : [];
     }
 
+    function oldCommentAngryBy() {
+      return resource.data.keys().hasAny(['reactionAngryBy']) && resource.data.reactionAngryBy is list
+        ? resource.data.reactionAngryBy
+        : [];
+    }
+
     function newCommentHahaBy() {
       return request.resource.data.keys().hasAny(['reactionHahaBy']) && request.resource.data.reactionHahaBy is list
         ? request.resource.data.reactionHahaBy
@@ -88,6 +94,12 @@ service cloud.firestore {
         : [];
     }
 
+    function newCommentAngryBy() {
+      return request.resource.data.keys().hasAny(['reactionAngryBy']) && request.resource.data.reactionAngryBy is list
+        ? request.resource.data.reactionAngryBy
+        : [];
+    }
+
     function sameList(nextList, oldList) {
       return nextList.size() == oldList.size() && nextList.hasAll(oldList);
     }
@@ -96,35 +108,40 @@ service cloud.firestore {
       return (!request.resource.data.keys().hasAny(['reactionHahaBy']) || (request.resource.data.reactionHahaBy is list && request.resource.data.reactionHahaBy.size() == 0))
         && (!request.resource.data.keys().hasAny(['reactionLoveBy']) || (request.resource.data.reactionLoveBy is list && request.resource.data.reactionLoveBy.size() == 0))
         && (!request.resource.data.keys().hasAny(['reactionMissBy']) || (request.resource.data.reactionMissBy is list && request.resource.data.reactionMissBy.size() == 0))
-        && (!request.resource.data.keys().hasAny(['reactionWowBy']) || (request.resource.data.reactionWowBy is list && request.resource.data.reactionWowBy.size() == 0));
+        && (!request.resource.data.keys().hasAny(['reactionWowBy']) || (request.resource.data.reactionWowBy is list && request.resource.data.reactionWowBy.size() == 0))
+        && (!request.resource.data.keys().hasAny(['reactionAngryBy']) || (request.resource.data.reactionAngryBy is list && request.resource.data.reactionAngryBy.size() == 0));
     }
 
     function oldCommentReactionUserCount() {
       return (request.auth.uid in oldCommentHahaBy() ? 1 : 0)
         + (request.auth.uid in oldCommentLoveBy() ? 1 : 0)
         + (request.auth.uid in oldCommentMissBy() ? 1 : 0)
-        + (request.auth.uid in oldCommentWowBy() ? 1 : 0);
+        + (request.auth.uid in oldCommentWowBy() ? 1 : 0)
+        + (request.auth.uid in oldCommentAngryBy() ? 1 : 0);
     }
 
     function newCommentReactionUserCount() {
       return (request.auth.uid in newCommentHahaBy() ? 1 : 0)
         + (request.auth.uid in newCommentLoveBy() ? 1 : 0)
         + (request.auth.uid in newCommentMissBy() ? 1 : 0)
-        + (request.auth.uid in newCommentWowBy() ? 1 : 0);
+        + (request.auth.uid in newCommentWowBy() ? 1 : 0)
+        + (request.auth.uid in newCommentAngryBy() ? 1 : 0);
     }
 
     function oldCommentReactionTotal() {
       return oldCommentHahaBy().size()
         + oldCommentLoveBy().size()
         + oldCommentMissBy().size()
-        + oldCommentWowBy().size();
+        + oldCommentWowBy().size()
+        + oldCommentAngryBy().size();
     }
 
     function newCommentReactionTotal() {
       return newCommentHahaBy().size()
         + newCommentLoveBy().size()
         + newCommentMissBy().size()
-        + newCommentWowBy().size();
+        + newCommentWowBy().size()
+        + newCommentAngryBy().size();
     }
 
     function validCommentReactionListTransition(nextList, oldList) {
@@ -150,13 +167,15 @@ service cloud.firestore {
           'reactionLoveBy',
           'reactionMissBy',
           'reactionWowBy',
+          'reactionAngryBy',
           'updatedAt'
         ])
         && request.resource.data.diff(resource.data).changedKeys().hasAny([
           'reactionHahaBy',
           'reactionLoveBy',
           'reactionMissBy',
-          'reactionWowBy'
+          'reactionWowBy',
+          'reactionAngryBy'
         ])
         && oldCommentReactionUserCount() <= 1
         && newCommentReactionUserCount() == 1
@@ -164,6 +183,7 @@ service cloud.firestore {
         && validCommentReactionListTransition(newCommentLoveBy(), oldCommentLoveBy())
         && validCommentReactionListTransition(newCommentMissBy(), oldCommentMissBy())
         && validCommentReactionListTransition(newCommentWowBy(), oldCommentWowBy())
+        && validCommentReactionListTransition(newCommentAngryBy(), oldCommentAngryBy())
         && (
           (
             oldCommentReactionUserCount() == 0

@@ -34,6 +34,7 @@ const commentReactionOptions: Array<{ id: CommentReactionId; label: string; icon
   { id: 'love', label: 'Thương', iconSrc: `${googleEmojiBaseUrl}/emoji_u1f497.svg`, tone: 'bg-blush/55 text-roseDust' },
   { id: 'miss', label: 'Nhớ', iconSrc: `${googleEmojiBaseUrl}/emoji_u1f979.svg`, tone: 'bg-skySoft/40 text-chalk' },
   { id: 'wow', label: 'Wow', iconSrc: `${googleEmojiBaseUrl}/emoji_u1f62e.svg`, tone: 'bg-[#f4dfbf]/75 text-coffee' },
+  { id: 'angry', label: 'Tức giận', iconSrc: `${googleEmojiBaseUrl}/emoji_u1f621.svg`, tone: 'bg-[#ffd8cf] text-[#9c3328]' },
 ];
 
 function ReactionIcon({ src, className }: { src: string; className: string }) {

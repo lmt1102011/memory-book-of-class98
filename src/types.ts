@@ -98,7 +98,7 @@ export interface MemoryComment {
   pending?: boolean;
 }
 
-export type CommentReactionId = 'haha' | 'love' | 'miss' | 'wow';
+export type CommentReactionId = 'haha' | 'love' | 'miss' | 'wow' | 'angry';
 
 export interface GuestbookEntry {
   id: string;

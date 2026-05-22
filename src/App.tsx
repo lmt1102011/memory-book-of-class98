@@ -141,6 +141,7 @@ const makeEmptyCommentReactionCounts = (): Record<CommentReactionId, number> => 
   love: 0,
   miss: 0,
   wow: 0,
+  angry: 0,
 });
 
 const commentReactionLabels: Record<CommentReactionId, string> = {
@@ -148,6 +149,7 @@ const commentReactionLabels: Record<CommentReactionId, string> = {
   love: 'Thương',
   miss: 'Nhớ',
   wow: 'Wow',
+  angry: 'Tức giận',
 };
 
 const readNotificationIdsKey = (uid: string) => `memory98-notifications-read-ids:${uid}`;

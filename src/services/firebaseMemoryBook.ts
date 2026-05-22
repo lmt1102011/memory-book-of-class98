@@ -88,6 +88,7 @@ const COMMENT_REACTION_FIELDS: Record<CommentReactionId, string> = {
   love: 'reactionLoveBy',
   miss: 'reactionMissBy',
   wow: 'reactionWowBy',
+  angry: 'reactionAngryBy',
 };
 const COMMENT_REACTION_IDS = Object.keys(COMMENT_REACTION_FIELDS) as CommentReactionId[];
 
@@ -327,7 +328,7 @@ const commentReactionsFromData = (data: DocumentData) => {
       acc[reactionId] = commentReactionUsers(data, reactionId).length;
       return acc;
     },
-    { haha: 0, love: 0, miss: 0, wow: 0 } as Record<CommentReactionId, number>,
+    { haha: 0, love: 0, miss: 0, wow: 0, angry: 0 } as Record<CommentReactionId, number>,
   );
   const reactionByUid: Record<string, CommentReactionId> = {};
   COMMENT_REACTION_IDS.forEach((reactionId) => {
@@ -1132,6 +1133,7 @@ export const addMemoryComment = async (profile: UserProfile, memory: MemoryItem,
     reactionLoveBy: [],
     reactionMissBy: [],
     reactionWowBy: [],
+    reactionAngryBy: [],
   }));
 
   return {
@@ -1143,7 +1145,7 @@ export const addMemoryComment = async (profile: UserProfile, memory: MemoryItem,
     nameKey: profile.nameKey,
     message: safeMessage,
     createdAt,
-    reactionCounts: { haha: 0, love: 0, miss: 0, wow: 0 },
+    reactionCounts: { haha: 0, love: 0, miss: 0, wow: 0, angry: 0 },
     reactionByUid: {},
   };
 };
