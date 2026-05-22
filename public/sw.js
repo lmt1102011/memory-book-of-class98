@@ -1,4 +1,4 @@
-const CACHE_NAME = 'memory98-app-shell-v17';
+const CACHE_NAME = 'memory98-app-shell-v18';
 const APP_SHELL_PATHS = [
   './',
   './index.html',
@@ -15,9 +15,16 @@ const APP_SHELL_URLS = APP_SHELL_PATHS.map(scopedUrl);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL_URLS)),
+    (async () => {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        await cache.addAll(APP_SHELL_URLS);
+      } catch {
+        // A single slow or missing asset must never block app updates.
+      }
+
+      await self.skipWaiting();
+    })(),
   );
 });
 
@@ -41,12 +48,12 @@ const shouldHandleRequest = (request) => {
 };
 
 const cacheFirst = async (request) => {
-  const cached = await caches.match(request);
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
   if (cached) return cached;
 
   const response = await fetch(request);
   if (response.ok) {
-    const cache = await caches.open(CACHE_NAME);
     await cache.put(request, response.clone());
   }
   return response;

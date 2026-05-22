@@ -1,7 +1,7 @@
 import { showAppUpdateOverlay } from './utils/appUpdateRecovery';
 import { isStandaloneMode } from './pwaInstallPrompt';
 
-const SW_VERSION = '20260522-auto-update-6';
+const SW_VERSION = '20260522-auto-update-7';
 const UPDATE_CHECK_INTERVAL = 60_000;
 const UPDATE_RELOAD_DELAY = 850;
 const INITIAL_UPDATE_CHECK_DELAY = 1_500;
@@ -21,7 +21,6 @@ export const registerPwa = () => {
       if (!registration.waiting || !navigator.serviceWorker.controller) return;
 
       shouldReloadForUpdate = true;
-      showAppUpdateOverlay();
       registration.waiting.postMessage({ type: 'SKIP_WAITING' });
     };
 
@@ -33,7 +32,6 @@ export const registerPwa = () => {
         if (worker.state !== 'installed' || !navigator.serviceWorker.controller) return;
 
         shouldReloadForUpdate = true;
-        showAppUpdateOverlay();
         worker.postMessage({ type: 'SKIP_WAITING' });
       });
     };

@@ -47,8 +47,9 @@ export const showAppUpdateOverlay = (label = 'Đang cập nhật phiên bản m�
     <div class="memory98-update-card">
       <img src="./logo-web-class-98.png" alt="Memory98" />
       <p data-update-label>${label}</p>
-      <span>Memory98 sẽ mở lại ngay sau khi lấy xong bản mới.</span>
+      <span>Nếu màn hình đứng quá lâu, bấm tải lại ngay.</span>
       <div class="memory98-update-bar"><i></i></div>
+      <button type="button" data-update-reload>Tải lại ngay</button>
     </div>
   `;
 
@@ -118,6 +119,22 @@ export const showAppUpdateOverlay = (label = 'Đang cập nhật phiên bản m�
       transform: translate3d(-110%, 0, 0);
     }
 
+    #memory98-update-overlay button {
+      display: inline-flex;
+      min-height: 2.65rem;
+      align-items: center;
+      justify-content: center;
+      margin-top: 16px;
+      border: 0;
+      border-radius: 999px;
+      background: #35291f;
+      padding: 0 18px;
+      color: #fffaf1;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
     @keyframes memory98-update-progress {
       to {
         transform: translate3d(230%, 0, 0);
@@ -130,17 +147,18 @@ export const showAppUpdateOverlay = (label = 'Đang cập nhật phiên bản m�
   }
 
   document.body.appendChild(overlay);
+  overlay.querySelector('[data-update-reload]')?.addEventListener('click', () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('manualRefresh', Date.now().toString(36));
+    window.location.replace(url.toString());
+  });
 };
 
 const clearRuntimeCaches = async () => {
   if (!('caches' in window) || !navigator.onLine) return;
 
   const cacheNames = await caches.keys();
-  await Promise.all(
-    cacheNames
-      .filter((name) => name.startsWith('memory98-app-shell'))
-      .map((name) => caches.delete(name)),
-  );
+  await Promise.allSettled(cacheNames.filter((name) => name.startsWith('memory98-app-shell')).map((name) => caches.delete(name)));
 };
 
 const reloadWithFreshUrl = () => {
@@ -159,16 +177,11 @@ const recoverFromChunkError = async () => {
   window.sessionStorage.setItem(CHUNK_RELOAD_KEY, String(now));
   showAppUpdateOverlay('Đang lấy lại phiên bản mới nhất...');
 
-  try {
-    await Promise.all([
-      clearRuntimeCaches(),
-      navigator.serviceWorker?.getRegistration().then((registration) => registration?.update()).catch(() => undefined),
-    ]);
-  } catch {
-    // If cache cleanup is blocked, a fresh navigation is still the best recovery path.
-  }
-
   window.setTimeout(reloadWithFreshUrl, 650);
+  void Promise.allSettled([
+    clearRuntimeCaches(),
+    navigator.serviceWorker?.getRegistration().then((registration) => registration?.update()).catch(() => undefined),
+  ]);
 };
 
 export const installUpdateRecovery = () => {
