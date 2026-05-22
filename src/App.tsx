@@ -8,6 +8,7 @@ import {
   Lock,
   Menu,
   MessageCircle,
+  Sparkles,
   UserRound,
   Users,
   X,
@@ -50,6 +51,7 @@ import type {
 const JoinPage = lazy(() => import('./pages/JoinPage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
 const LettersPage = lazy(() => import('./pages/LettersPage'));
+const FutureMessagesPage = lazy(() => import('./pages/FutureMessagesPage'));
 const RememberPage = lazy(() => import('./pages/RememberPage'));
 const DiaryPage = lazy(() => import('./pages/DiaryPage'));
 const PhotobookPage = lazy(() => import('./pages/PhotobookPage'));
@@ -57,7 +59,7 @@ const PeoplePage = lazy(() => import('./pages/PeoplePage'));
 const VotesPage = lazy(() => import('./pages/VotesPage'));
 const MyMemoriesPage = lazy(() => import('./pages/MyMemoriesPage'));
 
-const appRoutes: AppRoute[] = ['landing', 'join', 'home', 'letters', 'remember', 'diary', 'photobook', 'people', 'votes', 'mine'];
+const appRoutes: AppRoute[] = ['landing', 'join', 'home', 'letters', 'future', 'remember', 'diary', 'photobook', 'people', 'votes', 'mine'];
 
 type Memory98HistoryState = {
   memory98?: true;
@@ -129,11 +131,7 @@ const defaultCinematicSlideshowSettings: CinematicSlideshowSettings = {
   mood: 'cinematic',
 };
 
-const makeDefaultTimeCapsuleSettings = (): TimeCapsuleSettings => {
-  const unlockAt = new Date();
-  unlockAt.setFullYear(unlockAt.getFullYear() + 1);
-  return { unlockAt: unlockAt.toISOString() };
-};
+const makeDefaultTimeCapsuleSettings = (): TimeCapsuleSettings => ({ unlockAt: '' });
 
 export default function App() {
   const [route, setRoute] = useState<AppRoute>(() => routeFromHash());
@@ -255,6 +253,7 @@ export default function App() {
       void import('./pages/PeoplePage');
       void import('./pages/VotesPage');
       void import('./pages/LettersPage');
+      void import('./pages/FutureMessagesPage');
       void import('./pages/DiaryPage');
       void import('./pages/JoinPage');
       if (!mobilePerformanceMode) void import('./pages/PhotobookPage');
@@ -988,7 +987,7 @@ export default function App() {
         label: 'Lời nhắn',
         description: 'Thư lớp, Secret Message và nhật ký',
         icon: MessageCircle,
-        isActive: route === 'letters' || route === 'remember' || route === 'diary',
+        isActive: route === 'letters' || route === 'future' || route === 'remember' || route === 'diary',
         badgeCount: messageCount,
         items: [
           {
@@ -998,6 +997,14 @@ export default function App() {
             icon: MessageCircle,
             isActive: route === 'letters',
             onSelect: () => navigate('letters'),
+          },
+          {
+            id: 'future',
+            label: 'Gửi cho tương lai',
+            description: 'Viết lời nhắn để mở lại sau này.',
+            icon: Sparkles,
+            isActive: route === 'future',
+            onSelect: () => navigate('future'),
           },
           {
             id: 'remember',
@@ -1679,14 +1686,26 @@ export default function App() {
         <Suspense fallback={<LoadingScreen label="Đang mở bảng thư lớp" />}>
           <LettersPage
             guestbook={allGuestbook}
-            timeCapsules={timeCapsules}
-            timeCapsuleSettings={timeCapsuleSettings}
             firebaseNotice={firebaseNotice}
             profile={profile}
             onJoin={() => navigate('join')}
             onAddGuestbook={handleGuestbookAdd}
             onDeleteGuestbook={handleGuestbookDelete}
             onAddAnonymousMessage={handleAnonymousMessageAdd}
+          />
+        </Suspense>
+      );
+    }
+
+    if (route === 'future') {
+      return (
+        <Suspense fallback={<LoadingScreen label="Đang mở Gửi cho tương lai" />}>
+          <FutureMessagesPage
+            timeCapsules={timeCapsules}
+            timeCapsuleSettings={timeCapsuleSettings}
+            firebaseNotice={firebaseNotice}
+            profile={profile}
+            onJoin={() => navigate('join')}
             onAddTimeCapsule={handleTimeCapsuleAdd}
             onOpenFutureMessages={() => setFutureMessagePopupOpen(true)}
           />

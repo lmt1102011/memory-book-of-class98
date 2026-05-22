@@ -411,14 +411,8 @@ const cinematicSlideshowSettingsFromData = (data?: DocumentData): CinematicSlide
   updatedAt: data?.updatedAt ? timestampToIso(data.updatedAt) : undefined,
 });
 
-const defaultTimeCapsuleUnlockAt = () => {
-  const date = new Date();
-  date.setFullYear(date.getFullYear() + 1);
-  return date.toISOString();
-};
-
 const timeCapsuleSettingsFromData = (data?: DocumentData): TimeCapsuleSettings => ({
-  unlockAt: typeof data?.unlockAt === 'string' && data.unlockAt ? data.unlockAt : defaultTimeCapsuleUnlockAt(),
+  unlockAt: typeof data?.unlockAt === 'string' ? data.unlockAt : '',
   updatedAt: data?.updatedAt ? timestampToIso(data.updatedAt) : undefined,
 });
 

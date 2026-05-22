@@ -3,6 +3,7 @@ export type AppRoute =
   | 'join'
   | 'home'
   | 'letters'
+  | 'future'
   | 'remember'
   | 'diary'
   | 'photobook'

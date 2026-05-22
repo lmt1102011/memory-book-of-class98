@@ -422,9 +422,9 @@
 
         <section class="card setting-card">
           <div>
-            <strong>Gửi cho tương lai trong Thư lớp</strong>
+            <strong>Gửi cho tương lai</strong>
             <p class="muted">
-              Học sinh viết lời nhắn cho tương lai ngay trong mục Thư lớp. Trước ngày mở, web học sinh chỉ hiện số đã gửi.
+              Đây là mục riêng trong nhóm Lời nhắn. Trước giờ mở, học sinh chỉ thấy số lời nhắn đã gửi.
             </p>
             <input id="timeCapsuleUnlockAt" type="datetime-local" style="margin-top: 10px" />
             <p id="timeCapsuleStatus" class="status"></p>
@@ -634,7 +634,8 @@
       };
 
       const toDateTimeLocalValue = (value) => {
-        const date = value?.toDate ? value.toDate() : new Date(value || Date.now() + 365 * 24 * 60 * 60 * 1000);
+        if (!value) return '';
+        const date = value?.toDate ? value.toDate() : new Date(value);
         if (Number.isNaN(date.getTime())) return '';
         const parts = Object.fromEntries(
           new Intl.DateTimeFormat('en-CA', {
@@ -1015,7 +1016,7 @@
             : { enabled: false, mood: 'cinematic' };
           timeCapsuleSetting = timeCapsuleSettingSnapshot.exists()
             ? { unlockAt: timeCapsuleSettingSnapshot.data().unlockAt || '' }
-            : { unlockAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() };
+            : { unlockAt: '' };
           memories = [
             ...publicMemorySnapshot.docs.map((item) => ({ id: item.id, collectionName: PUBLIC_MEMORIES_COLLECTION, ...item.data() })),
             ...privateMemorySnapshot.docs.map((item) => ({ id: item.id, collectionName: PRIVATE_MEMORIES_COLLECTION, ...item.data() })),
