@@ -846,23 +846,8 @@ export default function App() {
         label: 'Tôi',
         description: profile ? `${profile.name} - ${profile.className}` : 'Tài khoản cá nhân',
         icon: UserRound,
-        isActive: isOwnProfileOpen || route === 'join',
+        isActive: route === 'join',
         items: [
-          {
-            id: 'profile',
-            label: profile ? 'Hồ sơ của tôi' : 'Đăng nhập / tạo tài khoản',
-            description: profile ? 'Xem hồ sơ, album và thông tin của mình.' : 'Vào lớp 9/8 để xem đầy đủ ký ức.',
-            icon: UserRound,
-            isActive: isOwnProfileOpen || (!profile && route === 'join'),
-            onSelect: () => {
-              if (profile) {
-                openPersonProfile(profile.nameKey);
-                return;
-              }
-
-              navigate('join');
-            },
-          },
           {
             id: 'account',
             label: 'Tài khoản',
@@ -879,7 +864,6 @@ export default function App() {
     navBadgeCount,
     navigate,
     openPeopleList,
-    openPersonProfile,
     profile,
     route,
   ]);
@@ -1823,13 +1807,6 @@ export default function App() {
                   className="fixed inset-x-0 bottom-0 top-16 z-[75] overflow-y-auto border-t border-coffee/15 bg-[#fbf3e7] px-4 py-3 shadow-[0_18px_42px_rgba(53,41,31,0.18)] lg:hidden"
                 >
                   <div className="mx-auto grid max-w-2xl gap-3 pb-[max(0.65rem,env(safe-area-inset-bottom))]">
-                    <div className="rounded-[1.1rem] border border-coffee/12 bg-[#fffaf1] p-3 shadow-paper">
-                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-coffee/58">Menu Memory98</p>
-                      <p className="mt-1 text-sm font-bold leading-5 text-coffee/78">
-                        Chọn một nhóm lớn trước, rồi vào tính năng cần dùng. Mọi thứ được giữ gọn để dễ thao tác trên điện thoại.
-                      </p>
-                    </div>
-
                     {navigationGroups.map((group) => {
                       const Icon = group.icon;
                       const isExpanded = openNavGroup === group.id;
