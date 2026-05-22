@@ -33,14 +33,14 @@ export default function ActionModal({ isOpen, title, description, icon, wide = f
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-ink/76 p-3 backdrop-blur-[2px] sm:p-6"
+      className="app-safe-modal-overlay fixed inset-0 z-[95] grid place-items-center bg-ink/76 p-3 backdrop-blur-[2px] sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label={title}
       onClick={onClose}
     >
       <div
-        className={`relative max-h-[92svh] w-full overflow-auto rounded-[1.25rem] border border-coffee/15 bg-[#fffaf1] p-4 text-ink shadow-[0_26px_80px_rgba(18,15,13,.42)] sm:p-6 ${
+        className={`app-safe-modal-panel relative max-h-[92svh] w-full overflow-auto rounded-[1.25rem] border border-coffee/15 bg-[#fffaf1] p-4 text-ink shadow-[0_26px_80px_rgba(18,15,13,.42)] sm:p-6 ${
           wide ? 'max-w-4xl' : 'max-w-2xl'
         }`}
         onClick={(event) => event.stopPropagation()}

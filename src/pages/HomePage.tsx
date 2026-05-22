@@ -526,7 +526,7 @@ export default function HomePage({
 
       {selectedMemory && (
         <div
-          className="memory-modal-overlay fixed inset-0 z-50 grid place-items-center overflow-hidden bg-ink/92 p-0 backdrop-blur-sm sm:p-6"
+          className="memory-modal-overlay fixed inset-0 z-[95] grid place-items-center overflow-hidden bg-ink/92 p-0 backdrop-blur-sm sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label={`Xem ${selectedMediaLabel} của ${selectedMemory.name}`}
@@ -675,7 +675,7 @@ export default function HomePage({
 
       {selectedMemory && selectedMemory.mediaType !== 'video' && isImageZoomOpen && (
         <div
-          className="memory-zoom-overlay fixed inset-0 z-[60] overflow-hidden bg-ink"
+          className="memory-zoom-overlay fixed inset-0 z-[100] overflow-hidden bg-ink"
           role="dialog"
           aria-modal="true"
           aria-label={`Phóng to ảnh của ${selectedMemory.name}`}

@@ -1638,8 +1638,8 @@ export default function App() {
         </AnimatePresence>
 
         {bootSplashDone && route !== 'landing' && (
-          <header className="fixed left-0 right-0 top-0 z-[70] border-b border-coffee/10 bg-[#fbf3e7] shadow-[0_8px_28px_rgba(53,41,31,0.08)]">
-            <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <header className="app-header fixed left-0 right-0 top-0 z-[70] border-b border-coffee/10 bg-[#fbf3e7] shadow-[0_8px_28px_rgba(53,41,31,0.08)]">
+            <nav className="app-header-nav mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
               <button
                 className="flex items-center gap-2 rounded-full px-2 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coffee"
                 onClick={() => navigate('home')}
@@ -1804,7 +1804,7 @@ export default function App() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={reduceHeavyMotion ? undefined : { opacity: 0, y: -10 }}
                   transition={{ duration: reduceHeavyMotion ? 0 : 0.16 }}
-                  className="fixed inset-x-0 bottom-0 top-16 z-[75] overflow-y-auto border-t border-coffee/15 bg-[#fbf3e7] px-4 py-3 shadow-[0_18px_42px_rgba(53,41,31,0.18)] lg:hidden"
+                  className="app-mobile-menu fixed inset-x-0 bottom-0 top-16 z-[75] overflow-y-auto border-t border-coffee/15 bg-[#fbf3e7] px-4 py-3 shadow-[0_18px_42px_rgba(53,41,31,0.18)] lg:hidden"
                 >
                   <div className="mx-auto grid max-w-2xl gap-3 pb-[max(0.65rem,env(safe-area-inset-bottom))]">
                     {navigationGroups.map((group) => {
@@ -1909,7 +1909,7 @@ export default function App() {
         )}
 
         {bootSplashDone && (
-        <main className={route === 'landing' ? '' : 'pt-16'}>
+        <main className={route === 'landing' ? '' : 'app-main pt-16'}>
           <AnimatePresence mode="wait">
             <m.div
               key={route}

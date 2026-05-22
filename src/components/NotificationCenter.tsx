@@ -38,7 +38,7 @@ export default function NotificationCenter({
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-end bg-ink/52 p-0 backdrop-blur-sm sm:place-items-start sm:p-4 sm:pt-20 lg:place-items-end lg:p-4 lg:pt-20"
+      className="fixed inset-0 z-[95] grid place-items-end bg-ink/52 p-0 backdrop-blur-sm sm:place-items-start sm:p-4 sm:pt-20 lg:place-items-end lg:p-4 lg:pt-20"
       role="dialog"
       aria-modal="true"
       aria-label="Trung tâm thông báo"

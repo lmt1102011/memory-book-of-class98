@@ -573,7 +573,7 @@ function InstallGuideModal({
 
   return (
     <m.div
-      className="fixed inset-0 z-50 grid place-items-center bg-ink/82 p-3 backdrop-blur-sm sm:p-6"
+      className="app-safe-modal-overlay fixed inset-0 z-[95] grid place-items-center bg-ink/82 p-3 backdrop-blur-sm sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label={guide.title}
@@ -584,7 +584,7 @@ function InstallGuideModal({
       onClick={onClose}
     >
       <m.div
-        className="relative max-h-[92svh] w-full max-w-5xl overflow-auto rounded-[1.25rem] bg-paper p-4 text-ink shadow-glass sm:p-6"
+        className="app-safe-modal-panel relative max-h-[92svh] w-full max-w-5xl overflow-auto rounded-[1.25rem] bg-paper p-4 text-ink shadow-glass sm:p-6"
         initial={reduceHeavyMotion ? false : { opacity: 0, y: 18, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={reduceHeavyMotion ? undefined : { opacity: 0, y: 12, scale: 0.98 }}
@@ -1041,7 +1041,7 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
       <AnimatePresence>
         {tutorialOpen && (
           <m.div
-            className="fixed inset-0 z-50 grid place-items-center bg-ink/82 p-3 backdrop-blur-sm sm:p-6"
+            className="app-safe-modal-overlay fixed inset-0 z-[95] grid place-items-center bg-ink/82 p-3 backdrop-blur-sm sm:p-6"
             role="dialog"
             aria-modal="true"
             aria-label={`Hướng dẫn sử dụng Memory Book trên ${tutorialDeviceLabel}`}
@@ -1052,7 +1052,7 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
             onClick={() => setTutorialOpen(false)}
           >
             <m.div
-              className="relative max-h-[92svh] w-full max-w-6xl overflow-auto rounded-[1.25rem] bg-paper p-4 text-ink shadow-glass sm:p-6"
+              className="app-safe-modal-panel relative max-h-[92svh] w-full max-w-6xl overflow-auto rounded-[1.25rem] bg-paper p-4 text-ink shadow-glass sm:p-6"
               initial={reduceHeavyMotion ? false : { opacity: 0, y: 18, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={reduceHeavyMotion ? undefined : { opacity: 0, y: 12, scale: 0.98 }}

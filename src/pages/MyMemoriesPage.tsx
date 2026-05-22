@@ -249,14 +249,14 @@ export default function MyMemoriesPage({
 
       {selectedMemory && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-ink/88 p-3 backdrop-blur-sm sm:p-6"
+          className="app-safe-modal-overlay fixed inset-0 z-[95] grid place-items-center bg-ink/88 p-3 backdrop-blur-sm sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label="Xem kỷ niệm của tôi"
           onClick={() => setSelectedMemory(null)}
         >
           <div
-            className="grid max-h-[92svh] w-full max-w-5xl overflow-hidden rounded-[1.25rem] bg-paper shadow-glass lg:grid-cols-[minmax(0,1fr)_20rem]"
+            className="app-safe-modal-panel grid max-h-[92svh] w-full max-w-5xl overflow-hidden rounded-[1.25rem] bg-paper shadow-glass lg:grid-cols-[minmax(0,1fr)_20rem]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="grid min-h-[22rem] place-items-center bg-ink p-3">

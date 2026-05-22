@@ -302,7 +302,7 @@ function ClassMessageBoard({
 
       {selectedNote && (
         <m.div
-          className="fixed inset-0 z-50 grid place-items-center bg-ink/62 p-3 sm:p-6"
+          className="app-safe-modal-overlay fixed inset-0 z-[95] grid place-items-center bg-ink/62 p-3 sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label="Xem thư trên bảng lớp"
@@ -313,7 +313,7 @@ function ClassMessageBoard({
           transition={{ duration: mobilePerformanceMode ? 0 : 0.16, ease: 'easeOut' }}
         >
           <m.div
-            className="relative max-h-[92svh] w-full max-w-2xl overflow-auto rounded-[0.85rem] border border-white/70 bg-[#fffaf1] p-5 text-ink shadow-[0_24px_70px_rgba(18,15,13,.28)] sm:p-7"
+            className="app-safe-modal-panel relative max-h-[92svh] w-full max-w-2xl overflow-auto rounded-[0.85rem] border border-white/70 bg-[#fffaf1] p-5 text-ink shadow-[0_24px_70px_rgba(18,15,13,.28)] sm:p-7"
             onClick={(event) => event.stopPropagation()}
             initial={mobilePerformanceMode ? false : { opacity: 0, y: 18, scale: 0.985, rotate: -0.35 }}
             animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
