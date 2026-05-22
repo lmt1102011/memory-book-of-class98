@@ -1,5 +1,8 @@
-const SW_VERSION = '20260522-auto-update-1';
+import { showAppUpdateOverlay } from './utils/appUpdateRecovery';
+
+const SW_VERSION = '20260522-auto-update-2';
 const UPDATE_CHECK_INTERVAL = 60_000;
+const UPDATE_RELOAD_DELAY = 850;
 
 export const registerPwa = () => {
   if (import.meta.env.DEV || !('serviceWorker' in navigator)) return;
@@ -15,6 +18,7 @@ export const registerPwa = () => {
       if (!registration.waiting || !navigator.serviceWorker.controller) return;
 
       shouldReloadForUpdate = true;
+      showAppUpdateOverlay();
       registration.waiting.postMessage({ type: 'SKIP_WAITING' });
     };
 
@@ -26,6 +30,7 @@ export const registerPwa = () => {
         if (worker.state !== 'installed' || !navigator.serviceWorker.controller) return;
 
         shouldReloadForUpdate = true;
+        showAppUpdateOverlay();
         worker.postMessage({ type: 'SKIP_WAITING' });
       });
     };
@@ -53,7 +58,8 @@ export const registerPwa = () => {
           if (!shouldReloadForUpdate || hasReloadedForUpdate) return;
 
           hasReloadedForUpdate = true;
-          window.location.reload();
+          showAppUpdateOverlay();
+          window.setTimeout(() => window.location.reload(), UPDATE_RELOAD_DELAY);
         });
 
         window.addEventListener('focus', () => checkForUpdate(registration));

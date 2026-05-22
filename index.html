@@ -25,6 +25,77 @@
       #root {
         background: #fbf3e7;
       }
+
+      body {
+        margin: 0;
+      }
+
+      .memory98-boot {
+        min-height: 100svh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        color: #4f3428;
+        font-family: Poppins, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        text-align: center;
+      }
+
+      .memory98-boot-card {
+        width: min(360px, 100%);
+        padding: 28px 22px 24px;
+        border: 1px solid rgba(79, 52, 40, 0.12);
+        border-radius: 26px;
+        background: rgba(255, 252, 246, 0.96);
+        box-shadow: 0 24px 70px rgba(79, 52, 40, 0.15);
+      }
+
+      .memory98-boot img {
+        width: 96px;
+        height: 96px;
+        object-fit: contain;
+        border-radius: 28px;
+        background: #fff7ee;
+        box-shadow: 0 12px 28px rgba(79, 52, 40, 0.14);
+      }
+
+      .memory98-boot strong {
+        display: block;
+        margin-top: 18px;
+        font-size: 20px;
+        line-height: 1.35;
+      }
+
+      .memory98-boot span {
+        display: block;
+        margin-top: 6px;
+        color: rgba(79, 52, 40, 0.68);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .memory98-boot-bar {
+        height: 8px;
+        margin-top: 18px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(79, 52, 40, 0.12);
+      }
+
+      .memory98-boot-bar i {
+        display: block;
+        width: 46%;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #f4a7b9, #8bbde8, #d7a979);
+        animation: memory98-boot-progress 1.2s ease-in-out infinite;
+        transform: translate3d(-110%, 0, 0);
+      }
+
+      @keyframes memory98-boot-progress {
+        to {
+          transform: translate3d(230%, 0, 0);
+        }
+      }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -36,7 +107,16 @@
     <title>School Memory Photobook</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="memory98-boot" role="status" aria-live="polite">
+        <div class="memory98-boot-card">
+          <img src="./logo-web-class-98.png" alt="Memory98" />
+          <strong>Đang mở Memory98...</strong>
+          <span>Đang kiểm tra phiên bản mới nhất để app không bị kẹt ở bản cũ.</span>
+          <div class="memory98-boot-bar"><i></i></div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
