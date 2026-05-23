@@ -119,9 +119,8 @@
       }
 
       .topbar {
-        position: sticky;
-        top: 0;
-        z-index: 4;
+        position: relative;
+        z-index: 1;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -298,9 +297,8 @@
       }
 
       .tabs {
-        position: sticky;
-        top: 86px;
-        z-index: 3;
+        position: relative;
+        z-index: 1;
         display: flex;
         gap: 8px;
         margin-top: 12px;
@@ -619,9 +617,8 @@
         }
 
         .bulkbar {
-          position: sticky;
-          top: 0;
-          z-index: 4;
+          position: relative;
+          z-index: 1;
         }
       }
 
@@ -959,6 +956,11 @@
       let managerLoadedTabs = new Set();
       let managerLoadingTabs = new Set();
       let creatorServicesPromise = null;
+      let liveFirestorePromise = null;
+      let liveUnsubscribers = [];
+      let liveToken = 0;
+      let liveRenderFrame = 0;
+      let liveRenderMessage = '';
 
       const isCompactManager = () => window.matchMedia('(max-width: 720px)').matches;
       const dataLimitFor = (tab) => {
@@ -976,6 +978,35 @@
       };
       const orderedLimitedQuery = (collectionName, fieldName, tabKey) =>
         query(collection(db, collectionName), orderBy(fieldName, 'desc'), limit(dataLimitFor(tabKey)));
+
+      const getLiveFirestore = async () => {
+        if (!liveFirestorePromise) {
+          liveFirestorePromise = import('https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js').then((firestore) => ({
+            ...firestore,
+            liveDb: firestore.getFirestore(app),
+          }));
+        }
+        return liveFirestorePromise;
+      };
+
+      const liveOrderedLimitedQuery = (firestore, collectionName, fieldName, tabKey) =>
+        firestore.query(
+          firestore.collection(firestore.liveDb, collectionName),
+          firestore.orderBy(fieldName, 'desc'),
+          firestore.limit(dataLimitFor(tabKey)),
+        );
+
+      const snapshotItems = (snapshot, extra = {}) => snapshot.docs.map((item) => ({ id: item.id, ...extra, ...item.data() }));
+
+      const memoryDateValue = (memory) => {
+        const rawDate = memory.createdAt?.toDate ? memory.createdAt.toDate() : new Date(memory.createdAt || 0);
+        return Number.isNaN(rawDate.getTime()) ? 0 : rawDate.getTime();
+      };
+
+      const normalizeMemories = (items) =>
+        items
+          .filter((item) => item.imageUrl)
+          .sort((left, right) => memoryDateValue(right) - memoryDateValue(left));
 
       const cleanDisplayName = (name) => name.trim().replace(/\s+/g, ' ');
       const makeNameKey = (name) =>
@@ -1436,6 +1467,8 @@
           window.clearInterval(managerPoll);
           managerPoll = 0;
         }
+        liveToken += 1;
+        stopRealtime();
         managerApp.classList.add('hidden');
         gate.classList.remove('hidden');
         if (managerPasswordInput) managerPasswordInput.value = '';
@@ -1448,7 +1481,9 @@
         document.querySelectorAll('.panel').forEach((panel) => panel.classList.toggle('active', panel.dataset.panel === tab));
         renderFilterOptions();
         renderCurrentTab();
-        void ensureTabDataLoaded(tab);
+        void ensureTabDataLoaded(tab).then(() => {
+          if (activeTab === tab && !managerApp.classList.contains('hidden')) restartRealtimeForActiveTab();
+        });
       };
 
       const tabContainerId = {
@@ -2134,16 +2169,10 @@
             ]);
 
             memoryComments = commentSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
-            memories = [
-              ...publicMemorySnapshot.docs.map((item) => ({ id: item.id, collectionName: PUBLIC_MEMORIES_COLLECTION, ...item.data() })),
-              ...privateMemorySnapshot.docs.map((item) => ({ id: item.id, collectionName: PRIVATE_MEMORIES_COLLECTION, ...item.data() })),
-            ]
-              .filter((item) => item.imageUrl)
-              .sort((left, right) => {
-                const leftDate = left.createdAt?.toDate ? left.createdAt.toDate() : new Date(left.createdAt || 0);
-                const rightDate = right.createdAt?.toDate ? right.createdAt.toDate() : new Date(right.createdAt || 0);
-                return rightDate.getTime() - leftDate.getTime();
-              });
+            memories = normalizeMemories([
+              ...snapshotItems(publicMemorySnapshot, { collectionName: PUBLIC_MEMORIES_COLLECTION }),
+              ...snapshotItems(privateMemorySnapshot, { collectionName: PRIVATE_MEMORIES_COLLECTION }),
+            ]);
           }
 
           if (tab === 'letters') {
@@ -2195,6 +2224,141 @@
         }
       };
 
+      const stopRealtime = () => {
+        liveUnsubscribers.forEach((unsubscribe) => {
+          try {
+            unsubscribe();
+          } catch {
+            // Ignore stale Firestore listeners when changing tabs quickly.
+          }
+        });
+        liveUnsubscribers = [];
+        liveRenderMessage = '';
+        if (liveRenderFrame) {
+          window.cancelAnimationFrame(liveRenderFrame);
+          liveRenderFrame = 0;
+        }
+      };
+
+      const scheduleRealtimeRender = (tab, message) => {
+        managerLoadedTabs.add(tab);
+        managerLoadingTabs.delete(tab);
+        pruneSelection();
+        liveRenderMessage = message;
+        if (liveRenderFrame) return;
+
+        liveRenderFrame = window.requestAnimationFrame(() => {
+          liveRenderFrame = 0;
+          if (activeTab === tab && !managerApp.classList.contains('hidden')) {
+            renderAll();
+            const status = statusForActiveTab();
+            if (status) status.textContent = liveRenderMessage || `Realtime đang bật cho ${tabLabel[tab] || 'dữ liệu'}.`;
+          } else {
+            updateStats();
+          }
+        });
+      };
+
+      const startRealtimeForTab = async (tab, token) => {
+        try {
+          const firestore = await getLiveFirestore();
+          if (token !== liveToken || tab !== activeTab || managerApp.classList.contains('hidden')) return;
+
+          const onLiveError = (error) => {
+            if (token !== liveToken || tab !== activeTab) return;
+            const status = statusForActiveTab();
+            if (status) status.textContent = error.message || 'Realtime bị chặn bởi Firebase Rules.';
+          };
+
+          if (tab === 'accounts') {
+            const accountQuery = firestore.query(firestore.collection(firestore.liveDb, 'students98'), firestore.orderBy('name'));
+            liveUnsubscribers.push(
+              firestore.onSnapshot(
+                accountQuery,
+                (snapshot) => {
+                  accounts = snapshotItems(snapshot);
+                  scheduleRealtimeRender(tab, 'Realtime đang bật: tài khoản tự cập nhật.');
+                },
+                onLiveError,
+              ),
+            );
+            return;
+          }
+
+          if (tab === 'memories') {
+            let livePublicMemories = memories.filter((item) => (item.collectionName || PUBLIC_MEMORIES_COLLECTION) === PUBLIC_MEMORIES_COLLECTION);
+            let liveComments = memoryComments;
+            const applyMemories = () => {
+              memories = normalizeMemories(livePublicMemories);
+              memoryComments = liveComments;
+              scheduleRealtimeRender(tab, 'Realtime đang bật: ảnh/video và bình luận tự cập nhật.');
+            };
+
+            liveUnsubscribers.push(
+              firestore.onSnapshot(
+                liveOrderedLimitedQuery(firestore, PUBLIC_MEMORIES_COLLECTION, 'createdAt', 'memories'),
+                (snapshot) => {
+                  livePublicMemories = snapshotItems(snapshot, { collectionName: PUBLIC_MEMORIES_COLLECTION });
+                  applyMemories();
+                },
+                onLiveError,
+              ),
+              firestore.onSnapshot(
+                liveOrderedLimitedQuery(firestore, MEMORY_COMMENTS_COLLECTION, 'createdAt', 'memoryComments'),
+                (snapshot) => {
+                  liveComments = snapshotItems(snapshot);
+                  applyMemories();
+                },
+                onLiveError,
+              ),
+            );
+            return;
+          }
+
+          const liveCollections = {
+            letters: [GUESTBOOK_COLLECTION, 'createdAt', 'letters'],
+            future: [TIME_CAPSULE_COLLECTION, 'createdAt', 'future'],
+            remember: [REMEMBER_NOTES_COLLECTION, 'createdAt', 'remember'],
+            diaries: [DIARY_COLLECTION, 'createdAt', 'diaries'],
+            downloads: [MEMORY_DOWNLOAD_LOGS_COLLECTION, 'downloadedAt', 'downloads'],
+          };
+          const liveConfig = liveCollections[tab];
+          if (!liveConfig) return;
+
+          liveUnsubscribers.push(
+            firestore.onSnapshot(
+              liveOrderedLimitedQuery(firestore, liveConfig[0], liveConfig[1], liveConfig[2]),
+              (snapshot) => {
+                const items = snapshotItems(snapshot);
+                if (tab === 'letters') {
+                  classLetters = items.map((item) => ({
+                    ...item,
+                    trueName: resolveTrueName({ uid: item.uid, nameKey: item.nameKey, fallback: item.name }),
+                  }));
+                }
+                if (tab === 'future') timeCapsules = items;
+                if (tab === 'remember') rememberNotes = items;
+                if (tab === 'diaries') diaries = items;
+                if (tab === 'downloads') downloads = items;
+                scheduleRealtimeRender(tab, `Realtime đang bật: ${tabLabel[tab] || 'dữ liệu'} tự cập nhật.`);
+              },
+              onLiveError,
+            ),
+          );
+        } catch (error) {
+          if (token !== liveToken || tab !== activeTab) return;
+          const status = statusForActiveTab();
+          if (status) status.textContent = error.message || 'Không thể bật realtime lúc này.';
+        }
+      };
+
+      const restartRealtimeForActiveTab = () => {
+        stopRealtime();
+        const tab = activeTab;
+        const token = ++liveToken;
+        void startRealtimeForTab(tab, token);
+      };
+
       const ensureTabDataLoaded = async (tab) => {
         if (!managerLoadedTabs.has(tab) && !managerLoadingTabs.has(tab)) {
           await loadTabData(tab);
@@ -2215,6 +2379,7 @@
           accountStatus.textContent = isManagerFirebaseUser()
             ? `Đã tải dữ liệu lúc ${new Intl.DateTimeFormat('vi-VN', { timeStyle: 'medium' }).format(new Date())}.`
             : `Đã tải dữ liệu lúc ${new Intl.DateTimeFormat('vi-VN', { timeStyle: 'medium' }).format(new Date())}. Ảnh riêng tư chỉ hiện khi trình duyệt đã có phiên Firebase manager.`;
+          if (!managerApp.classList.contains('hidden')) restartRealtimeForActiveTab();
         } catch (error) {
           accountStatus.textContent = error.message || 'Không thể tải dữ liệu manager.';
         } finally {
@@ -2227,7 +2392,7 @@
         void refreshManagerData();
         managerPoll = window.setInterval(() => {
           if (document.visibilityState === 'visible') void refreshManagerData({ silent: true });
-        }, isCompactManager() ? 90000 : 45000);
+        }, isCompactManager() ? 180000 : 120000);
       };
 
       const openManagerWithPassword = async () => {
@@ -2261,6 +2426,15 @@
 
       $('refreshButton').addEventListener('click', () => void refreshManagerData());
       $('repairDataButton').addEventListener('click', () => void repairSystemData());
+      document.addEventListener('visibilitychange', () => {
+        if (managerApp.classList.contains('hidden')) return;
+        if (document.visibilityState === 'hidden') {
+          liveToken += 1;
+          stopRealtime();
+          return;
+        }
+        void refreshManagerData({ silent: true });
+      });
       $('toggleRecapButton').addEventListener('click', async () => {
         const nextEnabled = !memoryRecapSetting.enabled;
         $('toggleRecapButton').disabled = true;
