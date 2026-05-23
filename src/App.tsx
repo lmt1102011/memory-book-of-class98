@@ -62,8 +62,14 @@ const MyMemoriesPage = lazy(() => import('./pages/MyMemoriesPage'));
 
 const appRoutes: AppRoute[] = ['landing', 'join', 'home', 'letters', 'future', 'remember', 'diary', 'photobook', 'people', 'votes', 'mine'];
 const MENU_HINT_STORAGE_VERSION = 'v4';
+const PROFILE_REMINDER_STORAGE_VERSION = 'v1';
+const PROFILE_REMINDER_INTERACTION_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const PROFILE_REMINDER_PASSIVE_INTERVAL_MS = 36 * 60 * 60 * 1000;
+const PROFILE_REMINDER_INTERACTION_THRESHOLD = 3;
 
 const menuHintStorageKey = (uid: string) => `memory98-menu-hint-seen:${MENU_HINT_STORAGE_VERSION}:${uid}`;
+const profileReminderLastKey = (uid: string) => `memory98-profile-reminder-last:${PROFILE_REMINDER_STORAGE_VERSION}:${uid}`;
+const profileReminderCountKey = (uid: string) => `memory98-profile-reminder-count:${PROFILE_REMINDER_STORAGE_VERSION}:${uid}`;
 
 type Memory98HistoryState = {
   memory98?: true;
@@ -198,7 +204,6 @@ export default function App() {
   const [votesLoading, setVotesLoading] = useState(false);
   const [focusedPersonKey, setFocusedPersonKey] = useState('');
   const [peopleListResetKey, setPeopleListResetKey] = useState(0);
-  const [profileEditorOpenSignal, setProfileEditorOpenSignal] = useState(0);
   const [rememberNotes, setRememberNotes] = useState<RememberNote[]>([]);
   const [rememberNotesLoading, setRememberNotesLoading] = useState(false);
   const [sentRememberNotes, setSentRememberNotes] = useState<RememberNote[]>([]);
@@ -1068,17 +1073,6 @@ export default function App() {
     navigate('people');
   }, [navigate]);
 
-  const openSelfProfileEditor = useCallback(() => {
-    if (!profile) {
-      navigate('join');
-      return;
-    }
-
-    setFocusedPersonKey('');
-    setProfileEditorOpenSignal((signal) => signal + 1);
-    navigate('people');
-  }, [navigate, profile]);
-
   const allMemories = useMemo(() => remoteMemories, [remoteMemories]);
   const allGuestbook = useMemo(() => remoteGuestbook, [remoteGuestbook]);
   const selfProfileForCompletion = useMemo(() => {
@@ -1089,6 +1083,65 @@ export default function App() {
     () => getMissingProfilePieces(selfProfileForCompletion),
     [selfProfileForCompletion],
   );
+
+  const maybeShowProfileCompletionReminder = useCallback(
+    (trigger: 'interaction' | 'passive' = 'interaction') => {
+      if (!bootSplashDone || !profile || accountBlock || route === 'landing' || route === 'join') return;
+      if (missingProfilePieces.length === 0) return;
+
+      const now = Date.now();
+      const lastKey = profileReminderLastKey(profile.uid);
+      const countKey = profileReminderCountKey(profile.uid);
+      const lastShown = Number(window.localStorage.getItem(lastKey) || 0);
+      let interactionCount = Number(window.localStorage.getItem(countKey) || 0);
+
+      if (trigger === 'passive') {
+        if (!lastShown || now - lastShown < PROFILE_REMINDER_PASSIVE_INTERVAL_MS) return;
+      } else {
+        interactionCount += 1;
+        window.localStorage.setItem(countKey, String(Math.min(interactionCount, 99)));
+
+        const firstReminder = !lastShown;
+        const enoughInteractions =
+          now - lastShown >= PROFILE_REMINDER_INTERACTION_INTERVAL_MS &&
+          interactionCount >= PROFILE_REMINDER_INTERACTION_THRESHOLD;
+        const longQuietTime = now - lastShown >= PROFILE_REMINDER_PASSIVE_INTERVAL_MS;
+
+        if (!firstReminder && !enoughInteractions && !longQuietTime) return;
+      }
+
+      const missingText = `${missingProfilePieces.slice(0, 2).join(', ')}${missingProfilePieces.length > 2 ? '...' : ''}`;
+      setSessionNotice(
+        `Hồ sơ thanh xuân của bạn còn thiếu ${missingText}. Khi rảnh, mở biểu tượng hồ sơ để hoàn thiện nhé.`,
+      );
+      window.localStorage.setItem(lastKey, String(now));
+      window.localStorage.setItem(countKey, '0');
+    },
+    [accountBlock, bootSplashDone, missingProfilePieces, profile, route],
+  );
+
+  useEffect(() => {
+    if (!profile || !bootSplashDone || accountBlock || route === 'landing' || route === 'join') return undefined;
+    if (missingProfilePieces.length === 0 || menuOpen || notificationsOpen || futureMessagePopupOpen) return undefined;
+
+    const timer = window.setTimeout(
+      () => maybeShowProfileCompletionReminder('passive'),
+      reduceHeavyMotion ? 8000 : 15000,
+    );
+
+    return () => window.clearTimeout(timer);
+  }, [
+    accountBlock,
+    bootSplashDone,
+    futureMessagePopupOpen,
+    maybeShowProfileCompletionReminder,
+    menuOpen,
+    missingProfilePieces.length,
+    notificationsOpen,
+    profile,
+    reduceHeavyMotion,
+    route,
+  ]);
 
   const commentsByMemory = useMemo(() => {
     const grouped: Record<string, MemoryComment[]> = {};
@@ -1360,7 +1413,6 @@ export default function App() {
     const ownActivityCount = navBadgeCount('mine');
     const messageCount = navBadgeCount('remember');
     const voteCount = navBadgeCount('votes');
-    const activityCount = unreadNotificationCount;
     const isOwnProfileOpen = Boolean(profile && route === 'people' && focusedPersonKey === profile.nameKey);
     return [
       {
@@ -1457,35 +1509,8 @@ export default function App() {
         label: 'Tôi',
         description: profile ? `${profile.name} - ${profile.className}` : 'Tài khoản cá nhân',
         icon: UserRound,
-        isActive: route === 'join' || notificationsOpen,
-        badgeCount: activityCount,
+        isActive: route === 'join',
         items: [
-          ...(profile && missingProfilePieces.length > 0
-            ? [
-                {
-                  id: 'profile-reminder',
-                  label: 'Hoàn thiện hồ sơ',
-                  description: `Còn thiếu ${missingProfilePieces.slice(0, 2).join(', ')}${missingProfilePieces.length > 2 ? '...' : ''}.`,
-                  icon: BadgeCheck,
-                  isActive: false,
-                  badgeCount: missingProfilePieces.length,
-                  onSelect: openSelfProfileEditor,
-                },
-              ]
-            : []),
-          {
-            id: 'activity',
-            label: 'Hoạt động của tôi',
-            description: 'Xem gọn tin nhắn, tim, bình luận và bình chọn mới.',
-            icon: Bell,
-            isActive: notificationsOpen,
-            badgeCount: activityCount,
-            onSelect: () => {
-              setMenuOpen(false);
-              setOpenNavGroup(null);
-              setNotificationsOpen(true);
-            },
-          },
           {
             id: 'account',
             label: 'Tài khoản',
@@ -1501,13 +1526,9 @@ export default function App() {
     focusedPersonKey,
     navBadgeCount,
     navigate,
-    notificationsOpen,
     openPeopleList,
-    openSelfProfileEditor,
-    missingProfilePieces,
     profile,
     route,
-    unreadNotificationCount,
   ]);
 
   const handleYouthProfileUpdate = useCallback(
@@ -1567,8 +1588,9 @@ export default function App() {
         voteCategories: [category, ...activity.voteCategories.filter((item) => item.id !== category.id)],
       }));
       setFirebaseNotice('');
+      maybeShowProfileCompletionReminder('interaction');
     },
-    [navigate, profile],
+    [maybeShowProfileCompletionReminder, navigate, profile],
   );
 
   const handleVoteCategoryHide = useCallback(
@@ -1635,6 +1657,7 @@ export default function App() {
           ),
         );
         setFirebaseNotice('');
+        maybeShowProfileCompletionReminder('interaction');
       } catch (caught) {
         setVoteRecords((items) => {
           const withoutOptimistic = items.filter((item) => !(item.categoryId === category.id && item.voterUid === profile.uid));
@@ -1643,7 +1666,7 @@ export default function App() {
         setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể lưu bình chọn lúc này.');
       }
     },
-    [navigate, profile, voteRecords],
+    [maybeShowProfileCompletionReminder, navigate, profile, voteRecords],
   );
 
   const publishMemory = useCallback(
@@ -1654,9 +1677,10 @@ export default function App() {
       }
       const service = await import('./services/firebaseMemoryBook');
       await service.publishMemoryToFirebase(profile, draft);
+      maybeShowProfileCompletionReminder('interaction');
       navigate('home');
     },
-    [navigate, profile],
+    [maybeShowProfileCompletionReminder, navigate, profile],
   );
 
   const handleReact = useCallback(
@@ -1699,6 +1723,7 @@ export default function App() {
         const service = await import('./services/firebaseMemoryBook');
         await service.reactToFirebaseMemory(profile, memory);
         setFirebaseNotice('');
+        maybeShowProfileCompletionReminder('interaction');
       } catch (caught) {
         setRemoteMemories((items) =>
           items.map((item) => {
@@ -1727,7 +1752,7 @@ export default function App() {
         setPendingReactionIds(Array.from(pendingReactionIdsRef.current));
       }
     },
-    [navigate, profile],
+    [maybeShowProfileCompletionReminder, navigate, profile],
   );
 
   const handleMemoryDownload = useCallback(
@@ -1818,6 +1843,7 @@ export default function App() {
           }));
         }
         setFirebaseNotice('');
+        maybeShowProfileCompletionReminder('interaction');
       } catch (caught) {
         setRemoteComments((items) => items.filter((item) => item.id !== tempComment.id));
         setNotificationActivity((activity) => ({
@@ -1827,7 +1853,7 @@ export default function App() {
         setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể gửi bình luận lúc này.');
       }
     },
-    [navigate, profile],
+    [maybeShowProfileCompletionReminder, navigate, profile],
   );
 
   const handleMemoryCommentDelete = useCallback(
@@ -1923,6 +1949,7 @@ export default function App() {
         const service = await import('./services/firebaseMemoryBook');
         await service.reactToMemoryComment(profile, comment, reactionId);
         setFirebaseNotice('');
+        maybeShowProfileCompletionReminder('interaction');
       } catch (caught) {
         setRemoteComments((items) => items.map(rollbackReaction));
         setNotificationActivity((activity) => ({
@@ -1935,7 +1962,7 @@ export default function App() {
         setPendingCommentReactionIds(Array.from(pendingCommentReactionIdsRef.current));
       }
     },
-    [navigate, profile],
+    [maybeShowProfileCompletionReminder, navigate, profile],
   );
 
   const handleGuestbookAdd = useCallback(
@@ -1947,8 +1974,9 @@ export default function App() {
       const service = await import('./services/firebaseMemoryBook');
       const entry = await service.addGuestbookEntry(profile, message);
       setRemoteGuestbook((items) => [entry, ...items]);
+      maybeShowProfileCompletionReminder('interaction');
     },
-    [navigate, profile],
+    [maybeShowProfileCompletionReminder, navigate, profile],
   );
 
   const handleAnonymousMessageAdd = useCallback(
@@ -1960,8 +1988,9 @@ export default function App() {
       const service = await import('./services/firebaseMemoryBook');
       const entry = await service.addAnonymousMessage(profile, message);
       setRemoteGuestbook((items) => [entry, ...items]);
+      maybeShowProfileCompletionReminder('interaction');
     },
-    [navigate, profile],
+    [maybeShowProfileCompletionReminder, navigate, profile],
   );
 
   const handleGuestbookDelete = useCallback(
@@ -1991,8 +2020,9 @@ export default function App() {
       const service = await import('./services/firebaseMemoryBook');
       const entry = await service.addTimeCapsuleEntry(profile, message);
       setTimeCapsules((items) => [entry, ...items]);
+      maybeShowProfileCompletionReminder('interaction');
     },
-    [navigate, profile],
+    [maybeShowProfileCompletionReminder, navigate, profile],
   );
 
   const handleSecretDiaryAdd = useCallback(
@@ -2004,8 +2034,9 @@ export default function App() {
       const service = await import('./services/firebaseMemoryBook');
       const diary = await service.addSecretDiary(profile, message);
       setSecretDiaries((items) => [diary, ...items]);
+      maybeShowProfileCompletionReminder('interaction');
     },
-    [navigate, profile],
+    [maybeShowProfileCompletionReminder, navigate, profile],
   );
 
   const handleSecretDiaryDelete = useCallback(
@@ -2049,8 +2080,9 @@ export default function App() {
       if (note.toNameKey === profile.nameKey) {
         setRememberNotes((items) => [note, ...items.filter((item) => item.id !== note.id)]);
       }
+      maybeShowProfileCompletionReminder('interaction');
     },
-    [navigate, profile],
+    [maybeShowProfileCompletionReminder, navigate, profile],
   );
 
   const handleRememberNoteDelete = useCallback(
@@ -2138,13 +2170,14 @@ export default function App() {
         const service = await import('./services/firebaseMemoryBook');
         await service.heartRememberNote(profile, note);
         setFirebaseNotice('');
+        maybeShowProfileCompletionReminder('interaction');
       } catch (caught) {
         setRememberNotes((items) => items.map(removeHeart));
         setSentRememberNotes((items) => items.map(removeHeart));
         setFirebaseNotice(caught instanceof Error ? caught.message : 'KhÃ´ng thá»ƒ tháº£ tim Secret Message lÃºc nÃ y.');
       }
     },
-    [navigate, profile],
+    [maybeShowProfileCompletionReminder, navigate, profile],
   );
 
   const handleRememberNoteReact = useCallback(
@@ -2182,6 +2215,7 @@ export default function App() {
         const service = await import('./services/firebaseMemoryBook');
         await service.reactRememberNote(profile, note, reactionId);
         setFirebaseNotice('');
+        maybeShowProfileCompletionReminder('interaction');
       } catch (caught) {
         setRememberNotes((items) => items.map(rollbackReaction));
         setSentRememberNotes((items) => items.map(rollbackReaction));
@@ -2193,7 +2227,7 @@ export default function App() {
         setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể phản hồi Secret Message lúc này.');
       }
     },
-    [navigate, profile],
+    [maybeShowProfileCompletionReminder, navigate, profile],
   );
 
   const renderRoute = () => {
@@ -2274,7 +2308,7 @@ export default function App() {
             profile={profile}
             focusedNameKey={focusedPersonKey}
             listResetKey={peopleListResetKey}
-            openEditorSignal={profileEditorOpenSignal}
+            openEditorSignal={0}
             onJoin={() => navigate('join')}
             onPhotobook={() => navigate('photobook')}
             onUpdateProfile={handleYouthProfileUpdate}
