@@ -2,7 +2,7 @@ import { BadgeCheck, Camera, Download, Heart, Images, MessageCircle, Search, Sen
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import ActionModal from '../components/ActionModal';
 import FirebaseNotice from '../components/FirebaseNotice';
-import type { ClassmateProfile, MemoryComment, MemoryItem, UserProfile, YouthProfileDraft } from '../types';
+import type { ClassmateProfile, CustomProfileBadge, MemoryComment, MemoryItem, UserProfile, YouthProfileDraft } from '../types';
 import { formatUploadTime } from '../utils/date';
 
 interface PeoplePageProps {
@@ -49,6 +49,22 @@ type YouthBadgeGoal = {
   target: number;
   unit: string;
   done: boolean;
+};
+
+const customBadgeToneClass: Record<CustomProfileBadge['tone'], string> = {
+  gold: 'border-[#d8a847]/45 bg-[#fff1bd] text-[#6e4a10] shadow-[0_14px_34px_rgba(216,168,71,0.18)]',
+  pink: 'border-blush/55 bg-blush/26 text-coffee shadow-[0_14px_34px_rgba(247,183,199,0.18)]',
+  blue: 'border-skySoft/55 bg-skySoft/24 text-chalk shadow-[0_14px_34px_rgba(169,205,232,0.18)]',
+  green: 'border-chalk/25 bg-chalk/12 text-chalk shadow-[0_14px_34px_rgba(56,91,88,0.12)]',
+  ink: 'border-ink/16 bg-ink/10 text-ink shadow-[0_14px_34px_rgba(53,41,31,0.10)]',
+};
+
+const customBadgeToneLabel: Record<CustomProfileBadge['tone'], string> = {
+  gold: 'Huy hiệu vàng',
+  pink: 'Huy hiệu hồng',
+  blue: 'Huy hiệu xanh',
+  green: 'Huy hiệu lớp',
+  ink: 'Huy hiệu đặc biệt',
 };
 
 const defaultTags = ['ấm áp', 'hài hước', 'đáng nhớ'];
@@ -607,6 +623,7 @@ export default function PeoplePage({
   const selectedBadges = selectedPerson ? badgesByKey[getPersonKey(selectedPerson)] || [] : [];
   const selectedBadgeGoals = selectedPerson ? badgeGoalsByKey[getPersonKey(selectedPerson)] || [] : [];
   const selfBadges = selfProfile ? badgesByKey[getPersonKey(selfProfile)] || [] : [];
+  const selfCustomBadges = selfProfile?.customBadges || [];
   const totalMemories = memories.length;
 
   const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -724,6 +741,13 @@ export default function PeoplePage({
                       <p className="mt-1 truncate text-xs font-bold text-coffee/68">{nickname || 'Chưa có biệt danh'}</p>
                     </div>
                   </div>
+                  {selfCustomBadges.length > 0 && (
+                    <div className="mt-3 grid gap-1.5">
+                      {selfCustomBadges.slice(0, 2).map((badge) => (
+                        <CustomBadgePill key={badge.id} badge={badge} compact />
+                      ))}
+                    </div>
+                  )}
                   {selfBadges.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {selfBadges.slice(0, 2).map((badge) => (
@@ -803,6 +827,13 @@ export default function PeoplePage({
                           <p className="truncate text-xs font-bold text-coffee/70">{person.nickname || 'Bạn lớp 9/8'}</p>
                         </div>
                       </div>
+                      {person.customBadges.length > 0 && (
+                        <div className="mt-3 grid gap-1.5">
+                          {person.customBadges.slice(0, 1).map((badge) => (
+                            <CustomBadgePill key={badge.id} badge={badge} compact />
+                          ))}
+                        </div>
+                      )}
                       {personBadges.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-1.5">
                           {personBadges.slice(0, 2).map((badge) => (
@@ -1041,6 +1072,36 @@ function Avatar({ person, active = false }: { person: ClassmateProfile; active?:
   );
 }
 
+function CustomBadgePill({ badge, compact = false }: { badge: CustomProfileBadge; compact?: boolean }) {
+  const className = customBadgeToneClass[badge.tone] || customBadgeToneClass.gold;
+
+  if (compact) {
+    return (
+      <span className={`inline-flex min-w-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-black ${className}`}>
+        <BadgeCheck size={13} className="shrink-0" />
+        <span className="truncate">{badge.label}</span>
+      </span>
+    );
+  }
+
+  return (
+    <article className={`relative overflow-hidden rounded-[1rem] border p-3 ${className}`}>
+      <span className="absolute right-3 top-3 rounded-full bg-white/55 px-2 py-1 text-[10px] font-black uppercase opacity-80">
+        Manager gắn
+      </span>
+      <div className="flex min-w-0 items-start gap-3 pr-16">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/62 shadow-sm">
+          <BadgeCheck size={18} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase leading-4">{badge.label}</p>
+          <p className="mt-1 text-xs leading-5 opacity-80">{badge.description || customBadgeToneLabel[badge.tone]}</p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function YouthBadgePill({ badge, compact = false }: { badge: YouthBadge; compact?: boolean }) {
   const Icon =
     badge.icon === 'heart'
@@ -1244,6 +1305,27 @@ function PersonDetail({
           </div>
         </div>
       </section>
+
+      {person.customBadges.length > 0 && (
+        <div className="profile-modal-section mt-5 overflow-hidden rounded-[1.15rem] border border-[#d8a847]/30 bg-gradient-to-br from-[#fff6cf] via-white to-blush/18 p-3 shadow-[0_18px_44px_rgba(216,168,71,0.16)]">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-sm font-black uppercase text-coffee/78">Huy hiệu tự chế từ manager</h3>
+              <p className="mt-1 text-xs leading-5 text-ink/58">
+                Những danh hiệu riêng được gắn trực tiếp cho hồ sơ này, nổi bật hơn huy hiệu tự động.
+              </p>
+            </div>
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/68 text-[#8a6119] shadow-sm">
+              <BadgeCheck size={20} />
+            </span>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {person.customBadges.map((badge) => (
+              <CustomBadgePill key={badge.id} badge={badge} />
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="profile-modal-section mt-5 overflow-hidden rounded-[1.15rem] border border-white/70 bg-gradient-to-br from-paper via-white to-skySoft/20 p-3 shadow-[0_14px_36px_rgba(84,57,35,0.10)]">
         <div className="flex items-start justify-between gap-3">

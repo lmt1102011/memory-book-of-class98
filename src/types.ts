@@ -37,6 +37,7 @@ export interface UserProfile {
   nameKey: string;
   className: string;
   joinedAt: string;
+  customBadges?: CustomProfileBadge[];
   avatarDataUrl?: string;
   nickname?: string;
   nicknameKey?: string;
@@ -55,6 +56,7 @@ export interface ClassmateProfile {
   name: string;
   nameKey: string;
   className: string;
+  customBadges: CustomProfileBadge[];
   avatarDataUrl?: string;
   nickname?: string;
   nicknameKey?: string;
@@ -62,6 +64,17 @@ export interface ClassmateProfile {
   classMessage?: string;
   personalityTags: string[];
   profileUpdatedAt?: string;
+}
+
+export type CustomProfileBadgeTone = 'gold' | 'pink' | 'blue' | 'green' | 'ink';
+
+export interface CustomProfileBadge {
+  id: string;
+  label: string;
+  description: string;
+  tone: CustomProfileBadgeTone;
+  createdAt?: string;
+  createdBy?: string;
 }
 
 export interface MemoryItem {

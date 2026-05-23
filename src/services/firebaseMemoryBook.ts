@@ -33,6 +33,8 @@ import type {
   ClassLettersSettings,
   CinematicSlideshowSettings,
   CommentReactionId,
+  CustomProfileBadge,
+  CustomProfileBadgeTone,
   GuestbookEntry,
   MemoryComment,
   MemoryItem,
@@ -472,12 +474,34 @@ const timestampToIso = (value: unknown) => {
   return new Date().toISOString();
 };
 
+const CUSTOM_BADGE_TONES: CustomProfileBadgeTone[] = ['gold', 'pink', 'blue', 'green', 'ink'];
+
+const customBadgesFromData = (data: DocumentData): CustomProfileBadge[] =>
+  Array.isArray(data.customBadges)
+    ? data.customBadges
+        .filter((badge: unknown): badge is Record<string, unknown> => Boolean(badge && typeof badge === 'object'))
+        .map((badge, index) => {
+          const tone = String(badge.tone || 'gold') as CustomProfileBadgeTone;
+          return {
+            id: String(badge.id || `manager-badge-${index}`),
+            label: String(badge.label || '').trim().slice(0, 36),
+            description: String(badge.description || '').trim().slice(0, 140),
+            tone: CUSTOM_BADGE_TONES.includes(tone) ? tone : 'gold',
+            createdAt: badge.createdAt ? timestampToIso(badge.createdAt) : undefined,
+            createdBy: badge.createdBy ? String(badge.createdBy) : undefined,
+          };
+        })
+        .filter((badge) => badge.label)
+        .slice(0, 6)
+    : [];
+
 const profileFromData = (id: string, data: DocumentData, user?: User | null): UserProfile => ({
   uid: String(data.uid || user?.uid || ''),
   name: String(data.name || user?.displayName || id),
   nameKey: String(data.nameKey || id),
   className: CLASS_NAME,
   joinedAt: timestampToIso(data.createdAt),
+  customBadges: customBadgesFromData(data),
   avatarDataUrl: data.avatarDataUrl ? String(data.avatarDataUrl) : undefined,
   nickname: data.nickname ? String(data.nickname) : undefined,
   nicknameKey: data.nicknameKey ? String(data.nicknameKey) : undefined,
@@ -608,6 +632,7 @@ const classmateFromDoc = (id: string, data: DocumentData): ClassmateProfile => (
   name: String(data.name || id),
   nameKey: String(data.nameKey || id),
   className: String(data.className || CLASS_NAME),
+  customBadges: customBadgesFromData(data),
   avatarDataUrl: data.avatarDataUrl ? String(data.avatarDataUrl) : undefined,
   nickname: data.nickname ? String(data.nickname) : undefined,
   nicknameKey: data.nicknameKey ? String(data.nicknameKey) : undefined,

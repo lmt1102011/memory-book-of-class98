@@ -334,6 +334,10 @@
         gap: 12px;
       }
 
+      .span-2 {
+        grid-column: 1 / -1;
+      }
+
       .list {
         display: grid;
         gap: 10px;
@@ -407,6 +411,54 @@
       .pill.blue {
         background: rgba(169, 205, 232, 0.38);
         color: #294c64;
+      }
+
+      .custom-badges {
+        display: grid;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .custom-badge {
+        border: 1px solid rgba(216, 168, 71, 0.36);
+        border-radius: 12px;
+        background: linear-gradient(135deg, rgba(255, 241, 189, 0.78), rgba(255, 255, 255, 0.72));
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+        padding: 10px;
+      }
+
+      .custom-badge strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .custom-badge p {
+        margin-top: 4px;
+      }
+
+      .custom-badge.gold {
+        border-color: rgba(216, 168, 71, 0.44);
+        background: linear-gradient(135deg, rgba(255, 241, 189, 0.82), rgba(255, 255, 255, 0.74));
+      }
+
+      .custom-badge.pink {
+        border-color: rgba(247, 183, 199, 0.52);
+        background: linear-gradient(135deg, rgba(247, 183, 199, 0.34), rgba(255, 255, 255, 0.74));
+      }
+
+      .custom-badge.blue {
+        border-color: rgba(169, 205, 232, 0.56);
+        background: linear-gradient(135deg, rgba(169, 205, 232, 0.32), rgba(255, 255, 255, 0.74));
+      }
+
+      .custom-badge.green {
+        border-color: rgba(56, 91, 88, 0.28);
+        background: linear-gradient(135deg, rgba(56, 91, 88, 0.12), rgba(255, 255, 255, 0.74));
+      }
+
+      .custom-badge.ink {
+        border-color: rgba(53, 41, 31, 0.22);
+        background: linear-gradient(135deg, rgba(53, 41, 31, 0.10), rgba(255, 255, 255, 0.74));
       }
 
       .message {
@@ -805,6 +857,24 @@
               <p id="accountStatus" class="status"></p>
             </section>
             <section class="card">
+              <h2>Gán huy hiệu tự chế</h2>
+              <p class="muted" style="margin-bottom: 12px">Huy hiệu manager gắn sẽ hiện nổi bật trong hồ sơ học sinh.</p>
+              <form id="customBadgeForm" class="form">
+                <select id="badgeStudentSelect" aria-label="Chọn học sinh"></select>
+                <input id="badgeLabel" maxlength="36" placeholder="Tên huy hiệu, ví dụ: Trùm cứu deadline" />
+                <textarea id="badgeDescription" maxlength="140" rows="3" placeholder="Mô tả ngắn, ví dụ: Luôn xuất hiện đúng lúc cả lớp cần một pha gánh bài."></textarea>
+                <select id="badgeTone" aria-label="Màu huy hiệu">
+                  <option value="gold">Vàng nổi bật</option>
+                  <option value="pink">Hồng kỷ niệm</option>
+                  <option value="blue">Xanh học trò</option>
+                  <option value="green">Xanh bảng lớp</option>
+                  <option value="ink">Đen điện ảnh</option>
+                </select>
+                <button>Gán huy hiệu</button>
+              </form>
+              <p id="badgeStatus" class="status"></p>
+            </section>
+            <section class="card span-2">
               <h2>Danh sách tài khoản</h2>
               <div id="accounts" class="list"></div>
             </section>
@@ -920,6 +990,7 @@
       const gate = $('gate');
       const managerApp = $('app');
       const accountStatus = $('accountStatus');
+      const badgeStatus = $('badgeStatus');
       const gateStatus = $('gateStatus');
       const managerPasswordInput = $('managerPassword');
       const memoryStatus = $('memoryStatus');
@@ -1095,6 +1166,32 @@
         const number = Number(value || 0);
         return Number.isFinite(number) && number > 0 ? Math.round(number) : 0;
       };
+      const CUSTOM_BADGE_TONES = ['gold', 'pink', 'blue', 'green', 'ink'];
+      const normalizeCustomBadges = (value) =>
+        (Array.isArray(value) ? value : [])
+          .filter((badge) => badge && typeof badge === 'object')
+          .map((badge, index) => {
+            const tone = CUSTOM_BADGE_TONES.includes(String(badge.tone)) ? String(badge.tone) : 'gold';
+            return {
+              id: String(badge.id || `manager-badge-${index}`),
+              label: String(badge.label || '').trim().slice(0, 36),
+              description: String(badge.description || '').trim().slice(0, 140),
+              tone,
+              createdAt: badge.createdAt || '',
+              createdBy: String(badge.createdBy || ''),
+            };
+          })
+          .filter((badge) => badge.label)
+          .slice(0, 6);
+      const getCustomBadges = (account) => normalizeCustomBadges(account?.customBadges);
+      const badgeToneLabel = (tone) =>
+        ({
+          gold: 'Vàng nổi bật',
+          pink: 'Hồng kỷ niệm',
+          blue: 'Xanh học trò',
+          green: 'Xanh bảng lớp',
+          ink: 'Đen điện ảnh',
+        })[tone] || 'Vàng nổi bật';
       const COMMENT_REACTION_FIELDS = ['reactionHahaBy', 'reactionLoveBy', 'reactionMissBy', 'reactionWowBy', 'reactionAngryBy'];
       const safeStringList = (value) =>
         Array.from(new Set((Array.isArray(value) ? value : []).map(String).filter(Boolean)));
@@ -1519,17 +1616,40 @@
         updateBulkBar();
       };
 
+      const renderBadgeAssignerOptions = () => {
+        const select = $('badgeStudentSelect');
+        if (!select) return;
+        const previousValue = select.value;
+        const assignableAccounts = accounts
+          .filter((account) => !account.deleted && account.id !== MANAGER_NAME_KEY)
+          .sort((left, right) => String(left.name || left.id).localeCompare(String(right.name || right.id), 'vi'));
+
+        select.innerHTML =
+          assignableAccounts
+            .map((account) => {
+              const badgeCount = getCustomBadges(account).length;
+              return `<option value="${escapeHtml(account.id)}">${escapeHtml(account.name || account.id)} (${badgeCount}/6 huy hiệu)</option>`;
+            })
+            .join('') || '<option value="">Chưa có tài khoản để gán huy hiệu</option>';
+
+        select.value = assignableAccounts.some((account) => account.id === previousValue)
+          ? previousValue
+          : assignableAccounts[0]?.id || '';
+      };
+
       const renderAccounts = () => {
         const items = accounts
           .filter((account) => matchesSearch(account, ['name', 'id', 'uid']) && matchesActiveFilter(account, 'accounts'))
           .sort((left, right) => Number(Boolean(left.deleted)) - Number(Boolean(right.deleted)) || String(left.name || '').localeCompare(String(right.name || ''), 'vi'));
 
+        renderBadgeAssignerOptions();
         $('accounts').innerHTML =
           items
             .map((account) => {
               const deleted = Boolean(account.deleted);
               const disabled = Boolean(account.disabled);
               const selectKey = selectionKey('account', account.id);
+              const customBadges = getCustomBadges(account);
               return `
                 <article class="item ${isSelected(selectKey) ? 'selected' : ''}">
                   <div class="row">
@@ -1541,6 +1661,27 @@
                   <p class="muted">UID: ${escapeHtml(account.uid || 'manual')}</p>
                   <p class="muted">Joined: ${formatDate(account.createdAt)} ${deleted ? `| Deleted: ${formatDate(account.deletedAt || account.managerDeletedAt)}` : ''}</p>
                   ${disabled && account.disabledReason ? `<p class="muted"><strong>Lý do khóa:</strong> ${escapeHtml(account.disabledReason)}</p>` : ''}
+                  ${
+                    customBadges.length
+                      ? `<div class="custom-badges">
+                          ${customBadges
+                            .map(
+                              (badge) => `
+                                <div class="custom-badge ${escapeHtml(badge.tone)}">
+                                  <div class="row">
+                                    <span class="pill blue">Manager gắn</span>
+                                    <span class="pill">${escapeHtml(badgeToneLabel(badge.tone))}</span>
+                                    <strong>${escapeHtml(badge.label)}</strong>
+                                  </div>
+                                  <p class="muted">${escapeHtml(badge.description || 'Huy hiệu tự chế của manager.')}</p>
+                                  <button class="danger" style="margin-top: 8px" data-account-action="delete-badge" data-id="${escapeHtml(account.id)}" data-badge-id="${escapeHtml(badge.id)}">Xóa huy hiệu</button>
+                                </div>
+                              `,
+                            )
+                            .join('')}
+                        </div>`
+                      : '<p class="muted" style="margin-top: 8px">Chưa có huy hiệu tự chế.</p>'
+                  }
                   <div class="row" style="margin-top: 10px">
                     ${
                       deleted
@@ -2587,6 +2728,63 @@
         renderCurrentTab();
       });
 
+      $('customBadgeForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const accountId = String($('badgeStudentSelect').value || '');
+        const account = accounts.find((item) => item.id === accountId);
+        const label = String($('badgeLabel').value || '').trim().replace(/\s+/g, ' ').slice(0, 36);
+        const description = String($('badgeDescription').value || '').trim().replace(/\s+/g, ' ').slice(0, 140);
+        const tone = CUSTOM_BADGE_TONES.includes(String($('badgeTone').value)) ? String($('badgeTone').value) : 'gold';
+
+        if (!account) {
+          badgeStatus.textContent = 'Hãy chọn một tài khoản để gán huy hiệu.';
+          return;
+        }
+
+        if (!label) {
+          badgeStatus.textContent = 'Hãy nhập tên huy hiệu.';
+          $('badgeLabel').focus();
+          return;
+        }
+
+        const currentBadges = getCustomBadges(account);
+        if (currentBadges.length >= 6) {
+          badgeStatus.textContent = 'Mỗi hồ sơ tối đa 6 huy hiệu tự chế để giao diện không bị rối.';
+          return;
+        }
+
+        const nextBadge = {
+          id: `manager-badge-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+          label,
+          description,
+          tone,
+          createdAt: new Date().toISOString(),
+          createdBy: MANAGER_NAME_KEY,
+        };
+        const nextBadges = [...currentBadges, nextBadge];
+
+        const submitButton = event.submitter;
+        if (submitButton) submitButton.disabled = true;
+        badgeStatus.textContent = 'Đang gán huy hiệu...';
+
+        try {
+          await updateDoc(doc(db, 'students98', accountId), {
+            customBadges: nextBadges,
+            managerKey: MANAGER_PASSWORD,
+            managerUpdatedAt: serverTimestamp(),
+          });
+          account.customBadges = nextBadges;
+          $('badgeLabel').value = '';
+          $('badgeDescription').value = '';
+          renderAccounts();
+          badgeStatus.textContent = `Đã gán huy hiệu "${label}" cho ${account.name || accountId}.`;
+        } catch (error) {
+          badgeStatus.textContent = error.message || 'Không thể gán huy hiệu lúc này.';
+        } finally {
+          if (submitButton) submitButton.disabled = false;
+        }
+      });
+
       managerApp.addEventListener('change', (event) => {
         const checkbox = event.target.closest('input[data-select-key]');
         if (!checkbox) return;
@@ -2629,6 +2827,26 @@
 
         button.disabled = true;
         try {
+          if (action === 'delete-badge') {
+            const badgeId = button.dataset.badgeId;
+            const currentBadges = getCustomBadges(account);
+            const badge = currentBadges.find((item) => item.id === badgeId);
+            if (!badgeId || !badge) return;
+            if (!window.confirm(`Xóa huy hiệu "${badge.label}" khỏi hồ sơ ${account.name || id}?`)) return;
+
+            const nextBadges = currentBadges.filter((item) => item.id !== badgeId);
+            await updateDoc(doc(db, 'students98', id), {
+              customBadges: nextBadges,
+              managerKey: MANAGER_PASSWORD,
+              managerUpdatedAt: serverTimestamp(),
+            });
+            account.customBadges = nextBadges;
+            renderAccounts();
+            accountStatus.textContent = 'Đã xóa huy hiệu tự chế.';
+            badgeStatus.textContent = 'Danh sách huy hiệu đã được cập nhật.';
+            return;
+          }
+
           if (action === 'delete') {
             if (!window.confirm(`Xóa hẳn tài khoản ${account.name || id} khỏi database lớp 9/8?`)) return;
             await deleteAccountRecord(account);

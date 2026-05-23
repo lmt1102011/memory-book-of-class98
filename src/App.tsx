@@ -995,6 +995,14 @@ export default function App() {
                   nameKey: status.profile.nameKey,
                   className: status.profile.className,
                   joinedAt: status.profile.joinedAt,
+                  customBadges: status.profile.customBadges,
+                  avatarDataUrl: status.profile.avatarDataUrl,
+                  nickname: status.profile.nickname,
+                  nicknameKey: status.profile.nicknameKey,
+                  quote: status.profile.quote,
+                  classMessage: status.profile.classMessage,
+                  personalityTags: status.profile.personalityTags,
+                  profileUpdatedAt: status.profile.profileUpdatedAt,
                   disabled: true,
                   disabledReason: status.profile.disabledReason,
                   deleted: false,
@@ -1012,6 +1020,14 @@ export default function App() {
                 current.className === status.profile.className &&
                 current.joinedAt === status.profile.joinedAt &&
                 current.disabledReason === status.profile.disabledReason &&
+                JSON.stringify(current.customBadges || []) === JSON.stringify(status.profile.customBadges || []) &&
+                current.avatarDataUrl === status.profile.avatarDataUrl &&
+                current.nickname === status.profile.nickname &&
+                current.nicknameKey === status.profile.nicknameKey &&
+                current.quote === status.profile.quote &&
+                current.classMessage === status.profile.classMessage &&
+                JSON.stringify(current.personalityTags || []) === JSON.stringify(status.profile.personalityTags || []) &&
+                current.profileUpdatedAt === status.profile.profileUpdatedAt &&
                 !current.disabled &&
                 !current.deleted
               ) {
@@ -1024,6 +1040,14 @@ export default function App() {
                 nameKey: status.profile.nameKey,
                 className: status.profile.className,
                 joinedAt: status.profile.joinedAt,
+                customBadges: status.profile.customBadges,
+                avatarDataUrl: status.profile.avatarDataUrl,
+                nickname: status.profile.nickname,
+                nicknameKey: status.profile.nicknameKey,
+                quote: status.profile.quote,
+                classMessage: status.profile.classMessage,
+                personalityTags: status.profile.personalityTags,
+                profileUpdatedAt: status.profile.profileUpdatedAt,
                 disabled: false,
                 disabledReason: '',
                 deleted: false,

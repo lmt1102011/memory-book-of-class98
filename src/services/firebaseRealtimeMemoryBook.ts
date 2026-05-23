@@ -11,7 +11,7 @@ import {
   type DocumentData,
 } from 'firebase/firestore';
 import { firebaseApp } from '../firebase';
-import type { CommentReactionId, MemoryComment, MemoryItem, UserProfile } from '../types';
+import type { CommentReactionId, CustomProfileBadge, CustomProfileBadgeTone, MemoryComment, MemoryItem, UserProfile } from '../types';
 
 const MEMORIES_COLLECTION = 'memories98';
 const PRIVATE_MEMORIES_COLLECTION = 'privateMemories98';
@@ -34,6 +34,27 @@ const timestampToIso = (value: unknown) => {
   if (typeof value === 'string') return value;
   return new Date().toISOString();
 };
+
+const CUSTOM_BADGE_TONES: CustomProfileBadgeTone[] = ['gold', 'pink', 'blue', 'green', 'ink'];
+
+const customBadgesFromData = (data: DocumentData): CustomProfileBadge[] =>
+  Array.isArray(data.customBadges)
+    ? data.customBadges
+        .filter((badge: unknown): badge is Record<string, unknown> => Boolean(badge && typeof badge === 'object'))
+        .map((badge, index) => {
+          const tone = String(badge.tone || 'gold') as CustomProfileBadgeTone;
+          return {
+            id: String(badge.id || `manager-badge-${index}`),
+            label: String(badge.label || '').trim().slice(0, 36),
+            description: String(badge.description || '').trim().slice(0, 140),
+            tone: CUSTOM_BADGE_TONES.includes(tone) ? tone : 'gold',
+            createdAt: badge.createdAt ? timestampToIso(badge.createdAt) : undefined,
+            createdBy: badge.createdBy ? String(badge.createdBy) : undefined,
+          };
+        })
+        .filter((badge) => badge.label)
+        .slice(0, 6)
+    : [];
 
 const friendlyRealtimeError = (error: unknown) => {
   const maybeError = error as { code?: string; message?: string };
@@ -128,6 +149,14 @@ const profileFromStudentDoc = (id: string, data: DocumentData, fallback: UserPro
   nameKey: String(data.nameKey || id),
   className: String(data.className || CLASS_NAME),
   joinedAt: timestampToIso(data.createdAt || fallback.joinedAt),
+  customBadges: customBadgesFromData(data),
+  avatarDataUrl: data.avatarDataUrl ? String(data.avatarDataUrl) : fallback.avatarDataUrl,
+  nickname: data.nickname ? String(data.nickname) : fallback.nickname,
+  nicknameKey: data.nicknameKey ? String(data.nicknameKey) : fallback.nicknameKey,
+  quote: data.quote ? String(data.quote) : fallback.quote,
+  classMessage: data.classMessage ? String(data.classMessage) : fallback.classMessage,
+  personalityTags: Array.isArray(data.personalityTags) ? data.personalityTags.map(String).slice(0, 3) : fallback.personalityTags,
+  profileUpdatedAt: data.profileUpdatedAt ? timestampToIso(data.profileUpdatedAt) : fallback.profileUpdatedAt,
   disabled: Boolean(data.disabled),
   disabledReason: String(data.disabledReason || fallback.disabledReason || ''),
   deleted: Boolean(data.deleted),
