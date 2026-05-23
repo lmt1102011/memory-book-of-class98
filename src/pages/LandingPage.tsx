@@ -824,11 +824,6 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
     setInstallProgress(42);
     await waitForInstallReadiness();
 
-    if (!canPrompt) {
-      await finishInstallStatus('manual');
-      return;
-    }
-
     setInstallStatus('prompting');
     setInstallProgress(68);
     const outcome = await install();

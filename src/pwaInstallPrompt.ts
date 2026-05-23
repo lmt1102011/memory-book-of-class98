@@ -68,7 +68,7 @@ export const capturePwaInstallPrompt = () => {
 
 export const getDeferredPwaInstallPrompt = () => deferredPrompt;
 
-export const waitForPwaInstallPrompt = (timeoutMs = 1400) => {
+export const waitForPwaInstallPrompt = (timeoutMs = 6500) => {
   if (deferredPrompt || typeof window === 'undefined') {
     return Promise.resolve(deferredPrompt);
   }
