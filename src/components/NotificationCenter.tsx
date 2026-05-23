@@ -18,6 +18,7 @@ const iconByKind = {
   commentReaction: Heart,
   like: Heart,
   vote: Trophy,
+  badge: Trophy,
 };
 
 const accentClass = {
@@ -41,6 +42,7 @@ export default function NotificationCenter({
   const listItems = latestItem ? items.filter((item) => item.id !== latestItem.id) : items;
   const messageCount = items.filter((item) => item.kind === 'message' || item.kind === 'reaction').length;
   const memoryCount = items.filter((item) => item.kind === 'comment' || item.kind === 'commentReaction' || item.kind === 'like').length;
+  const badgeCount = items.filter((item) => item.kind === 'badge').length;
   const voteCount = items.filter((item) => item.kind === 'vote').length;
 
   return (
@@ -91,9 +93,10 @@ export default function NotificationCenter({
               </button>
             </div>
 
-            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <div className="mt-3 grid grid-cols-4 gap-2 text-center">
               <NotificationMetric value={messageCount} label="tin nhắn" />
               <NotificationMetric value={memoryCount} label="kỷ niệm" />
+              <NotificationMetric value={badgeCount} label="danh hiệu" />
               <NotificationMetric value={voteCount} label="vote" />
             </div>
           </div>
@@ -131,7 +134,7 @@ export default function NotificationCenter({
                     <span className={`grid h-10 w-10 place-items-center rounded-full ${accentClass[item.accent]}`}>
                       <Icon
                         size={17}
-                        fill={item.kind === 'like' || item.kind === 'reaction' || item.kind === 'commentReaction' ? 'currentColor' : 'none'}
+                        fill={item.kind === 'like' || item.kind === 'reaction' || item.kind === 'commentReaction' || item.kind === 'badge' ? 'currentColor' : 'none'}
                       />
                     </span>
                     <span className="min-w-0">
@@ -158,7 +161,7 @@ export default function NotificationCenter({
                 </span>
                 <h3 className="mt-3 font-display text-4xl leading-none">Đã xem hết</h3>
                 <p className="mt-2 text-sm leading-6 text-ink/58">
-                  Khi có Secret Message, tim, bình luận hoặc bình chọn mới, popup này sẽ hiện rõ để bạn mở xem.
+                  Khi có Secret Message, tim, bình luận, danh hiệu hoặc bình chọn mới, popup này sẽ hiện rõ để bạn mở xem.
                 </p>
               </div>
             </div>

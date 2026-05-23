@@ -1307,6 +1307,23 @@ export default function App() {
         });
       });
 
+    (profile.customBadges || [])
+      .slice(0, 12)
+      .forEach((badge) => {
+        const createdAt = badge.createdAt || profile.profileUpdatedAt || profile.joinedAt;
+        const id = `badge-${badge.id}-${badge.createdAt || createdAt}`;
+        items.push({
+          id,
+          kind: 'badge',
+          route: 'people',
+          title: `Bạn vừa được gán danh hiệu: ${badge.label}`,
+          body: badge.description || 'Một huy hiệu tự chế mới đã được thêm vào hồ sơ của bạn.',
+          createdAt,
+          unread: makeUnread(id, createdAt),
+          accent: badge.tone === 'blue' ? 'blue' : badge.tone === 'green' || badge.tone === 'ink' ? 'chalk' : 'cream',
+        });
+      });
+
     return items
       .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
       .slice(0, 60);
@@ -1402,6 +1419,11 @@ export default function App() {
     (item: NotificationItem) => {
       markNotificationRead(item);
       setNotificationsOpen(false);
+      if (item.kind === 'badge' && profile) {
+        setFocusedPersonKey(profile.nameKey);
+        navigate('people');
+        return;
+      }
       if (item.route === 'mine' && profile) {
         setFocusedPersonKey(profile.nameKey);
         navigate('people');
@@ -1420,7 +1442,7 @@ export default function App() {
 
       if (itemRoute === 'people' || itemRoute === 'mine') {
         return notificationItems.filter(
-          (item) => item.unread && (item.kind === 'comment' || item.kind === 'commentReaction' || item.kind === 'like'),
+          (item) => item.unread && (item.kind === 'comment' || item.kind === 'commentReaction' || item.kind === 'like' || item.kind === 'badge'),
         ).length;
       }
 
