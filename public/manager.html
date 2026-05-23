@@ -254,6 +254,40 @@
         margin-top: 12px;
       }
 
+      .system-panel {
+        display: grid;
+        gap: 12px;
+      }
+
+      .system-panel .health-card {
+        margin-top: 0;
+      }
+
+      .system-panel-head {
+        border: 1px solid rgba(122, 86, 57, 0.12);
+        background:
+          linear-gradient(135deg, rgba(255, 250, 241, 0.96), rgba(255, 229, 230, 0.74)),
+          var(--paper);
+      }
+
+      .system-panel-head h2 {
+        margin-bottom: 5px;
+      }
+
+      .system-settings-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .system-settings-grid .setting-card {
+        margin-top: 0;
+      }
+
+      .system-settings-grid .setting-card:last-child {
+        grid-column: 1 / -1;
+      }
+
       .health-head {
         display: flex;
         align-items: flex-start;
@@ -581,6 +615,7 @@
 
         .panel-grid,
         .setting-card,
+        .system-settings-grid,
         .toolbar,
         .health-head {
           grid-template-columns: 1fr;
@@ -743,81 +778,7 @@
           <div class="stat"><strong id="statDownloads">0</strong><span class="muted">lượt tải</span></div>
         </section>
 
-        <section class="card health-card">
-          <div class="health-head">
-            <div>
-              <h2>Sức khỏe hệ thống</h2>
-              <p class="muted">Tóm tắt lỗi dữ liệu hay gặp: tim lệch, comment emoji thiếu field, kỷ niệm thiếu nameKey.</p>
-            </div>
-            <button id="repairDataButton" class="secondary">Quét và sửa lỗi</button>
-          </div>
-          <div id="systemHealth" class="health-grid"></div>
-          <div id="systemIssues" class="issue-list"></div>
-          <p id="healthStatus" class="status"></p>
-        </section>
-
-        <section class="card setting-card">
-          <div>
-            <strong>Memory Recap nổi bật</strong>
-            <p class="muted">
-              Khi bật, trang Ký ức sẽ hiện poster tổng kết lớp 9/8 thật nổi bật và cho học sinh tải về.
-            </p>
-            <p id="recapStatus" class="status"></p>
-          </div>
-          <button id="toggleRecapButton" class="secondary">Đang tải...</button>
-        </section>
-
-        <section class="card setting-card">
-          <div>
-            <strong>Gửi cho lớp trong tương lai</strong>
-            <p class="muted">
-              Khi bật, mục Gửi cho lớp trong tương lai sẽ hiện trong nhóm Lời nhắn. Khi tắt, học sinh sẽ không thấy lối vào mục này.
-            </p>
-            <p id="classLettersStatus" class="status"></p>
-          </div>
-          <button id="toggleClassLettersButton" class="secondary">Đang tải...</button>
-        </section>
-
-        <section class="card setting-card">
-          <div>
-            <strong>Gợi nhắc cuối năm</strong>
-            <p class="muted">
-              Khi bật, học sinh sẽ thấy một khung gợi nhắc gọn để viết Secret Message, nhật ký riêng, thư lớp và lời nhắn tương lai nếu mục tương lai đang mở.
-            </p>
-            <p id="writingPromptsStatus" class="status"></p>
-          </div>
-          <button id="toggleWritingPromptsButton" class="secondary">Đang tải...</button>
-        </section>
-
-        <section class="card setting-card">
-          <div>
-            <strong>Slideshow điện ảnh</strong>
-            <p class="muted">
-              Khi bật, trang Ký ức sẽ hiện slideshow nổi bật. Manager chọn mood, học sinh chỉ thấy một trải nghiệm đã chỉnh sẵn.
-            </p>
-            <select id="slideshowMoodSelect" style="margin-top: 10px">
-              <option value="cinematic">Điện ảnh</option>
-              <option value="scrapbook">Lưu bút</option>
-              <option value="photobooth">Photobooth Hàn Quốc</option>
-            </select>
-            <p id="slideshowStatus" class="status"></p>
-          </div>
-          <button id="toggleSlideshowButton" class="secondary">Đang tải...</button>
-        </section>
-
-        <section class="card setting-card">
-          <div>
-            <strong>Gửi cho lớp trong tương lai</strong>
-            <p class="muted">
-              Đây là mục riêng trong nhóm Lời nhắn. Trước giờ mở, học sinh chỉ thấy số lời nhắn đã gửi.
-            </p>
-            <input id="timeCapsuleUnlockAt" type="datetime-local" style="margin-top: 10px" />
-            <p id="timeCapsuleStatus" class="status"></p>
-          </div>
-          <button id="saveTimeCapsuleButton" class="secondary">Lưu giờ mở</button>
-        </section>
-
-        <section class="toolbar">
+        <section id="managerToolbar" class="toolbar">
           <input id="managerSearch" placeholder="Tìm tên, nội dung, uid, hashtag..." />
           <select id="managerFilter" aria-label="Bộ lọc manager"></select>
           <button id="clearSearchButton" class="secondary">Xóa tìm</button>
@@ -837,6 +798,7 @@
 
         <nav class="tabs" aria-label="Manager sections">
           <button class="tab active" data-tab="accounts">Tài khoản</button>
+          <button class="tab" data-tab="system">Hệ thống</button>
           <button class="tab" data-tab="memories">Ảnh/video</button>
           <button class="tab" data-tab="letters">Thư lớp</button>
           <button class="tab" data-tab="future">Gửi cho lớp trong tương lai</button>
@@ -844,6 +806,93 @@
           <button class="tab" data-tab="diaries">Nhật ký</button>
           <button class="tab" data-tab="downloads">Lượt tải</button>
         </nav>
+
+        <section class="panel" data-panel="system">
+          <div class="system-panel">
+            <section class="card system-panel-head">
+              <h2>Hệ thống & tính năng</h2>
+              <p class="muted">
+                Nơi kiểm tra dữ liệu, sửa lỗi nhanh và bật/tắt những tính năng đang hiển thị cho học sinh. Các thao tác nặng chỉ chạy khi bạn bấm, nên manager vẫn nhẹ trên điện thoại.
+              </p>
+            </section>
+
+            <section class="card health-card">
+              <div class="health-head">
+                <div>
+                  <h2>Sức khỏe hệ thống</h2>
+                  <p class="muted">Tóm tắt lỗi dữ liệu hay gặp: tim lệch, comment emoji thiếu field, kỷ niệm thiếu nameKey.</p>
+                </div>
+                <button id="repairDataButton" class="secondary">Quét và sửa lỗi</button>
+              </div>
+              <div id="systemHealth" class="health-grid"></div>
+              <div id="systemIssues" class="issue-list"></div>
+              <p id="healthStatus" class="status"></p>
+            </section>
+
+            <div class="system-settings-grid">
+              <section class="card setting-card">
+                <div>
+                  <strong>Memory Recap nổi bật</strong>
+                  <p class="muted">
+                    Khi bật, trang Ký ức sẽ hiện poster tổng kết lớp 9/8 thật nổi bật và cho học sinh tải về.
+                  </p>
+                  <p id="recapStatus" class="status"></p>
+                </div>
+                <button id="toggleRecapButton" class="secondary">Đang tải...</button>
+              </section>
+
+              <section class="card setting-card">
+                <div>
+                  <strong>Gửi cho lớp trong tương lai</strong>
+                  <p class="muted">
+                    Khi bật, mục Gửi cho lớp trong tương lai sẽ hiện trong nhóm Lời nhắn. Khi tắt, học sinh sẽ không thấy lối vào mục này.
+                  </p>
+                  <p id="classLettersStatus" class="status"></p>
+                </div>
+                <button id="toggleClassLettersButton" class="secondary">Đang tải...</button>
+              </section>
+
+              <section class="card setting-card">
+                <div>
+                  <strong>Gợi nhắc cuối năm</strong>
+                  <p class="muted">
+                    Khi bật, học sinh sẽ thấy một khung gợi nhắc gọn để viết Secret Message, nhật ký riêng, thư lớp và lời nhắn tương lai nếu mục tương lai đang mở.
+                  </p>
+                  <p id="writingPromptsStatus" class="status"></p>
+                </div>
+                <button id="toggleWritingPromptsButton" class="secondary">Đang tải...</button>
+              </section>
+
+              <section class="card setting-card">
+                <div>
+                  <strong>Slideshow điện ảnh</strong>
+                  <p class="muted">
+                    Khi bật, trang Ký ức sẽ hiện slideshow nổi bật. Manager chọn mood, học sinh chỉ thấy một trải nghiệm đã chỉnh sẵn.
+                  </p>
+                  <select id="slideshowMoodSelect" style="margin-top: 10px">
+                    <option value="cinematic">Điện ảnh</option>
+                    <option value="scrapbook">Lưu bút</option>
+                    <option value="photobooth">Photobooth Hàn Quốc</option>
+                  </select>
+                  <p id="slideshowStatus" class="status"></p>
+                </div>
+                <button id="toggleSlideshowButton" class="secondary">Đang tải...</button>
+              </section>
+
+              <section class="card setting-card">
+                <div>
+                  <strong>Giờ mở lời nhắn tương lai</strong>
+                  <p class="muted">
+                    Đây là mục riêng trong nhóm Lời nhắn. Trước giờ mở, học sinh chỉ thấy số lời nhắn đã gửi.
+                  </p>
+                  <input id="timeCapsuleUnlockAt" type="datetime-local" style="margin-top: 10px" />
+                  <p id="timeCapsuleStatus" class="status"></p>
+                </div>
+                <button id="saveTimeCapsuleButton" class="secondary">Lưu giờ mở</button>
+              </section>
+            </div>
+          </div>
+        </section>
 
         <section class="panel active" data-panel="accounts">
           <div class="panel-grid">
@@ -1252,6 +1301,9 @@
       };
 
       const filterOptionsByTab = {
+        system: [
+          ['all', 'Không dùng bộ lọc'],
+        ],
         accounts: [
           ['all', 'Tất cả tài khoản'],
           ['active', 'Đang mở'],
@@ -1351,6 +1403,7 @@
 
       const renderFilterOptions = () => {
         const filter = $('managerFilter');
+        $('managerToolbar')?.classList.toggle('hidden', activeTab === 'system');
         const options = filterOptionsByTab[activeTab] || [['all', 'Tất cả']];
         const previousValue = filter.value;
         filter.innerHTML = options.map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
@@ -1461,6 +1514,7 @@
 
       const renderSystemHealth = () => {
         if (!managerLoadedTabs.has('memories')) {
+          $('repairDataButton').textContent = 'Tải dữ liệu kiểm tra';
           $('systemHealth').innerHTML = `
             <div class="health-metric">
               <strong>${accounts.filter((account) => !account.deleted && !account.disabled).length}</strong>
@@ -1475,18 +1529,21 @@
             <div class="issue-row">
               <div>
                 <strong>Chưa quét ảnh/video</strong>
-                <p class="muted">Để manager mở nhanh trên điện thoại, phần kiểm tra tim/comment sẽ chạy sau khi bạn mở tab Ảnh/video.</p>
+                <p class="muted">Để manager mở nhanh trên điện thoại, phần kiểm tra tim/comment chỉ tải khi bạn bấm nút kiểm tra trong mục Hệ thống.</p>
               </div>
               <span class="pill dark">Chờ tải</span>
             </div>
           `;
-          $('repairDataButton').disabled = true;
-          healthStatus.textContent = 'Mở tab Ảnh/video khi cần quét và sửa dữ liệu nặng.';
+          $('repairDataButton').disabled = isLoadingManagerData || isBulkDeleting || isRepairingData || managerLoadingTabs.has('memories');
+          healthStatus.textContent = managerLoadingTabs.has('memories')
+            ? 'Đang tải dữ liệu ảnh/video để kiểm tra...'
+            : 'Bấm "Tải dữ liệu kiểm tra" khi cần quét và sửa dữ liệu nặng.';
           return;
         }
 
         const health = systemHealthSnapshot();
         const totalFixable = health.counts.heartIssues + health.counts.ownerIssues + health.counts.commentIssues;
+        $('repairDataButton').textContent = 'Quét và sửa lỗi';
 
         $('systemHealth').innerHTML = health.metrics
           .map(([label, value]) => `
@@ -1584,6 +1641,7 @@
       };
 
       const tabContainerId = {
+        system: '',
         accounts: 'accounts',
         memories: 'memories',
         letters: 'classLetters',
@@ -1594,6 +1652,7 @@
       };
 
       const tabLabel = {
+        system: 'hệ thống',
         accounts: 'tài khoản',
         memories: 'ảnh/video',
         letters: 'thư lớp',
@@ -1904,6 +1963,7 @@
         if (activeTab === 'remember') renderRememberNotes();
         if (activeTab === 'diaries') renderDiaries();
         if (activeTab === 'downloads') renderDownloads();
+        if (activeTab === 'system') updateBulkBar();
         renderSettings();
       };
 
@@ -2126,6 +2186,7 @@
       };
 
       const statusForActiveTab = () => {
+        if (activeTab === 'system') return healthStatus;
         if (activeTab === 'accounts') return accountStatus;
         if (activeTab === 'memories') return memoryStatus;
         if (activeTab === 'letters') return letterStatus;
@@ -2284,9 +2345,15 @@
           : { unlockAt: '' };
         appVersionInfo = appVersionSnapshot;
         managerLoadedTabs.add('accounts');
+        managerLoadedTabs.add('system');
       };
 
       const loadTabData = async (tab, options = {}) => {
+        if (tab === 'system') {
+          managerLoadedTabs.add('system');
+          renderAll();
+          return;
+        }
         if (tab === 'accounts') {
           managerLoadedTabs.add('accounts');
           renderAll();
@@ -2565,7 +2632,13 @@
       });
 
       $('refreshButton').addEventListener('click', () => void refreshManagerData());
-      $('repairDataButton').addEventListener('click', () => void repairSystemData());
+      $('repairDataButton').addEventListener('click', async () => {
+        if (!managerLoadedTabs.has('memories')) {
+          healthStatus.textContent = 'Đang tải ảnh/video và bình luận để kiểm tra...';
+          await loadTabData('memories');
+        }
+        await repairSystemData();
+      });
       document.addEventListener('visibilitychange', () => {
         if (managerApp.classList.contains('hidden')) return;
         if (document.visibilityState === 'hidden') {
