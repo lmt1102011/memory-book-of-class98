@@ -204,6 +204,7 @@ export default function App() {
   const [futureMessagePopupOpen, setFutureMessagePopupOpen] = useState(false);
   const [memoryRecapEnabled, setMemoryRecapEnabled] = useState(false);
   const [classLettersEnabled, setClassLettersEnabled] = useState(false);
+  const [writingPromptsEnabled, setWritingPromptsEnabled] = useState(false);
   const [cinematicSlideshowSettings, setCinematicSlideshowSettings] = useState<CinematicSlideshowSettings>(
     defaultCinematicSlideshowSettings,
   );
@@ -511,6 +512,7 @@ export default function App() {
 
     let unsubscribeRecap: (() => void) | undefined;
     let unsubscribeClassLetters: (() => void) | undefined;
+    let unsubscribeWritingPrompts: (() => void) | undefined;
     let unsubscribeSlideshow: (() => void) | undefined;
     let unsubscribeTimeCapsuleSettings: (() => void) | undefined;
     let isActive = true;
@@ -548,6 +550,16 @@ export default function App() {
             setClassLettersEnabled(false);
           },
         );
+        unsubscribeWritingPrompts = service.subscribeWritingPromptsSettings(
+          (settings) => {
+            if (!isActive) return;
+            setWritingPromptsEnabled(settings.enabled);
+          },
+          () => {
+            if (!isActive) return;
+            setWritingPromptsEnabled(false);
+          },
+        );
         unsubscribeTimeCapsuleSettings = service.subscribeTimeCapsuleSettings(
           (settings) => {
             if (!isActive) return;
@@ -563,6 +575,7 @@ export default function App() {
         if (isActive) {
           setMemoryRecapEnabled(false);
           setClassLettersEnabled(false);
+          setWritingPromptsEnabled(false);
           setCinematicSlideshowSettings(defaultCinematicSlideshowSettings);
           setTimeCapsuleSettings(makeDefaultTimeCapsuleSettings());
         }
@@ -572,6 +585,7 @@ export default function App() {
       isActive = false;
       unsubscribeRecap?.();
       unsubscribeClassLetters?.();
+      unsubscribeWritingPrompts?.();
       unsubscribeSlideshow?.();
       unsubscribeTimeCapsuleSettings?.();
     };
@@ -1313,6 +1327,7 @@ export default function App() {
     const ownActivityCount = navBadgeCount('mine');
     const messageCount = navBadgeCount('remember');
     const voteCount = navBadgeCount('votes');
+    const activityCount = unreadNotificationCount;
     const isOwnProfileOpen = Boolean(profile && route === 'people' && focusedPersonKey === profile.nameKey);
     return [
       {
@@ -1409,8 +1424,22 @@ export default function App() {
         label: 'Tôi',
         description: profile ? `${profile.name} - ${profile.className}` : 'Tài khoản cá nhân',
         icon: UserRound,
-        isActive: route === 'join',
+        isActive: route === 'join' || notificationsOpen,
+        badgeCount: activityCount,
         items: [
+          {
+            id: 'activity',
+            label: 'Hoạt động của tôi',
+            description: 'Xem gọn tin nhắn, tim, bình luận và bình chọn mới.',
+            icon: Bell,
+            isActive: notificationsOpen,
+            badgeCount: activityCount,
+            onSelect: () => {
+              setMenuOpen(false);
+              setOpenNavGroup(null);
+              setNotificationsOpen(true);
+            },
+          },
           {
             id: 'account',
             label: 'Tài khoản',
@@ -1426,9 +1455,11 @@ export default function App() {
     focusedPersonKey,
     navBadgeCount,
     navigate,
+    notificationsOpen,
     openPeopleList,
     profile,
     route,
+    unreadNotificationCount,
   ]);
 
   const handleYouthProfileUpdate = useCallback(
@@ -2218,6 +2249,7 @@ export default function App() {
           <DiaryPage
             diaries={secretDiaries}
             firebaseNotice={firebaseNotice}
+            writingPromptsEnabled={writingPromptsEnabled}
             profile={profile}
             onJoin={() => navigate('join')}
             onAddDiary={handleSecretDiaryAdd}
@@ -2262,12 +2294,16 @@ export default function App() {
           isLoadingMemories={memoriesLoading}
           memoryRecapEnabled={memoryRecapEnabled}
           classLettersEnabled={classLettersEnabled}
+          writingPromptsEnabled={writingPromptsEnabled}
           cinematicSlideshowSettings={cinematicSlideshowSettings}
           profile={profile}
           pendingReactionIds={pendingReactionIds}
           pendingCommentReactionIds={pendingCommentReactionIds}
           onJoin={() => navigate('join')}
           onPhotobook={() => navigate('photobook')}
+          onOpenFuture={() => navigate('future')}
+          onOpenRemember={() => navigate('remember')}
+          onOpenDiary={() => navigate('diary')}
           onOpenProfile={openPersonProfile}
           onReact={handleReact}
           onReactComment={handleMemoryCommentReact}

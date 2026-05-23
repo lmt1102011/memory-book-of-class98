@@ -5,6 +5,7 @@ import type { SecretDiaryEntry, UserProfile } from '../types';
 interface DiaryPageProps {
   diaries: SecretDiaryEntry[];
   firebaseNotice: string;
+  writingPromptsEnabled: boolean;
   profile: UserProfile | null;
   onJoin: () => void;
   onAddDiary: (message: string) => void | Promise<void>;
@@ -14,6 +15,7 @@ interface DiaryPageProps {
 export default function DiaryPage({
   diaries,
   firebaseNotice,
+  writingPromptsEnabled,
   profile,
   onJoin,
   onAddDiary,
@@ -31,6 +33,7 @@ export default function DiaryPage({
       <SecretMailbox
         diaries={diaries}
         profile={profile}
+        writingPromptsEnabled={writingPromptsEnabled}
         onJoin={onJoin}
         onAddDiary={onAddDiary}
         onDeleteDiary={onDeleteDiary}

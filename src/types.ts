@@ -257,6 +257,11 @@ export interface ClassLettersSettings {
   updatedAt?: string;
 }
 
+export interface WritingPromptsSettings {
+  enabled: boolean;
+  updatedAt?: string;
+}
+
 export interface CinematicSlideshowSettings {
   enabled: boolean;
   mood: 'cinematic' | 'scrapbook' | 'photobooth';

@@ -1,6 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
-import { Camera, Download, Filter, Heart, Lock, RotateCcw, Search, Upload, UserRound, Video, X } from 'lucide-react';
+import {
+  BookOpen,
+  Camera,
+  Download,
+  Filter,
+  Heart,
+  Lock,
+  MessageCircle,
+  RotateCcw,
+  Search,
+  Sparkles,
+  Upload,
+  UserRound,
+  Video,
+  X,
+} from 'lucide-react';
 import ClassMessageBoard from '../components/ClassMessageBoard';
 import FirebaseNotice from '../components/FirebaseNotice';
 import MemoryCard from '../components/MemoryCard';
@@ -111,12 +126,16 @@ interface HomePageProps {
   isLoadingMemories: boolean;
   memoryRecapEnabled: boolean;
   classLettersEnabled: boolean;
+  writingPromptsEnabled: boolean;
   cinematicSlideshowSettings: CinematicSlideshowSettings;
   profile: UserProfile | null;
   pendingReactionIds: string[];
   pendingCommentReactionIds: string[];
   onJoin: () => void;
   onPhotobook: () => void;
+  onOpenFuture: () => void;
+  onOpenRemember: () => void;
+  onOpenDiary: () => void;
   onOpenProfile: (nameKey: string) => void;
   onReact: (memory: MemoryItem) => void | Promise<void>;
   onReactComment: (comment: MemoryComment, reactionId: CommentReactionId) => void | Promise<void>;
@@ -137,12 +156,16 @@ export default function HomePage({
   isLoadingMemories,
   memoryRecapEnabled,
   classLettersEnabled,
+  writingPromptsEnabled,
   cinematicSlideshowSettings,
   profile,
   pendingReactionIds,
   pendingCommentReactionIds,
   onJoin,
   onPhotobook,
+  onOpenFuture,
+  onOpenRemember,
+  onOpenDiary,
   onOpenProfile,
   onReact,
   onReactComment,
@@ -631,6 +654,10 @@ export default function HomePage({
     }
   }, [onJoin, profile]);
 
+  const scrollToClassMessages = useCallback(() => {
+    document.getElementById('class-message-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
   const filteredMemories = useMemo(() => {
     const name = debouncedName.trim().toLowerCase();
     const keyword = debouncedKeyword.trim().toLowerCase();
@@ -757,15 +784,99 @@ export default function HomePage({
         </div>
       </section>
 
+      {writingPromptsEnabled && (
+        <section className="mx-auto max-w-7xl px-4 pb-7 sm:px-6 lg:px-8">
+          <div className="relative overflow-hidden rounded-[1.45rem] border border-white/70 bg-[#fffaf1] p-4 shadow-paper sm:p-5 lg:p-6">
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blush via-[#f4dfbf] to-skySoft" aria-hidden="true" />
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center">
+              <div className="min-w-0">
+                <span className="inline-flex items-center gap-2 rounded-full bg-ink px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.08em] text-paper">
+                  <Sparkles size={14} />
+                  Gợi nhắc cuối năm
+                </span>
+                <h2 className="mt-3 font-display text-4xl leading-none text-ink sm:text-5xl">
+                  Có điều gì hôm nay mình chưa kịp viết lại không?
+                </h2>
+                <p className="mt-3 text-sm font-semibold leading-6 text-ink/62">
+                  Một vài dòng nhỏ thôi cũng đủ giữ lại cảm giác của tuổi học trò. Chọn đúng nơi cần viết, web sẽ đưa bạn tới đó.
+                </p>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  className="group flex min-h-[5.4rem] items-start gap-3 rounded-[1.05rem] bg-paper/80 p-3 text-left shadow-sm ring-1 ring-coffee/8 transition hover:-translate-y-0.5 hover:bg-white"
+                  onClick={onOpenRemember}
+                >
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-blush/45 text-coffee">
+                    <Heart size={17} />
+                  </span>
+                  <span className="min-w-0">
+                    <strong className="block text-sm font-black leading-5">Secret Message</strong>
+                    <span className="mt-1 block text-xs font-semibold leading-5 text-ink/58">Gửi điều chưa kịp nói cho một bạn.</span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  className="group flex min-h-[5.4rem] items-start gap-3 rounded-[1.05rem] bg-paper/80 p-3 text-left shadow-sm ring-1 ring-coffee/8 transition hover:-translate-y-0.5 hover:bg-white"
+                  onClick={onOpenDiary}
+                >
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink text-paper">
+                    <BookOpen size={17} />
+                  </span>
+                  <span className="min-w-0">
+                    <strong className="block text-sm font-black leading-5">Nhật ký riêng</strong>
+                    <span className="mt-1 block text-xs font-semibold leading-5 text-ink/58">Viết một trang chỉ mình bạn đọc.</span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  className="group flex min-h-[5.4rem] items-start gap-3 rounded-[1.05rem] bg-paper/80 p-3 text-left shadow-sm ring-1 ring-coffee/8 transition hover:-translate-y-0.5 hover:bg-white"
+                  onClick={onOpenFuture}
+                >
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-skySoft/45 text-chalk">
+                    <Sparkles size={17} />
+                  </span>
+                  <span className="min-w-0">
+                    <strong className="block text-sm font-black leading-5">Gửi cho tương lai</strong>
+                    <span className="mt-1 block text-xs font-semibold leading-5 text-ink/58">Gửi một lời cho lớp 9/8 sau này.</span>
+                  </span>
+                </button>
+
+                {classLettersEnabled && (
+                  <button
+                    type="button"
+                    className="group flex min-h-[5.4rem] items-start gap-3 rounded-[1.05rem] bg-paper/80 p-3 text-left shadow-sm ring-1 ring-coffee/8 transition hover:-translate-y-0.5 hover:bg-white"
+                    onClick={scrollToClassMessages}
+                  >
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f4dfbf] text-coffee">
+                      <MessageCircle size={17} />
+                    </span>
+                    <span className="min-w-0">
+                      <strong className="block text-sm font-black leading-5">Thư lớp</strong>
+                      <span className="mt-1 block text-xs font-semibold leading-5 text-ink/58">Viết một lời chúc chung cho cả lớp.</span>
+                    </span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {classLettersEnabled && (
-        <ClassMessageBoard
-          guestbook={guestbook}
-          profile={profile}
-          onJoin={onJoin}
-          onAddGuestbook={onAddGuestbook}
-          onDeleteGuestbook={onDeleteGuestbook}
-          onAddAnonymousMessage={onAddAnonymousMessage}
-        />
+        <div id="class-message-board">
+          <ClassMessageBoard
+            guestbook={guestbook}
+            profile={profile}
+            onJoin={onJoin}
+            onAddGuestbook={onAddGuestbook}
+            onDeleteGuestbook={onDeleteGuestbook}
+            onAddAnonymousMessage={onAddAnonymousMessage}
+          />
+        </div>
       )}
 
       {memoryRecapEnabled && (

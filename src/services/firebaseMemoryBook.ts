@@ -49,6 +49,7 @@ import type {
   VoteCategory,
   VoteCategoryDraft,
   VoteRecord,
+  WritingPromptsSettings,
   YouthProfileDraft,
 } from '../types';
 import { makeId } from '../utils/ids';
@@ -71,6 +72,7 @@ const VOTES_SUBCOLLECTION = 'votes';
 const SITE_SETTINGS_COLLECTION = 'siteSettings98';
 const MEMORY_RECAP_SETTING_ID = 'memoryRecap';
 const CLASS_LETTERS_SETTING_ID = 'classLetters';
+const WRITING_PROMPTS_SETTING_ID = 'writingPrompts';
 const CINEMATIC_SLIDESHOW_SETTING_ID = 'cinematicSlideshow';
 const TIME_CAPSULE_SETTING_ID = 'timeCapsule';
 const FIREBASE_PROJECT_ID = 'memorybook-of-class98';
@@ -663,6 +665,11 @@ const classLettersSettingsFromData = (data?: DocumentData): ClassLettersSettings
   updatedAt: data?.updatedAt ? timestampToIso(data.updatedAt) : undefined,
 });
 
+const writingPromptsSettingsFromData = (data?: DocumentData): WritingPromptsSettings => ({
+  enabled: Boolean(data?.enabled),
+  updatedAt: data?.updatedAt ? timestampToIso(data.updatedAt) : undefined,
+});
+
 const SLIDESHOW_MOODS = ['cinematic', 'scrapbook', 'photobooth'] as const;
 
 const cinematicSlideshowSettingsFromData = (data?: DocumentData): CinematicSlideshowSettings => ({
@@ -1057,6 +1064,24 @@ export const subscribeClassLettersSettings = (
     try {
       const snapshot = await withFirebaseRetry(() => getDoc(settingRef));
       onNext(classLettersSettingsFromData(snapshot.exists() ? snapshot.data() : undefined));
+    } catch (error) {
+      onError(friendlyFirebaseError(error));
+    }
+  };
+  void load();
+  const interval = createVisiblePolling(load, SITE_SETTINGS_POLL_MS);
+  return () => window.clearInterval(interval);
+};
+
+export const subscribeWritingPromptsSettings = (
+  onNext: (settings: WritingPromptsSettings) => void,
+  onError: (error: Error) => void,
+) => {
+  const settingRef = doc(db, SITE_SETTINGS_COLLECTION, WRITING_PROMPTS_SETTING_ID);
+  const load = async () => {
+    try {
+      const snapshot = await withFirebaseRetry(() => getDoc(settingRef));
+      onNext(writingPromptsSettingsFromData(snapshot.exists() ? snapshot.data() : undefined));
     } catch (error) {
       onError(friendlyFirebaseError(error));
     }

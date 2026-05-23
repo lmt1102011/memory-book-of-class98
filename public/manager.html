@@ -555,6 +555,17 @@
 
         <section class="card setting-card">
           <div>
+            <strong>Gợi nhắc cuối năm</strong>
+            <p class="muted">
+              Khi bật, học sinh sẽ thấy một khung gợi nhắc gọn để viết Secret Message, nhật ký riêng, lời nhắn tương lai và thư lớp nếu mục thư lớp đang mở.
+            </p>
+            <p id="writingPromptsStatus" class="status"></p>
+          </div>
+          <button id="toggleWritingPromptsButton" class="secondary">Đang tải...</button>
+        </section>
+
+        <section class="card setting-card">
+          <div>
             <strong>Slideshow điện ảnh</strong>
             <p class="muted">
               Khi bật, trang Ký ức sẽ hiện slideshow nổi bật. Manager chọn mood, học sinh chỉ thấy một trải nghiệm đã chỉnh sẵn.
@@ -732,6 +743,7 @@
       const SITE_SETTINGS_COLLECTION = 'siteSettings98';
       const MEMORY_RECAP_SETTING_ID = 'memoryRecap';
       const CLASS_LETTERS_SETTING_ID = 'classLetters';
+      const WRITING_PROMPTS_SETTING_ID = 'writingPrompts';
       const CINEMATIC_SLIDESHOW_SETTING_ID = 'cinematicSlideshow';
       const TIME_CAPSULE_SETTING_ID = 'timeCapsule';
 
@@ -753,6 +765,7 @@
       const diaryStatus = $('diaryStatus');
       const recapStatus = $('recapStatus');
       const classLettersStatus = $('classLettersStatus');
+      const writingPromptsStatus = $('writingPromptsStatus');
       const slideshowStatus = $('slideshowStatus');
       const timeCapsuleStatus = $('timeCapsuleStatus');
       const healthStatus = $('healthStatus');
@@ -767,6 +780,7 @@
       let rememberNotes = [];
       let memoryRecapSetting = { enabled: false };
       let classLettersSetting = { enabled: false };
+      let writingPromptsSetting = { enabled: false };
       let cinematicSlideshowSetting = { enabled: false, mood: 'cinematic' };
       let timeCapsuleSetting = { unlockAt: '' };
       let appVersionInfo = null;
@@ -1173,6 +1187,12 @@
         classLettersStatus.textContent = classLettersSetting.enabled
           ? 'Đang bật: bảng thư lớp sẽ hiện ngay trong trang Ký ức.'
           : 'Đang tắt: học sinh sẽ không thấy mục gửi thư cho lớp.';
+
+        $('toggleWritingPromptsButton').textContent = writingPromptsSetting.enabled ? 'Tắt gợi nhắc' : 'Bật gợi nhắc';
+        $('toggleWritingPromptsButton').classList.toggle('danger', writingPromptsSetting.enabled);
+        writingPromptsStatus.textContent = writingPromptsSetting.enabled
+          ? 'Đang bật: học sinh sẽ thấy khung gợi nhắc viết lời nhắn và nhật ký.'
+          : 'Đang tắt: khung gợi nhắc sẽ được ẩn để giao diện gọn hơn.';
 
         $('slideshowMoodSelect').value = cinematicSlideshowSetting.mood || 'cinematic';
         $('toggleSlideshowButton').textContent = cinematicSlideshowSetting.enabled ? 'Tắt slideshow' : 'Bật slideshow';
@@ -1815,6 +1835,7 @@
             rememberSnapshot,
             recapSnapshot,
             classLettersSnapshot,
+            writingPromptsSnapshot,
             slideshowSnapshot,
             timeCapsuleSettingSnapshot,
             appVersionSnapshot,
@@ -1830,6 +1851,7 @@
             getDocs(query(collection(db, REMEMBER_NOTES_COLLECTION), orderBy('createdAt', 'desc'))),
             getDoc(doc(db, SITE_SETTINGS_COLLECTION, MEMORY_RECAP_SETTING_ID)),
             getDoc(doc(db, SITE_SETTINGS_COLLECTION, CLASS_LETTERS_SETTING_ID)),
+            getDoc(doc(db, SITE_SETTINGS_COLLECTION, WRITING_PROMPTS_SETTING_ID)),
             getDoc(doc(db, SITE_SETTINGS_COLLECTION, CINEMATIC_SLIDESHOW_SETTING_ID)),
             getDoc(doc(db, SITE_SETTINGS_COLLECTION, TIME_CAPSULE_SETTING_ID)),
             fetch(`./app-version.json?manager=${Date.now()}`).then((response) => (response.ok ? response.json() : null)).catch(() => null),
@@ -1851,6 +1873,7 @@
           rememberNotes = rememberSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
           memoryRecapSetting = recapSnapshot.exists() ? { enabled: Boolean(recapSnapshot.data().enabled) } : { enabled: false };
           classLettersSetting = classLettersSnapshot.exists() ? { enabled: Boolean(classLettersSnapshot.data().enabled) } : { enabled: false };
+          writingPromptsSetting = writingPromptsSnapshot.exists() ? { enabled: Boolean(writingPromptsSnapshot.data().enabled) } : { enabled: false };
           cinematicSlideshowSetting = slideshowSnapshot.exists()
             ? { enabled: Boolean(slideshowSnapshot.data().enabled), mood: slideshowSnapshot.data().mood || 'cinematic' }
             : { enabled: false, mood: 'cinematic' };
@@ -1960,6 +1983,29 @@
           classLettersStatus.textContent = error.message || 'Không thể cập nhật Thư lớp trong Ký ức.';
         } finally {
           $('toggleClassLettersButton').disabled = false;
+        }
+      });
+      $('toggleWritingPromptsButton').addEventListener('click', async () => {
+        const nextEnabled = !writingPromptsSetting.enabled;
+        $('toggleWritingPromptsButton').disabled = true;
+        writingPromptsStatus.textContent = nextEnabled ? 'Đang bật gợi nhắc cuối năm...' : 'Đang tắt gợi nhắc cuối năm...';
+        try {
+          await setDoc(
+            doc(db, SITE_SETTINGS_COLLECTION, WRITING_PROMPTS_SETTING_ID),
+            {
+              enabled: nextEnabled,
+              managerKey: MANAGER_PASSWORD,
+              updatedAt: serverTimestamp(),
+              updatedBy: MANAGER_NAME_KEY,
+            },
+            { merge: true },
+          );
+          writingPromptsSetting = { enabled: nextEnabled };
+          renderSettings();
+        } catch (error) {
+          writingPromptsStatus.textContent = error.message || 'Không thể cập nhật gợi nhắc cuối năm.';
+        } finally {
+          $('toggleWritingPromptsButton').disabled = false;
         }
       });
       $('toggleSlideshowButton').addEventListener('click', async () => {

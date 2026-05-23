@@ -1,5 +1,5 @@
 import { FormEvent, memo, useState } from 'react';
-import { Lock, Send, Trash2 } from 'lucide-react';
+import { Lock, Send, Sparkles, Trash2 } from 'lucide-react';
 import ActionModal from './ActionModal';
 import type { SecretDiaryEntry, UserProfile } from '../types';
 import { formatMemoryDate } from '../utils/date';
@@ -7,12 +7,13 @@ import { formatMemoryDate } from '../utils/date';
 interface SecretMailboxProps {
   diaries: SecretDiaryEntry[];
   profile: UserProfile | null;
+  writingPromptsEnabled?: boolean;
   onJoin: () => void;
   onAddDiary: (message: string) => void | Promise<void>;
   onDeleteDiary: (diary: SecretDiaryEntry) => void | Promise<void>;
 }
 
-function SecretMailbox({ diaries, profile, onJoin, onAddDiary, onDeleteDiary }: SecretMailboxProps) {
+function SecretMailbox({ diaries, profile, writingPromptsEnabled = false, onJoin, onAddDiary, onDeleteDiary }: SecretMailboxProps) {
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
@@ -46,6 +47,30 @@ function SecretMailbox({ diaries, profile, onJoin, onAddDiary, onDeleteDiary }: 
             Một góc riêng để gửi lại những tiếc nuối, những câu xin lỗi, những lời cảm ơn chưa kịp bày tỏ ở lứa tuổi
             học trò. Trên website chính, chỉ bạn nhìn thấy nhật ký của mình.
           </p>
+          {writingPromptsEnabled && (
+            <div className="mt-5 overflow-hidden rounded-[1.25rem] border border-blush/35 bg-[#fffaf1] p-4 shadow-paper">
+              <div className="flex items-start gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-ink text-paper">
+                  <Sparkles size={18} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-coffee/58">Gợi nhắc hôm nay</p>
+                  <h3 className="mt-1 text-base font-black leading-5 text-ink">Viết một trang thật riêng cho mình.</h3>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-ink/58">
+                    Chỉ cần vài dòng cũng được. Để sau này đọc lại, mình biết ngày hôm đó mình đã cảm thấy thế nào.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="secondary-button mt-4 w-full justify-center"
+                onClick={() => (profile ? setIsComposerOpen(true) : onJoin())}
+              >
+                <Send size={16} />
+                Viết nhật ký
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="rounded-[1.5rem] border border-white/60 bg-white/45 p-4 shadow-paper backdrop-blur-xl sm:p-5">
