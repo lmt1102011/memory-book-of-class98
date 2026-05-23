@@ -129,6 +129,7 @@ const profileFromStudentDoc = (id: string, data: DocumentData, fallback: UserPro
   className: String(data.className || CLASS_NAME),
   joinedAt: timestampToIso(data.createdAt || fallback.joinedAt),
   disabled: Boolean(data.disabled),
+  disabledReason: String(data.disabledReason || fallback.disabledReason || ''),
   deleted: Boolean(data.deleted),
 });
 

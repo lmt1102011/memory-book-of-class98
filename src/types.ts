@@ -38,6 +38,7 @@ export interface UserProfile {
   className: string;
   joinedAt: string;
   disabled?: boolean;
+  disabledReason?: string;
   deleted?: boolean;
 }
 

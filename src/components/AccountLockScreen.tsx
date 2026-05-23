@@ -2,10 +2,13 @@ import { Lock, UserRound } from 'lucide-react';
 
 interface AccountLockScreenProps {
   name?: string;
+  reason?: string;
   onSignOut: () => void;
 }
 
-export default function AccountLockScreen({ name, onSignOut }: AccountLockScreenProps) {
+export default function AccountLockScreen({ name, reason, onSignOut }: AccountLockScreenProps) {
+  const safeReason = reason?.trim();
+
   return (
     <section
       className="fixed inset-0 z-[130] grid min-h-screen place-items-center bg-[#fbf3e7] px-4 py-8 text-ink"
@@ -29,6 +32,13 @@ export default function AccountLockScreen({ name, onSignOut }: AccountLockScreen
             {name ? `${name}, tài khoản của bạn hiện đang bị manager khóa.` : 'Tài khoản này hiện đang bị manager khóa.'}
             {' '}Bạn sẽ không thể xem hoặc đăng ký ức cho đến khi manager mở lại.
           </p>
+
+          {safeReason && (
+            <div className="mt-5 rounded-[1rem] border border-[#dfb7a2]/55 bg-[#fff4e8] px-4 py-3 text-left shadow-inner">
+              <p className="text-[0.68rem] font-black uppercase tracking-[0.16em] text-coffee/55">Lý do manager ghi chú</p>
+              <p className="mt-2 break-words text-sm font-bold leading-6 text-ink">{safeReason}</p>
+            </div>
+          )}
 
           <button className="primary-button mt-6 w-full justify-center" type="button" onClick={onSignOut}>
             <UserRound size={18} />

@@ -99,6 +99,7 @@ type NavGroupId = 'memories' | 'class' | 'messages' | 'me';
 type AccountBlockState = {
   kind: 'disabled';
   name: string;
+  reason?: string;
 };
 
 type NavMenuItem = {
@@ -385,7 +386,7 @@ export default function App() {
     }
 
     if (profile.disabled || profile.deleted) {
-      setAccountBlock({ kind: 'disabled', name: profile.name });
+      setAccountBlock({ kind: 'disabled', name: profile.name, reason: profile.disabledReason });
     } else {
       setAccountBlock(null);
     }
@@ -952,7 +953,7 @@ export default function App() {
               setOpenNavGroup(null);
               setNotificationsOpen(false);
               setFutureMessagePopupOpen(false);
-              setAccountBlock({ kind: 'disabled', name: status.profile.name });
+              setAccountBlock({ kind: 'disabled', name: status.profile.name, reason: status.profile.disabledReason });
               setProfile((current) => {
                 if (!current || current.uid !== status.profile.uid) return current;
                 return {
@@ -962,6 +963,7 @@ export default function App() {
                   className: status.profile.className,
                   joinedAt: status.profile.joinedAt,
                   disabled: true,
+                  disabledReason: status.profile.disabledReason,
                   deleted: false,
                 };
               });
@@ -976,6 +978,7 @@ export default function App() {
                 current.nameKey === status.profile.nameKey &&
                 current.className === status.profile.className &&
                 current.joinedAt === status.profile.joinedAt &&
+                current.disabledReason === status.profile.disabledReason &&
                 !current.disabled &&
                 !current.deleted
               ) {
@@ -989,6 +992,7 @@ export default function App() {
                 className: status.profile.className,
                 joinedAt: status.profile.joinedAt,
                 disabled: false,
+                disabledReason: '',
                 deleted: false,
               };
             });
@@ -2636,7 +2640,11 @@ export default function App() {
           </AnimatePresence>
         )}
         {bootSplashDone && accountBlock && (
-          <AccountLockScreen name={accountBlock.name} onSignOut={() => signOutToJoin('Bạn đã rời khỏi tài khoản bị khóa.')} />
+          <AccountLockScreen
+            name={accountBlock.name}
+            reason={accountBlock.reason}
+            onSignOut={() => signOutToJoin('Bạn đã rời khỏi tài khoản bị khóa.')}
+          />
         )}
         {bootSplashDone && <AppStatusToast isOnline={isOnline} justRestored={justRestored} />}
       </div>

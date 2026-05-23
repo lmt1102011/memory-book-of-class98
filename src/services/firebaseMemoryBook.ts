@@ -469,8 +469,16 @@ const profileFromData = (id: string, data: DocumentData, user?: User | null): Us
   className: CLASS_NAME,
   joinedAt: timestampToIso(data.createdAt),
   disabled: Boolean(data.disabled),
+  disabledReason: String(data.disabledReason || ''),
   deleted: Boolean(data.deleted),
 });
+
+const disabledAccountMessage = (data: DocumentData) => {
+  const reason = String(data.disabledReason || '').trim();
+  return reason
+    ? `Tài khoản này đang bị khóa khỏi lớp 9/8. Lý do: ${reason}`
+    : 'Tài khoản này đang bị khóa khỏi lớp 9/8.';
+};
 
 const memoryCollectionForItem = (memory: MemoryItem) =>
   memory.storageCollection === PRIVATE_MEMORIES_COLLECTION ? PRIVATE_MEMORIES_COLLECTION : MEMORIES_COLLECTION;
@@ -675,7 +683,7 @@ export const checkStudentName = async (name: string) => {
   if (!nameKey) throw new Error('Hãy nhập họ tên hợp lệ.');
   const snapshot = await withFirebaseRetry(() => getDoc(doc(db, STUDENTS_COLLECTION, nameKey)));
   if (snapshot.exists() && snapshot.data().disabled) {
-    throw new Error('Tài khoản này đang bị khóa khỏi lớp 9/8.');
+    throw new Error(disabledAccountMessage(snapshot.data()));
   }
   return {
     exists: snapshot.exists() && !snapshot.data().deleted,
@@ -717,7 +725,7 @@ export const registerStudent = async (name: string, password: string) => {
   const existing = await withFirebaseRetry(() => getDoc(studentRef));
   if (existing.exists()) {
     if (existing.data().disabled) {
-      throw new Error('Tài khoản này đang bị khóa khỏi lớp 9/8.');
+      throw new Error(disabledAccountMessage(existing.data()));
     }
 
     if (existing.data().deleted) {
@@ -790,7 +798,7 @@ export const loginStudent = async (name: string, password: string) => {
 
   if (snapshot.data().disabled) {
     await signOut(auth);
-    throw new Error('Tài khoản này đang bị khóa khỏi lớp 9/8.');
+    throw new Error(disabledAccountMessage(snapshot.data()));
   }
 
   if (snapshot.data().deleted) {

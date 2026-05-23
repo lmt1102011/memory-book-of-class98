@@ -1035,6 +1035,7 @@
                   <p class="muted">Class ${escapeHtml(account.className || CLASS_NAME)} | key: ${escapeHtml(account.id)}</p>
                   <p class="muted">UID: ${escapeHtml(account.uid || 'manual')}</p>
                   <p class="muted">Joined: ${formatDate(account.createdAt)} ${deleted ? `| Deleted: ${formatDate(account.deletedAt || account.managerDeletedAt)}` : ''}</p>
+                  ${disabled && account.disabledReason ? `<p class="muted"><strong>Lý do khóa:</strong> ${escapeHtml(account.disabledReason)}</p>` : ''}
                   <div class="row" style="margin-top: 10px">
                     ${
                       deleted
@@ -1751,6 +1752,7 @@
             await updateDoc(doc(db, 'students98', id), {
               disabled: false,
               deleted: false,
+              disabledReason: '',
               restoredAt: serverTimestamp(),
               managerKey: MANAGER_PASSWORD,
               managerUpdatedAt: serverTimestamp(),
@@ -1758,9 +1760,16 @@
           }
 
           if (action === 'disable') {
+            const reason = (window.prompt(`Nhập lý do khóa tài khoản ${account.name || id} để user nhìn thấy:`, account.disabledReason || '') || '').trim();
+            if (!reason) {
+              accountStatus.textContent = 'Đã hủy khóa vì chưa nhập lý do.';
+              return;
+            }
             await updateDoc(doc(db, 'students98', id), {
               disabled: true,
               deleted: false,
+              disabledReason: reason.slice(0, 240),
+              disabledAt: serverTimestamp(),
               managerKey: MANAGER_PASSWORD,
               managerUpdatedAt: serverTimestamp(),
             });
@@ -1928,6 +1937,7 @@
           await updateDoc(doc(db, 'students98', nameKey), {
             disabled: false,
             deleted: false,
+            disabledReason: '',
             restoredAt: serverTimestamp(),
             managerKey: MANAGER_PASSWORD,
             managerUpdatedAt: serverTimestamp(),
