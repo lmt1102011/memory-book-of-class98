@@ -364,6 +364,93 @@ const writeStudentProfileDocument = async (
   }
 };
 
+const restValueToJs = (value: Record<string, any>): any => {
+  if (!value || typeof value !== 'object') return undefined;
+  if ('stringValue' in value) return String(value.stringValue || '');
+  if ('integerValue' in value) return Number(value.integerValue || 0);
+  if ('doubleValue' in value) return Number(value.doubleValue || 0);
+  if ('booleanValue' in value) return Boolean(value.booleanValue);
+  if ('timestampValue' in value) return String(value.timestampValue || '');
+  if ('nullValue' in value) return null;
+  if ('arrayValue' in value) {
+    const values = Array.isArray(value.arrayValue?.values) ? value.arrayValue.values : [];
+    return values.map(restValueToJs);
+  }
+  if ('mapValue' in value) {
+    return restFieldsToData(value.mapValue?.fields || {});
+  }
+  return undefined;
+};
+
+const restFieldsToData = (fields: Record<string, any>): DocumentData => {
+  const data: Record<string, unknown> = {};
+  Object.entries(fields || {}).forEach(([key, value]) => {
+    data[key] = restValueToJs(value as Record<string, any>);
+  });
+  return data as DocumentData;
+};
+
+const restString = (value: string) => ({ stringValue: value });
+const restBool = (value: boolean) => ({ booleanValue: value });
+
+const fieldEquals = (fieldPath: string, value: Record<string, unknown>) => ({
+  fieldFilter: {
+    field: { fieldPath },
+    op: 'EQUAL',
+    value,
+  },
+});
+
+const restCollectionQuery = (collectionId: string, options: {
+  where?: Record<string, unknown>;
+  orderBy?: Array<Record<string, unknown>>;
+  limit?: number;
+}) => ({
+  from: [{ collectionId }],
+  ...(options.where ? { where: options.where } : {}),
+  ...(options.orderBy ? { orderBy: options.orderBy } : {}),
+  ...(options.limit ? { limit: options.limit } : {}),
+});
+
+const currentUserForProfile = (profile: UserProfile) => (
+  auth.currentUser?.uid === profile.uid ? auth.currentUser : null
+);
+
+const runFirestoreRestQuery = async (
+  profile: UserProfile,
+  structuredQuery: Record<string, unknown>,
+) => {
+  const user = currentUserForProfile(profile);
+  if (!user) return [];
+
+  const token = await withTimeout(user.getIdToken(), 'Auth token');
+  const response = await withTimeout(
+    fetch(`${FIRESTORE_REST_DOCUMENTS_URL}:runQuery`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ structuredQuery }),
+    }),
+    'Firestore REST query',
+  );
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw friendlyFirebaseError(new Error(`Firestore REST query failed ${response.status} ${detail}`));
+  }
+
+  const rows = await response.json() as Array<{ document?: { name?: string; fields?: Record<string, any> } }>;
+  return rows
+    .map((row) => row.document)
+    .filter((document): document is { name: string; fields?: Record<string, any> } => Boolean(document?.name))
+    .map((document) => ({
+      id: String(document.name.split('/').pop() || ''),
+      data: restFieldsToData(document.fields || {}),
+    }));
+};
+
 const createVisiblePolling = (load: () => Promise<void>, intervalMs = FIREBASE_POLL_MS) =>
   window.setInterval(() => {
     if (document.visibilityState === 'visible') void load();
@@ -1066,13 +1153,34 @@ export const subscribeNotificationActivity = (
   onNext: (activity: NotificationActivity) => void,
   onError: (error: Error) => void,
 ) => {
-  const ownPublicMemoriesQuery = query(collection(db, MEMORIES_COLLECTION), where('uid', '==', profile.uid), limit(80));
-  const ownPrivateMemoriesQuery = query(collection(db, PRIVATE_MEMORIES_COLLECTION), where('uid', '==', profile.uid), limit(80));
-  const recentCommentsQuery = query(collection(db, MEMORY_COMMENTS_COLLECTION), orderBy('createdAt', 'desc'), limit(160));
-  const ownCommentsQuery = query(collection(db, MEMORY_COMMENTS_COLLECTION), where('uid', '==', profile.uid), limit(120));
-  const receivedNotesQuery = query(collection(db, REMEMBER_NOTES_COLLECTION), where('toNameKey', '==', profile.nameKey), limit(80));
-  const sentNotesQuery = query(collection(db, REMEMBER_NOTES_COLLECTION), where('fromUid', '==', profile.uid), limit(80));
-  const voteCategoriesQuery = query(collection(db, VOTE_CATEGORIES_COLLECTION), where('hidden', '==', false), limit(40));
+  const ownPublicMemoriesQuery = restCollectionQuery(MEMORIES_COLLECTION, {
+    where: fieldEquals('uid', restString(profile.uid)),
+    limit: 80,
+  });
+  const ownPrivateMemoriesQuery = restCollectionQuery(PRIVATE_MEMORIES_COLLECTION, {
+    where: fieldEquals('uid', restString(profile.uid)),
+    limit: 80,
+  });
+  const recentCommentsQuery = restCollectionQuery(MEMORY_COMMENTS_COLLECTION, {
+    orderBy: [{ field: { fieldPath: 'createdAt' }, direction: 'DESCENDING' }],
+    limit: 160,
+  });
+  const ownCommentsQuery = restCollectionQuery(MEMORY_COMMENTS_COLLECTION, {
+    where: fieldEquals('uid', restString(profile.uid)),
+    limit: 120,
+  });
+  const receivedNotesQuery = restCollectionQuery(REMEMBER_NOTES_COLLECTION, {
+    where: fieldEquals('toNameKey', restString(profile.nameKey)),
+    limit: 80,
+  });
+  const sentNotesQuery = restCollectionQuery(REMEMBER_NOTES_COLLECTION, {
+    where: fieldEquals('fromUid', restString(profile.uid)),
+    limit: 80,
+  });
+  const voteCategoriesQuery = restCollectionQuery(VOTE_CATEGORIES_COLLECTION, {
+    where: fieldEquals('hidden', restBool(false)),
+    limit: 40,
+  });
 
   const sortNewestFirst = <T extends { createdAt: string }>(items: T[]) =>
     items.sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
@@ -1080,31 +1188,31 @@ export const subscribeNotificationActivity = (
   const load = async () => {
     try {
       const [
-        ownPublicSnapshot,
-        ownPrivateSnapshot,
-        commentsSnapshot,
-        ownCommentsSnapshot,
-        receivedNotesSnapshot,
-        sentNotesSnapshot,
-        voteCategoriesSnapshot,
+        ownPublicDocs,
+        ownPrivateDocs,
+        commentDocs,
+        ownCommentDocs,
+        receivedNoteDocs,
+        sentNoteDocs,
+        voteCategoryDocs,
       ] = await Promise.all([
-        withFirebaseRetry(() => getDocs(ownPublicMemoriesQuery)),
-        withFirebaseRetry(() => getDocs(ownPrivateMemoriesQuery)),
-        withFirebaseRetry(() => getDocs(recentCommentsQuery)),
-        withFirebaseRetry(() => getDocs(ownCommentsQuery)),
-        withFirebaseRetry(() => getDocs(receivedNotesQuery)),
-        withFirebaseRetry(() => getDocs(sentNotesQuery)),
-        withFirebaseRetry(() => getDocs(voteCategoriesQuery)),
+        runFirestoreRestQuery(profile, ownPublicMemoriesQuery),
+        runFirestoreRestQuery(profile, ownPrivateMemoriesQuery),
+        runFirestoreRestQuery(profile, recentCommentsQuery),
+        runFirestoreRestQuery(profile, ownCommentsQuery),
+        runFirestoreRestQuery(profile, receivedNotesQuery),
+        runFirestoreRestQuery(profile, sentNotesQuery),
+        runFirestoreRestQuery(profile, voteCategoriesQuery),
       ]);
 
       const ownMemories = sortNewestFirst([
-        ...ownPublicSnapshot.docs.map((item) => memoryFromDoc(item.id, item.data(), MEMORIES_COLLECTION)),
-        ...ownPrivateSnapshot.docs.map((item) => memoryFromDoc(item.id, item.data(), PRIVATE_MEMORIES_COLLECTION)),
+        ...ownPublicDocs.map((item) => memoryFromDoc(item.id, item.data, MEMORIES_COLLECTION)),
+        ...ownPrivateDocs.map((item) => memoryFromDoc(item.id, item.data, PRIVATE_MEMORIES_COLLECTION)),
       ]).filter((item) => item.imageUrl);
       const ownMemoryIds = new Set(ownMemories.map((item) => item.id));
       const commentsById = new Map<string, MemoryComment>();
-      [...commentsSnapshot.docs, ...ownCommentsSnapshot.docs].forEach((item) => {
-        commentsById.set(item.id, memoryCommentFromDoc(item.id, item.data()));
+      [...commentDocs, ...ownCommentDocs].forEach((item) => {
+        commentsById.set(item.id, memoryCommentFromDoc(item.id, item.data));
       });
 
       onNext({
@@ -1116,11 +1224,11 @@ export const subscribeNotificationActivity = (
                 comment.uid === profile.uid || comment.memoryUid === profile.uid || ownMemoryIds.has(comment.memoryId),
             ),
         ),
-        receivedNotes: sortNewestFirst(receivedNotesSnapshot.docs.map((item) => rememberNoteFromDoc(item.id, item.data()))),
-        sentNotes: sortNewestFirst(sentNotesSnapshot.docs.map((item) => rememberNoteFromDoc(item.id, item.data()))),
+        receivedNotes: sortNewestFirst(receivedNoteDocs.map((item) => rememberNoteFromDoc(item.id, item.data))),
+        sentNotes: sortNewestFirst(sentNoteDocs.map((item) => rememberNoteFromDoc(item.id, item.data))),
         voteCategories: sortNewestFirst(
-          voteCategoriesSnapshot.docs
-            .map((item) => voteCategoryFromDoc(item.id, item.data()))
+          voteCategoryDocs
+            .map((item) => voteCategoryFromDoc(item.id, item.data))
             .filter((item) => item.title && !item.hidden),
         ),
       });
