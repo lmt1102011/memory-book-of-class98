@@ -754,6 +754,7 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
   const activeSlide = LANDING_SLIDES[active % LANDING_SLIDES.length];
   const activeSlideSrc = mobilePerformanceMode ? activeSlide.src.replace('w=1800', 'w=900') : activeSlide.src;
   const tutorialDevice: TutorialDevice = isPhoneTutorial ? 'phone' : 'desktop';
+  const phoneIntroInstallOnly = isPhoneTutorial;
   const visibleTutorialSteps = isPhoneTutorial ? phoneTutorialSteps : desktopTutorialSteps;
   const tutorialDeviceLabel = isPhoneTutorial ? 'điện thoại' : 'máy tính';
   const tutorialHeading = isPhoneTutorial ? 'Cách dùng trên điện thoại' : 'Cách dùng trên máy tính';
@@ -950,30 +951,32 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
         </div>
 
         <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-7xl flex-col px-4 pb-10 pt-5 sm:px-6 lg:px-8">
-          <header className="flex flex-wrap items-center justify-between gap-3">
-            <div className="hidden items-center gap-2 rounded-full bg-white/35 px-3 py-2 shadow-glass backdrop-blur-xl sm:inline-flex">
-              <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-[0.8rem] bg-[#fff7ec] p-1 shadow-paper ring-1 ring-coffee/15">
-                <img src={logoSrc} alt="" className="h-full w-full object-contain" loading="eager" decoding="async" />
-              </span>
-              <span className="pr-1 text-sm font-bold text-ink">Class 98</span>
-            </div>
-            <button
-              className="inline-flex items-center gap-2 rounded-full bg-white/35 px-3 py-2 text-sm font-bold text-ink shadow-glass backdrop-blur-xl transition hover:bg-white/55"
-              onClick={toggle}
-            >
-              {enabled ? <Music2 size={17} /> : <Music size={17} />}
-              {enabled ? 'Music On' : 'Music Off'}
-            </button>
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <button className="secondary-button intro-header-button bg-white/40 backdrop-blur-xl" onClick={() => setTutorialOpen(true)}>
-                <BookOpen size={17} />
-                Tutorial
+          {!phoneIntroInstallOnly && (
+            <header className="flex flex-wrap items-center justify-between gap-3">
+              <div className="hidden items-center gap-2 rounded-full bg-white/35 px-3 py-2 shadow-glass backdrop-blur-xl sm:inline-flex">
+                <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-[0.8rem] bg-[#fff7ec] p-1 shadow-paper ring-1 ring-coffee/15">
+                  <img src={logoSrc} alt="" className="h-full w-full object-contain" loading="eager" decoding="async" />
+                </span>
+                <span className="pr-1 text-sm font-bold text-ink">Class 98</span>
+              </div>
+              <button
+                className="inline-flex items-center gap-2 rounded-full bg-white/35 px-3 py-2 text-sm font-bold text-ink shadow-glass backdrop-blur-xl transition hover:bg-white/55"
+                onClick={toggle}
+              >
+                {enabled ? <Music2 size={17} /> : <Music size={17} />}
+                {enabled ? 'Music On' : 'Music Off'}
               </button>
-              <button className="secondary-button intro-header-button hidden bg-white/40 backdrop-blur-xl sm:inline-flex" onClick={onExplore}>
-                Explore Memories
-              </button>
-            </div>
-          </header>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <button className="secondary-button intro-header-button bg-white/40 backdrop-blur-xl" onClick={() => setTutorialOpen(true)}>
+                  <BookOpen size={17} />
+                  Tutorial
+                </button>
+                <button className="secondary-button intro-header-button hidden bg-white/40 backdrop-blur-xl sm:inline-flex" onClick={onExplore}>
+                  Explore Memories
+                </button>
+              </div>
+            </header>
+          )}
 
           <div className="flex flex-1 items-center">
             <div className="max-w-4xl py-16 text-paper drop-shadow-[0_18px_38px_rgba(53,41,31,.32)]">
@@ -1007,24 +1010,28 @@ export default function LandingPage({ onJoin, onExplore }: LandingPageProps) {
               </m.p>
 
               <m.div
-                className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap"
+                className={`mt-8 flex flex-col gap-3 ${phoneIntroInstallOnly ? 'max-w-sm' : 'sm:flex-row sm:flex-wrap'}`}
                 initial={reduceHeavyMotion ? false : { opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: reduceHeavyMotion ? 0 : 0.5, delay: reduceHeavyMotion ? 0 : 0.16 }}
               >
-                <button className="primary-button min-h-14 px-7 text-base" onClick={onJoin}>
-                  <Camera size={19} />
-                  Join Memory Book
-                </button>
-                <button className="secondary-button min-h-14 px-7 text-base" onClick={onExplore}>
-                  Explore Memories
-                </button>
-                <button className="secondary-button min-h-14 px-7 text-base" onClick={() => setTutorialOpen(true)}>
-                  <BookOpen size={19} />
-                  Tutorial
-                </button>
+                {!phoneIntroInstallOnly && (
+                  <>
+                    <button className="primary-button min-h-14 px-7 text-base" onClick={onJoin}>
+                      <Camera size={19} />
+                      Join Memory Book
+                    </button>
+                    <button className="secondary-button min-h-14 px-7 text-base" onClick={onExplore}>
+                      Explore Memories
+                    </button>
+                    <button className="secondary-button min-h-14 px-7 text-base" onClick={() => setTutorialOpen(true)}>
+                      <BookOpen size={19} />
+                      Tutorial
+                    </button>
+                  </>
+                )}
                 <button
-                  className="secondary-button min-h-14 px-7 text-base disabled:cursor-wait disabled:opacity-75"
+                  className={`${phoneIntroInstallOnly ? 'primary-button justify-center shadow-[0_18px_45px_rgba(120,72,52,0.28)]' : 'secondary-button'} min-h-14 px-7 text-base disabled:cursor-wait disabled:opacity-75`}
                   onClick={handleInstallClick}
                   disabled={isInstalling}
                   aria-busy={isInstalling}
