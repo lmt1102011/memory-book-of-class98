@@ -1,8 +1,11 @@
 import {
   createUserWithEmailAndPassword,
+  EmailAuthProvider,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   signInWithEmailAndPassword,
   signOut,
+  updatePassword,
   updateProfile,
   type User,
 } from 'firebase/auth';
@@ -1854,6 +1857,37 @@ export const updateStudentYouthProfile = async (profile: UserProfile, draft: You
       });
     }),
   );
+};
+
+export const updateStudentPassword = async (
+  profile: UserProfile,
+  currentPassword: string,
+  nextPassword: string,
+) => {
+  const user = currentUserForProfile(profile);
+  if (!user?.email) throw new Error('Bạn cần đăng nhập lại trước khi đổi mật khẩu.');
+  if (currentPassword.length < 6) throw new Error('Hãy nhập mật khẩu hiện tại.');
+  if (nextPassword.length < 6) throw new Error('Mật khẩu mới cần ít nhất 6 ký tự.');
+  if (currentPassword === nextPassword) throw new Error('Mật khẩu mới phải khác mật khẩu hiện tại.');
+
+  try {
+    const credential = EmailAuthProvider.credential(user.email, currentPassword);
+    await withTimeout(reauthenticateWithCredential(user, credential), 'Auth reauthenticate');
+    await withTimeout(updatePassword(user, nextPassword), 'Auth password update');
+  } catch (error) {
+    const maybeError = error as { code?: string; message?: string };
+    const text = `${maybeError.code || ''} ${maybeError.message || ''}`.toLowerCase();
+    if (text.includes('wrong-password') || text.includes('invalid-credential') || text.includes('invalid-login-credentials')) {
+      throw new Error('Mật khẩu hiện tại chưa đúng.');
+    }
+    if (text.includes('weak-password')) {
+      throw new Error('Mật khẩu mới quá yếu. Hãy dùng ít nhất 6 ký tự.');
+    }
+    if (text.includes('requires-recent-login')) {
+      throw new Error('Phiên đăng nhập đã cũ. Hãy đăng xuất rồi đăng nhập lại trước khi đổi mật khẩu.');
+    }
+    throw friendlyFirebaseError(error);
+  }
 };
 
 export const subscribeVoteBoard = (

@@ -1629,6 +1629,19 @@ export default function App() {
     [navigate, profile],
   );
 
+  const handleStudentPasswordUpdate = useCallback(
+    async (currentPassword: string, nextPassword: string) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+
+      const service = await import('./services/firebaseMemoryBook');
+      await service.updateStudentPassword(profile, currentPassword, nextPassword);
+    },
+    [navigate, profile],
+  );
+
   const handleVoteCategoryAdd = useCallback(
     async (draft: VoteCategoryDraft) => {
       if (!profile) {
@@ -2385,6 +2398,7 @@ export default function App() {
             onJoin={() => navigate('join')}
             onPhotobook={() => navigate('photobook')}
             onUpdateProfile={handleYouthProfileUpdate}
+            onUpdatePassword={handleStudentPasswordUpdate}
             onDeleteMemory={handleMemoryDelete}
             onDownloadMemory={handleMemoryDownload}
             onClearFocusedProfile={() => setFocusedPersonKey('')}

@@ -1,4 +1,4 @@
-import { BadgeCheck, Camera, Download, Heart, Images, MessageCircle, Search, Send, Trash2, Upload, UserRound, Video } from 'lucide-react';
+import { BadgeCheck, Camera, Download, Heart, Images, Lock, MessageCircle, Search, Send, Trash2, Upload, UserRound, Video } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import ActionModal from '../components/ActionModal';
 import FirebaseNotice from '../components/FirebaseNotice';
@@ -21,6 +21,7 @@ interface PeoplePageProps {
   onJoin: () => void;
   onPhotobook: () => void;
   onUpdateProfile: (draft: YouthProfileDraft) => void | Promise<void>;
+  onUpdatePassword: (currentPassword: string, nextPassword: string) => void | Promise<void>;
   onDeleteMemory: (memory: MemoryItem) => void | Promise<void>;
   onDownloadMemory: (memory: MemoryItem) => void | Promise<void>;
   onClearFocusedProfile: () => void;
@@ -452,6 +453,7 @@ export default function PeoplePage({
   onJoin,
   onPhotobook,
   onUpdateProfile,
+  onUpdatePassword,
   onDeleteMemory,
   onDownloadMemory,
   onClearFocusedProfile,
@@ -466,11 +468,15 @@ export default function PeoplePage({
   const [classMessage, setClassMessage] = useState('');
   const [tagText, setTagText] = useState(defaultTags.join(', '));
   const [isSaving, setIsSaving] = useState(false);
+  const [isPasswordSaving, setIsPasswordSaving] = useState(false);
   const [isAvatarProcessing, setIsAvatarProcessing] = useState(false);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isProfileDraftDirty, setIsProfileDraftDirty] = useState(false);
   const [localError, setLocalError] = useState('');
   const [localSuccess, setLocalSuccess] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [nextPassword, setNextPassword] = useState('');
+  const [confirmNextPassword, setConfirmNextPassword] = useState('');
 
   const sortedClassmates = useMemo(
     () => [...classmates].sort((left, right) => left.name.localeCompare(right.name, 'vi')),
@@ -518,6 +524,9 @@ export default function PeoplePage({
     onClearFocusedProfile();
     hydrateProfileDraft(selfProfile);
     setIsProfileDraftDirty(false);
+    setCurrentPassword('');
+    setNextPassword('');
+    setConfirmNextPassword('');
     setLocalError('');
     setLocalSuccess('');
     setIsEditorOpen(true);
@@ -685,6 +694,44 @@ export default function PeoplePage({
     }
   };
 
+  const handlePasswordUpdate = async () => {
+    setLocalError('');
+    setLocalSuccess('');
+
+    if (!profile) {
+      onJoin();
+      return;
+    }
+
+    if (!currentPassword || !nextPassword || !confirmNextPassword) {
+      setLocalError('Hãy nhập đủ mật khẩu hiện tại, mật khẩu mới và xác nhận mật khẩu mới.');
+      return;
+    }
+
+    if (nextPassword.length < 6) {
+      setLocalError('Mật khẩu mới cần ít nhất 6 ký tự.');
+      return;
+    }
+
+    if (nextPassword !== confirmNextPassword) {
+      setLocalError('Mật khẩu xác nhận chưa khớp.');
+      return;
+    }
+
+    try {
+      setIsPasswordSaving(true);
+      await onUpdatePassword(currentPassword, nextPassword);
+      setCurrentPassword('');
+      setNextPassword('');
+      setConfirmNextPassword('');
+      setLocalSuccess('Đã đổi mật khẩu. Lần sau hãy đăng nhập bằng mật khẩu mới.');
+    } catch (caught) {
+      setLocalError(caught instanceof Error ? caught.message : 'Không thể đổi mật khẩu lúc này.');
+    } finally {
+      setIsPasswordSaving(false);
+    }
+  };
+
   return (
     <div className="relative">
       <section className="mx-auto max-w-7xl px-4 pb-7 pt-9 sm:px-6 lg:px-8">
@@ -761,6 +808,9 @@ export default function PeoplePage({
                     onClick={() => {
                       hydrateProfileDraft(selfProfile);
                       setIsProfileDraftDirty(false);
+                      setCurrentPassword('');
+                      setNextPassword('');
+                      setConfirmNextPassword('');
                       setLocalError('');
                       setLocalSuccess('');
                       setIsEditorOpen(true);
@@ -890,6 +940,9 @@ export default function PeoplePage({
         onClose={() => {
           setIsEditorOpen(false);
           setIsProfileDraftDirty(false);
+          setCurrentPassword('');
+          setNextPassword('');
+          setConfirmNextPassword('');
           setLocalError('');
           setLocalSuccess('');
         }}
@@ -1001,6 +1054,63 @@ export default function PeoplePage({
                   }}
                 />
               </label>
+            </ProfileFormSection>
+
+            <ProfileFormSection
+              title="5. Đặt lại mật khẩu"
+              description="Đổi mật khẩu đăng nhập của tài khoản này. Web không lưu mật khẩu trong database."
+              icon={<Lock size={16} />}
+            >
+              <div
+                className="grid gap-3"
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter') return;
+                  event.preventDefault();
+                  void handlePasswordUpdate();
+                }}
+              >
+                <label className="block">
+                  <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Mật khẩu hiện tại</span>
+                  <input
+                    className="input-field"
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(event) => setCurrentPassword(event.target.value)}
+                  />
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Mật khẩu mới</span>
+                    <input
+                      className="input-field"
+                      type="password"
+                      autoComplete="new-password"
+                      value={nextPassword}
+                      onChange={(event) => setNextPassword(event.target.value)}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-bold uppercase text-coffee/70">Nhập lại mật khẩu mới</span>
+                    <input
+                      className="input-field"
+                      type="password"
+                      autoComplete="new-password"
+                      value={confirmNextPassword}
+                      onChange={(event) => setConfirmNextPassword(event.target.value)}
+                    />
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  className="secondary-button w-full justify-center"
+                  disabled={isPasswordSaving || isSaving || isAvatarProcessing}
+                  onClick={handlePasswordUpdate}
+                >
+                  <Lock size={16} />
+                  {isPasswordSaving ? 'Đang đổi mật khẩu...' : 'Đổi mật khẩu'}
+                </button>
+              </div>
             </ProfileFormSection>
 
             {localError && <p className="mt-3 text-sm font-bold text-[#9d3b4b]">{localError}</p>}
