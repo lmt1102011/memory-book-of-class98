@@ -450,7 +450,7 @@ service cloud.firestore {
     }
 
     match /memories98/{memoryId} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow create: if validMemoryBaseCreate()
         && (
           !request.resource.data.keys().hasAny(['visibility'])
@@ -515,7 +515,7 @@ service cloud.firestore {
     }
 
     match /memoryComments98/{commentId} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow create: if request.auth != null
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.className == '9/8'
