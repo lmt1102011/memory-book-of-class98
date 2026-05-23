@@ -7,7 +7,6 @@ import {
   Filter,
   Heart,
   Lock,
-  MessageCircle,
   RotateCcw,
   Search,
   Sparkles,
@@ -16,14 +15,12 @@ import {
   Video,
   X,
 } from 'lucide-react';
-import ClassMessageBoard from '../components/ClassMessageBoard';
 import FirebaseNotice from '../components/FirebaseNotice';
 import MemoryCard from '../components/MemoryCard';
 import { useDebounce } from '../hooks/useDebounce';
 import type {
   CinematicSlideshowSettings,
   CommentReactionId,
-  GuestbookEntry,
   MemoryComment,
   MemoryItem,
   UserProfile,
@@ -121,11 +118,10 @@ const slideshowMoodConfig: Record<
 interface HomePageProps {
   memories: MemoryItem[];
   commentsByMemory: Record<string, MemoryComment[]>;
-  guestbook: GuestbookEntry[];
   firebaseNotice: string;
   isLoadingMemories: boolean;
   memoryRecapEnabled: boolean;
-  classLettersEnabled: boolean;
+  futureMessagesEnabled: boolean;
   writingPromptsEnabled: boolean;
   cinematicSlideshowSettings: CinematicSlideshowSettings;
   profile: UserProfile | null;
@@ -143,19 +139,15 @@ interface HomePageProps {
   onDeleteComment: (comment: MemoryComment) => void | Promise<void>;
   onDeleteMemory: (memory: MemoryItem) => void | Promise<void>;
   onDownloadMemory: (memory: MemoryItem) => void | Promise<void>;
-  onAddGuestbook: (message: string) => void | Promise<void>;
-  onDeleteGuestbook: (entry: GuestbookEntry) => void | Promise<void>;
-  onAddAnonymousMessage: (message: string) => void | Promise<void>;
 }
 
 export default function HomePage({
   memories,
   commentsByMemory,
-  guestbook,
   firebaseNotice,
   isLoadingMemories,
   memoryRecapEnabled,
-  classLettersEnabled,
+  futureMessagesEnabled,
   writingPromptsEnabled,
   cinematicSlideshowSettings,
   profile,
@@ -173,9 +165,6 @@ export default function HomePage({
   onDeleteComment,
   onDeleteMemory,
   onDownloadMemory,
-  onAddGuestbook,
-  onDeleteGuestbook,
-  onAddAnonymousMessage,
 }: HomePageProps) {
   const mediaStageRef = useRef<HTMLDivElement | null>(null);
   const zoomImageRef = useRef<HTMLImageElement | null>(null);
@@ -654,10 +643,6 @@ export default function HomePage({
     }
   }, [onJoin, profile]);
 
-  const scrollToClassMessages = useCallback(() => {
-    document.getElementById('class-message-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, []);
-
   const filteredMemories = useMemo(() => {
     const name = debouncedName.trim().toLowerCase();
     const keyword = debouncedKeyword.trim().toLowerCase();
@@ -831,32 +816,18 @@ export default function HomePage({
                   </span>
                 </button>
 
-                <button
-                  type="button"
-                  className="group flex min-h-[5.4rem] items-start gap-3 rounded-[1.05rem] bg-paper/80 p-3 text-left shadow-sm ring-1 ring-coffee/8 transition hover:-translate-y-0.5 hover:bg-white"
-                  onClick={onOpenFuture}
-                >
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-skySoft/45 text-chalk">
-                    <Sparkles size={17} />
-                  </span>
-                  <span className="min-w-0">
-                    <strong className="block text-sm font-black leading-5">Gửi cho tương lai</strong>
-                    <span className="mt-1 block text-xs font-semibold leading-5 text-ink/58">Gửi một lời cho lớp 9/8 sau này.</span>
-                  </span>
-                </button>
-
-                {classLettersEnabled && (
+                {futureMessagesEnabled && (
                   <button
                     type="button"
                     className="group flex min-h-[5.4rem] items-start gap-3 rounded-[1.05rem] bg-paper/80 p-3 text-left shadow-sm ring-1 ring-coffee/8 transition hover:-translate-y-0.5 hover:bg-white"
-                    onClick={scrollToClassMessages}
+                    onClick={onOpenFuture}
                   >
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f4dfbf] text-coffee">
-                      <MessageCircle size={17} />
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-skySoft/45 text-chalk">
+                      <Sparkles size={17} />
                     </span>
                     <span className="min-w-0">
-                      <strong className="block text-sm font-black leading-5">Thư lớp</strong>
-                      <span className="mt-1 block text-xs font-semibold leading-5 text-ink/58">Viết một lời chúc chung cho cả lớp.</span>
+                      <strong className="block text-sm font-black leading-5">Gửi cho tương lai</strong>
+                      <span className="mt-1 block text-xs font-semibold leading-5 text-ink/58">Gửi một lời cho lớp 9/8 sau này.</span>
                     </span>
                   </button>
                 )}
@@ -864,19 +835,6 @@ export default function HomePage({
             </div>
           </div>
         </section>
-      )}
-
-      {classLettersEnabled && (
-        <div id="class-message-board">
-          <ClassMessageBoard
-            guestbook={guestbook}
-            profile={profile}
-            onJoin={onJoin}
-            onAddGuestbook={onAddGuestbook}
-            onDeleteGuestbook={onDeleteGuestbook}
-            onAddAnonymousMessage={onAddAnonymousMessage}
-          />
-        </div>
       )}
 
       {memoryRecapEnabled && (

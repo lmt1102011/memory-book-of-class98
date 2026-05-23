@@ -769,9 +769,9 @@
 
         <section class="card setting-card">
           <div>
-            <strong>Thư lớp trong Ký ức</strong>
+            <strong>Gửi cho lớp trong tương lai</strong>
             <p class="muted">
-              Khi bật, bảng thư lớp và nút viết thư sẽ hiện ngay trong trang Ký ức. Khi tắt, học sinh sẽ không thấy mục gửi thư cho lớp.
+              Khi bật, mục Gửi cho lớp trong tương lai sẽ hiện trong nhóm Lời nhắn. Khi tắt, học sinh sẽ không thấy lối vào mục này.
             </p>
             <p id="classLettersStatus" class="status"></p>
           </div>
@@ -782,7 +782,7 @@
           <div>
             <strong>Gợi nhắc cuối năm</strong>
             <p class="muted">
-              Khi bật, học sinh sẽ thấy một khung gợi nhắc gọn để viết Secret Message, nhật ký riêng, lời nhắn tương lai và thư lớp nếu mục thư lớp đang mở.
+              Khi bật, học sinh sẽ thấy một khung gợi nhắc gọn để viết Secret Message, nhật ký riêng, thư lớp và lời nhắn tương lai nếu mục tương lai đang mở.
             </p>
             <p id="writingPromptsStatus" class="status"></p>
           </div>
@@ -1522,11 +1522,11 @@
           ? 'Đang bật: học sinh sẽ thấy recap nổi bật trên trang Ký ức.'
           : 'Đang tắt: recap sẽ được ẩn khỏi trang học sinh.';
 
-        $('toggleClassLettersButton').textContent = classLettersSetting.enabled ? 'Tắt Thư lớp' : 'Bật Thư lớp';
+        $('toggleClassLettersButton').textContent = classLettersSetting.enabled ? 'Tắt lời nhắn tương lai' : 'Bật lời nhắn tương lai';
         $('toggleClassLettersButton').classList.toggle('danger', classLettersSetting.enabled);
         classLettersStatus.textContent = classLettersSetting.enabled
-          ? 'Đang bật: bảng thư lớp sẽ hiện ngay trong trang Ký ức.'
-          : 'Đang tắt: học sinh sẽ không thấy mục gửi thư cho lớp.';
+          ? 'Đang bật: mục Gửi cho lớp trong tương lai sẽ hiện trong nhóm Lời nhắn.'
+          : 'Đang tắt: mục Gửi cho lớp trong tương lai sẽ được ẩn khỏi nhóm Lời nhắn.';
 
         $('toggleWritingPromptsButton').textContent = writingPromptsSetting.enabled ? 'Tắt gợi nhắc' : 'Bật gợi nhắc';
         $('toggleWritingPromptsButton').classList.toggle('danger', writingPromptsSetting.enabled);
@@ -2601,7 +2601,7 @@
       $('toggleClassLettersButton').addEventListener('click', async () => {
         const nextEnabled = !classLettersSetting.enabled;
         $('toggleClassLettersButton').disabled = true;
-        classLettersStatus.textContent = nextEnabled ? 'Đang bật Thư lớp trong Ký ức...' : 'Đang tắt Thư lớp trong Ký ức...';
+        classLettersStatus.textContent = nextEnabled ? 'Đang bật lời nhắn tương lai...' : 'Đang tắt lời nhắn tương lai...';
         try {
           await setDoc(
             doc(db, SITE_SETTINGS_COLLECTION, CLASS_LETTERS_SETTING_ID),
@@ -2616,7 +2616,7 @@
           classLettersSetting = { enabled: nextEnabled };
           renderSettings();
         } catch (error) {
-          classLettersStatus.textContent = error.message || 'Không thể cập nhật Thư lớp trong Ký ức.';
+          classLettersStatus.textContent = error.message || 'Không thể cập nhật mục Gửi cho lớp trong tương lai.';
         } finally {
           $('toggleClassLettersButton').disabled = false;
         }

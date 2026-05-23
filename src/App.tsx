@@ -52,6 +52,7 @@ import type {
 
 const JoinPage = lazy(() => import('./pages/JoinPage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
+const ClassMessageBoard = lazy(() => import('./components/ClassMessageBoard'));
 const FutureMessagesPage = lazy(() => import('./pages/FutureMessagesPage'));
 const RememberPage = lazy(() => import('./pages/RememberPage'));
 const DiaryPage = lazy(() => import('./pages/DiaryPage'));
@@ -646,7 +647,7 @@ export default function App() {
   }, [bootSplashDone, profile]);
 
   useEffect(() => {
-    if (!bootSplashDone || !profile || !futureMessagesUnlocked || !timeCapsules.length || !futurePopupStorageKey) {
+    if (!bootSplashDone || !profile || !classLettersEnabled || !futureMessagesUnlocked || !timeCapsules.length || !futurePopupStorageKey) {
       return undefined;
     }
     if (window.sessionStorage.getItem(futurePopupStorageKey)) return undefined;
@@ -654,7 +655,7 @@ export default function App() {
     window.sessionStorage.setItem(futurePopupStorageKey, '1');
     const timer = window.setTimeout(() => setFutureMessagePopupOpen(true), mobilePerformanceMode ? 250 : 650);
     return () => window.clearTimeout(timer);
-  }, [bootSplashDone, futureMessagesUnlocked, futurePopupStorageKey, mobilePerformanceMode, profile?.uid, timeCapsules.length]);
+  }, [bootSplashDone, classLettersEnabled, futureMessagesUnlocked, futurePopupStorageKey, mobilePerformanceMode, profile?.uid, timeCapsules.length]);
 
   useEffect(() => {
     if (route === 'landing' || route === 'join') return undefined;
@@ -811,7 +812,7 @@ export default function App() {
         });
     }
 
-    const shouldLoadGuestbook = Boolean(profile) && (route === 'letters' || (route === 'home' && classLettersEnabled));
+    const shouldLoadGuestbook = Boolean(profile) && route === 'letters';
     if (!shouldLoadGuestbook) {
       setRemoteGuestbook([]);
     }
@@ -915,10 +916,6 @@ export default function App() {
     },
     [reduceHeavyMotion, route],
   );
-
-  useEffect(() => {
-    if (route === 'letters') navigate('home');
-  }, [navigate, route]);
 
   const resetAuthenticatedState = useCallback(() => {
     memoriesLoadedOnceRef.current = false;
@@ -1520,17 +1517,29 @@ export default function App() {
         label: 'Lời nhắn',
         description: 'Secret Message, nhật ký và lời nhắn tương lai',
         icon: MessageCircle,
-        isActive: route === 'future' || route === 'remember' || route === 'diary',
+        isActive: route === 'letters' || route === 'future' || route === 'remember' || route === 'diary',
         badgeCount: messageCount,
         items: [
           {
-            id: 'future',
-            label: 'Gửi cho lớp trong tương lai',
-            description: 'Viết lời nhắn để cả lớp mở lại sau này.',
-            icon: Sparkles,
-            isActive: route === 'future',
-            onSelect: () => navigate('future'),
+            id: 'letters',
+            label: 'Thư lớp',
+            description: 'Viết lời nhắn chung cho cả lớp 9/8.',
+            icon: MessageCircle,
+            isActive: route === 'letters',
+            onSelect: () => navigate('letters'),
           },
+          ...(classLettersEnabled
+            ? [
+                {
+                  id: 'future',
+                  label: 'Gửi cho lớp trong tương lai',
+                  description: 'Viết lời nhắn để cả lớp mở lại sau này.',
+                  icon: Sparkles,
+                  isActive: route === 'future',
+                  onSelect: () => navigate('future'),
+                },
+              ]
+            : []),
           {
             id: 'remember',
             label: 'Secret Message',
@@ -1569,6 +1578,7 @@ export default function App() {
       },
     ];
   }, [
+    classLettersEnabled,
     focusedPersonKey,
     navBadgeCount,
     navigate,
@@ -2302,6 +2312,23 @@ export default function App() {
       );
     }
 
+    if (route === 'letters') {
+      return (
+        <section className="mx-auto max-w-7xl px-4 pb-10 pt-8 sm:px-6 lg:px-8">
+          <Suspense fallback={<LoadingScreen label="Đang mở Thư lớp" />}>
+            <ClassMessageBoard
+              guestbook={allGuestbook}
+              profile={profile}
+              onJoin={() => navigate('join')}
+              onAddGuestbook={handleGuestbookAdd}
+              onDeleteGuestbook={handleGuestbookDelete}
+              onAddAnonymousMessage={handleAnonymousMessageAdd}
+            />
+          </Suspense>
+        </section>
+      );
+    }
+
     if (route === 'future') {
       return (
         <Suspense fallback={<LoadingScreen label="Đang mở Gửi cho lớp trong tương lai" />}>
@@ -2431,11 +2458,10 @@ export default function App() {
         <HomePage
           memories={allMemories}
           commentsByMemory={commentsByMemory}
-          guestbook={allGuestbook}
           firebaseNotice={firebaseNotice}
           isLoadingMemories={memoriesLoading}
           memoryRecapEnabled={memoryRecapEnabled}
-          classLettersEnabled={classLettersEnabled}
+          futureMessagesEnabled={classLettersEnabled}
           writingPromptsEnabled={writingPromptsEnabled}
           cinematicSlideshowSettings={cinematicSlideshowSettings}
           profile={profile}
@@ -2453,9 +2479,6 @@ export default function App() {
           onDeleteComment={handleMemoryCommentDelete}
           onDeleteMemory={handleMemoryDelete}
           onDownloadMemory={handleMemoryDownload}
-          onAddGuestbook={handleGuestbookAdd}
-          onDeleteGuestbook={handleGuestbookDelete}
-          onAddAnonymousMessage={handleAnonymousMessageAdd}
         />
       </Suspense>
     );
