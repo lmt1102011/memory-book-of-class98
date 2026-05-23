@@ -2,7 +2,9 @@ import { m } from 'framer-motion';
 import { MessageCircle, Send, Trash2, X } from 'lucide-react';
 import { FormEvent, memo, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import ActionModal from './ActionModal';
+import DraftStatus from './DraftStatus';
 import { useMobilePerformanceMode } from '../hooks/useMobilePerformanceMode';
+import { useLocalDraft } from '../hooks/useLocalDraft';
 import type { GuestbookEntry, UserProfile } from '../types';
 import { formatMemoryDate } from '../utils/date';
 
@@ -61,14 +63,26 @@ function ClassMessageBoard({
   onDeleteGuestbook,
   onAddAnonymousMessage,
 }: ClassMessageBoardProps) {
-  const [classMessage, setClassMessage] = useState('');
-  const [anonymousMessage, setAnonymousMessage] = useState('');
   const [isSendingClass, setIsSendingClass] = useState(false);
   const [isSendingAnonymous, setIsSendingAnonymous] = useState(false);
   const [selectedNote, setSelectedNote] = useState<BoardNote | null>(null);
   const [error, setError] = useState('');
   const [isWriterOpen, setIsWriterOpen] = useState(false);
   const mobilePerformanceMode = useMobilePerformanceMode();
+  const {
+    value: classMessage,
+    setValue: setClassMessage,
+    clearDraft: clearClassMessageDraft,
+    hasDraft: hasClassMessageDraft,
+    restored: restoredClassMessageDraft,
+  } = useLocalDraft(profile ? `memory98-draft:class-message:${profile.uid}` : '');
+  const {
+    value: anonymousMessage,
+    setValue: setAnonymousMessage,
+    clearDraft: clearAnonymousMessageDraft,
+    hasDraft: hasAnonymousMessageDraft,
+    restored: restoredAnonymousMessageDraft,
+  } = useLocalDraft(profile ? `memory98-draft:anonymous-class-message:${profile.uid}` : '');
 
   const notes = useMemo<BoardNote[]>(() => {
     return guestbook
@@ -116,7 +130,7 @@ function ClassMessageBoard({
       setIsSendingClass(true);
       setError('');
       await onAddGuestbook(trimmed);
-      setClassMessage('');
+      clearClassMessageDraft();
       setIsWriterOpen(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Không thể gửi tin nhắn cho lớp lúc này.');
@@ -138,7 +152,7 @@ function ClassMessageBoard({
       setIsSendingAnonymous(true);
       setError('');
       await onAddAnonymousMessage(trimmed);
-      setAnonymousMessage('');
+      clearAnonymousMessageDraft();
       setIsWriterOpen(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Không thể gửi tin nhắn ẩn danh lúc này.');
@@ -275,6 +289,7 @@ function ClassMessageBoard({
                 maxLength={160}
               />
             </label>
+            <DraftStatus hasDraft={hasClassMessageDraft} restored={restoredClassMessageDraft} />
             <button className="primary-button justify-center" disabled={isSendingClass || !classMessage.trim()}>
               <Send size={17} />
               {isSendingClass ? 'Đang gửi...' : 'Gửi có tên'}
@@ -292,6 +307,7 @@ function ClassMessageBoard({
                 maxLength={160}
               />
             </label>
+            <DraftStatus hasDraft={hasAnonymousMessageDraft} restored={restoredAnonymousMessageDraft} />
             <button className="secondary-button justify-center" disabled={isSendingAnonymous || !anonymousMessage.trim()}>
               <MessageCircle size={17} />
               {isSendingAnonymous ? 'Đang gửi...' : 'Gửi ẩn danh'}

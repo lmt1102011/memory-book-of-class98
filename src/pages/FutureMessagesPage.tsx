@@ -1,7 +1,9 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { Lock, Send, Sparkles } from 'lucide-react';
 import ActionModal from '../components/ActionModal';
+import DraftStatus from '../components/DraftStatus';
 import FirebaseNotice from '../components/FirebaseNotice';
+import { useLocalDraft } from '../hooks/useLocalDraft';
 import type { TimeCapsuleEntry, TimeCapsuleSettings, UserProfile } from '../types';
 
 interface FutureMessagesPageProps {
@@ -48,10 +50,16 @@ export default function FutureMessagesPage({
   onAddTimeCapsule,
   onOpenFutureMessages,
 }: FutureMessagesPageProps) {
-  const [message, setMessage] = useState('');
   const [isWriterOpen, setIsWriterOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
+  const {
+    value: message,
+    setValue: setMessage,
+    clearDraft: clearMessageDraft,
+    hasDraft: hasMessageDraft,
+    restored: restoredMessageDraft,
+  } = useLocalDraft(profile ? `memory98-draft:future-message:${profile.uid}` : '');
 
   const ownMessages = useMemo(
     () => (profile ? timeCapsules.filter((entry) => entry.uid === profile.uid) : []),
@@ -75,7 +83,7 @@ export default function FutureMessagesPage({
       setIsSending(true);
       setError('');
       await onAddTimeCapsule(trimmed);
-      setMessage('');
+      clearMessageDraft();
       setIsWriterOpen(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Không thể gửi lời nhắn cho lớp trong tương lai lúc này.');
@@ -198,6 +206,7 @@ export default function FutureMessagesPage({
               maxLength={900}
             />
           </label>
+          <DraftStatus hasDraft={hasMessageDraft} restored={restoredMessageDraft} />
           <p className="text-xs font-bold text-ink/48">{message.length}/900 ký tự</p>
           <button className="primary-button justify-center" disabled={isSending || !message.trim()}>
             <Send size={17} />

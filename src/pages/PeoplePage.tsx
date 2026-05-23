@@ -17,6 +17,7 @@ interface PeoplePageProps {
   profile: UserProfile | null;
   focusedNameKey: string;
   listResetKey: number;
+  openEditorSignal: number;
   onJoin: () => void;
   onPhotobook: () => void;
   onUpdateProfile: (draft: YouthProfileDraft) => void | Promise<void>;
@@ -431,6 +432,7 @@ export default function PeoplePage({
   profile,
   focusedNameKey,
   listResetKey,
+  openEditorSignal,
   onJoin,
   onPhotobook,
   onUpdateProfile,
@@ -439,6 +441,7 @@ export default function PeoplePage({
   onClearFocusedProfile,
 }: PeoplePageProps) {
   const uploadRef = useRef<HTMLInputElement | null>(null);
+  const lastEditorSignalRef = useRef(0);
   const [query, setQuery] = useState('');
   const [selectedNameKey, setSelectedNameKey] = useState('');
   const [avatarDataUrl, setAvatarDataUrl] = useState('');
@@ -489,6 +492,20 @@ export default function PeoplePage({
     if (isEditorOpen && isProfileDraftDirty) return;
     hydrateProfileDraft(selfProfile);
   }, [isEditorOpen, isProfileDraftDirty, selfProfile]);
+
+  useEffect(() => {
+    if (!openEditorSignal || openEditorSignal === lastEditorSignalRef.current) return;
+    lastEditorSignalRef.current = openEditorSignal;
+    if (!profile) return;
+
+    setSelectedNameKey('');
+    onClearFocusedProfile();
+    hydrateProfileDraft(selfProfile);
+    setIsProfileDraftDirty(false);
+    setLocalError('');
+    setLocalSuccess('');
+    setIsEditorOpen(true);
+  }, [onClearFocusedProfile, openEditorSignal, profile, selfProfile]);
 
   const statsByKey = useMemo(() => {
     const stats: Record<string, PersonStats> = {};

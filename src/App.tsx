@@ -163,6 +163,19 @@ const readStoredNotificationIds = (uid: string) => {
   }
 };
 
+const getMissingProfilePieces = (profile: UserProfile | ClassmateProfile | null | undefined) => {
+  if (!profile) return [];
+
+  const tags = Array.isArray(profile.personalityTags) ? profile.personalityTags : [];
+  return [
+    !profile.avatarDataUrl ? 'ảnh đại diện' : '',
+    !profile.nickname?.trim() ? 'biệt danh' : '',
+    !profile.quote?.trim() ? 'câu nói riêng' : '',
+    !profile.classMessage?.trim() ? 'lời gửi lớp' : '',
+    tags.length < 3 ? '3 tag tính cách' : '',
+  ].filter(Boolean);
+};
+
 const defaultCinematicSlideshowSettings: CinematicSlideshowSettings = {
   enabled: false,
   mood: 'cinematic',
@@ -185,6 +198,7 @@ export default function App() {
   const [votesLoading, setVotesLoading] = useState(false);
   const [focusedPersonKey, setFocusedPersonKey] = useState('');
   const [peopleListResetKey, setPeopleListResetKey] = useState(0);
+  const [profileEditorOpenSignal, setProfileEditorOpenSignal] = useState(0);
   const [rememberNotes, setRememberNotes] = useState<RememberNote[]>([]);
   const [rememberNotesLoading, setRememberNotesLoading] = useState(false);
   const [sentRememberNotes, setSentRememberNotes] = useState<RememberNote[]>([]);
@@ -1054,8 +1068,27 @@ export default function App() {
     navigate('people');
   }, [navigate]);
 
+  const openSelfProfileEditor = useCallback(() => {
+    if (!profile) {
+      navigate('join');
+      return;
+    }
+
+    setFocusedPersonKey('');
+    setProfileEditorOpenSignal((signal) => signal + 1);
+    navigate('people');
+  }, [navigate, profile]);
+
   const allMemories = useMemo(() => remoteMemories, [remoteMemories]);
   const allGuestbook = useMemo(() => remoteGuestbook, [remoteGuestbook]);
+  const selfProfileForCompletion = useMemo(() => {
+    if (!profile) return null;
+    return classmates.find((person) => person.nameKey === profile.nameKey) || profile;
+  }, [classmates, profile]);
+  const missingProfilePieces = useMemo(
+    () => getMissingProfilePieces(selfProfileForCompletion),
+    [selfProfileForCompletion],
+  );
 
   const commentsByMemory = useMemo(() => {
     const grouped: Record<string, MemoryComment[]> = {};
@@ -1427,6 +1460,19 @@ export default function App() {
         isActive: route === 'join' || notificationsOpen,
         badgeCount: activityCount,
         items: [
+          ...(profile && missingProfilePieces.length > 0
+            ? [
+                {
+                  id: 'profile-reminder',
+                  label: 'Hoàn thiện hồ sơ',
+                  description: `Còn thiếu ${missingProfilePieces.slice(0, 2).join(', ')}${missingProfilePieces.length > 2 ? '...' : ''}.`,
+                  icon: BadgeCheck,
+                  isActive: false,
+                  badgeCount: missingProfilePieces.length,
+                  onSelect: openSelfProfileEditor,
+                },
+              ]
+            : []),
           {
             id: 'activity',
             label: 'Hoạt động của tôi',
@@ -1457,6 +1503,8 @@ export default function App() {
     navigate,
     notificationsOpen,
     openPeopleList,
+    openSelfProfileEditor,
+    missingProfilePieces,
     profile,
     route,
     unreadNotificationCount,
@@ -1471,6 +1519,19 @@ export default function App() {
 
       const service = await import('./services/firebaseMemoryBook');
       await service.updateStudentYouthProfile(profile, draft);
+      setProfile((current) =>
+        current
+          ? {
+              ...current,
+              avatarDataUrl: draft.avatarDataUrl,
+              nickname: draft.nickname,
+              quote: draft.quote,
+              classMessage: draft.classMessage,
+              personalityTags: draft.personalityTags,
+              profileUpdatedAt: new Date().toISOString(),
+            }
+          : current,
+      );
       setClassmates((items) =>
         items.map((item) =>
           item.nameKey === profile.nameKey
@@ -2213,6 +2274,7 @@ export default function App() {
             profile={profile}
             focusedNameKey={focusedPersonKey}
             listResetKey={peopleListResetKey}
+            openEditorSignal={profileEditorOpenSignal}
             onJoin={() => navigate('join')}
             onPhotobook={() => navigate('photobook')}
             onUpdateProfile={handleYouthProfileUpdate}

@@ -37,6 +37,13 @@ export interface UserProfile {
   nameKey: string;
   className: string;
   joinedAt: string;
+  avatarDataUrl?: string;
+  nickname?: string;
+  nicknameKey?: string;
+  quote?: string;
+  classMessage?: string;
+  personalityTags?: string[];
+  profileUpdatedAt?: string;
   disabled?: boolean;
   disabledReason?: string;
   deleted?: boolean;

@@ -1,7 +1,9 @@
 import { CheckCheck, Eye, Heart, Lock, Search, Send, Trash2, UserRound } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import ActionModal from '../components/ActionModal';
+import DraftStatus from '../components/DraftStatus';
 import FirebaseNotice from '../components/FirebaseNotice';
+import { useLocalDraft } from '../hooks/useLocalDraft';
 import type { ClassmateProfile, RememberNote, RememberNoteDraft, RememberReactionId, UserProfile } from '../types';
 import { formatMemoryDate } from '../utils/date';
 
@@ -58,8 +60,6 @@ export default function RememberPage({
 }: RememberPageProps) {
   const [activeTab, setActiveTab] = useState<MailboxTab>('received');
   const [query, setQuery] = useState('');
-  const [selectedNameKey, setSelectedNameKey] = useState('');
-  const [message, setMessage] = useState('');
   const [anonymous, setAnonymous] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
@@ -67,6 +67,18 @@ export default function RememberPage({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const markedViewedRef = useRef(new Set<string>());
+  const {
+    value: selectedNameKey,
+    setValue: setSelectedNameKey,
+    clearDraft: clearRecipientDraft,
+  } = useLocalDraft(profile ? `memory98-draft:remember-recipient:${profile.uid}` : '');
+  const {
+    value: message,
+    setValue: setMessage,
+    clearDraft: clearMessageDraft,
+    hasDraft: hasMessageDraft,
+    restored: restoredMessageDraft,
+  } = useLocalDraft(profile ? `memory98-draft:remember-message:${profile.uid}` : '');
 
   const eligibleClassmates = useMemo(
     () => classmates.filter((classmate) => classmate.nameKey && classmate.nameKey !== profile?.nameKey),
@@ -127,8 +139,8 @@ export default function RememberPage({
         message: safeMessage,
         anonymous,
       });
-      setMessage('');
-      setSelectedNameKey('');
+      clearMessageDraft();
+      clearRecipientDraft();
       setQuery('');
       setActiveTab('sent');
       setIsComposerOpen(false);
@@ -358,6 +370,7 @@ export default function RememberPage({
                 maxLength={420}
               />
             </label>
+            <DraftStatus hasDraft={hasMessageDraft} restored={restoredMessageDraft} />
 
             <div className="mt-3 flex items-center justify-between gap-3 rounded-[0.85rem] bg-paper/68 px-3 py-3">
               <label className="flex min-w-0 items-center gap-3 text-sm font-bold text-ink">

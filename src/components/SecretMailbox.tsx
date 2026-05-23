@@ -1,6 +1,8 @@
 import { FormEvent, memo, useState } from 'react';
 import { Lock, Send, Sparkles, Trash2 } from 'lucide-react';
 import ActionModal from './ActionModal';
+import DraftStatus from './DraftStatus';
+import { useLocalDraft } from '../hooks/useLocalDraft';
 import type { SecretDiaryEntry, UserProfile } from '../types';
 import { formatMemoryDate } from '../utils/date';
 
@@ -14,10 +16,16 @@ interface SecretMailboxProps {
 }
 
 function SecretMailbox({ diaries, profile, writingPromptsEnabled = false, onJoin, onAddDiary, onDeleteDiary }: SecretMailboxProps) {
-  const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [error, setError] = useState('');
+  const {
+    value: message,
+    setValue: setMessage,
+    clearDraft: clearMessageDraft,
+    hasDraft: hasMessageDraft,
+    restored: restoredMessageDraft,
+  } = useLocalDraft(profile ? `memory98-draft:secret-diary:${profile.uid}` : '');
 
   const submitLetter = async (event: FormEvent) => {
     event.preventDefault();
@@ -28,7 +36,7 @@ function SecretMailbox({ diaries, profile, writingPromptsEnabled = false, onJoin
       setIsSending(true);
       setError('');
       await onAddDiary(trimmed);
-      setMessage('');
+      clearMessageDraft();
       setIsComposerOpen(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Không thể lưu nhật ký lúc này.');
@@ -147,6 +155,7 @@ function SecretMailbox({ diaries, profile, writingPromptsEnabled = false, onJoin
             className="input-field min-h-40 resize-none"
             maxLength={1200}
           />
+          <DraftStatus hasDraft={hasMessageDraft} restored={restoredMessageDraft} />
           {error && <p className="rounded-2xl bg-blush/30 px-4 py-3 text-sm font-semibold text-coffee">{error}</p>}
           <button className="primary-button justify-center" disabled={isSending || !message.trim()}>
             <Send size={18} />
