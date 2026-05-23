@@ -177,7 +177,7 @@ service cloud.firestore {
           'reactionWowBy',
           'reactionAngryBy'
         ])
-        && oldCommentReactionUserCount() <= 1
+        && oldCommentReactionUserCount() <= 5
         && newCommentReactionUserCount() == 1
         && validCommentReactionListTransition(newCommentHahaBy(), oldCommentHahaBy())
         && validCommentReactionListTransition(newCommentLoveBy(), oldCommentLoveBy())
@@ -190,8 +190,8 @@ service cloud.firestore {
             && newCommentReactionTotal() == oldCommentReactionTotal() + 1
           )
           || (
-            oldCommentReactionUserCount() == 1
-            && newCommentReactionTotal() == oldCommentReactionTotal()
+            oldCommentReactionUserCount() >= 1
+            && newCommentReactionTotal() == oldCommentReactionTotal() - oldCommentReactionUserCount() + 1
           )
         );
     }
