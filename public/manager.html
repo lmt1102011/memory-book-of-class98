@@ -701,7 +701,6 @@
       import {
         createUserWithEmailAndPassword,
         getAuth,
-        onAuthStateChanged,
         signOut,
         updateProfile,
       } from 'https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js';
@@ -808,21 +807,7 @@
       const makeStudentEmail = (nameKey) => `${nameKey}@${AUTH_DOMAIN}`;
       const isManagerFirebaseUser = () => managerAuth.currentUser?.email?.toLowerCase() === makeStudentEmail(MANAGER_NAME_KEY);
 
-      const waitForCurrentUser = () =>
-        new Promise((resolve) => {
-          const unsubscribe = onAuthStateChanged(managerAuth, (user) => {
-            unsubscribe();
-            resolve(user);
-          });
-        });
-
-      const ensureManagerFirebaseAuth = async () => {
-        await waitForCurrentUser();
-        if (isManagerFirebaseUser()) return true;
-        // Manager is local-only now: no password prompt and no Firebase Auth login request.
-        // The local managerKey below is still used for manager-only writes allowed by Firestore Rules.
-        return true;
-      };
+      const ensureManagerAccess = () => true;
 
       const formatDate = (value) => {
         if (!value) return '';
@@ -1930,7 +1915,7 @@
           }
 
           gateStatus.textContent = 'Đang mở manager...';
-          await ensureManagerFirebaseAuth();
+          ensureManagerAccess();
           gateStatus.textContent = '';
           showManager();
         } catch (error) {
