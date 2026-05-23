@@ -781,6 +781,12 @@
           .replace(/'/g, '&#39;');
 
       const getMemoryKey = (memory) => `${memory.collectionName || PUBLIC_MEMORIES_COLLECTION}:${memory.id}`;
+      const uniqueLikedBy = (memory) =>
+        Array.from(new Set((Array.isArray(memory.likedBy) ? memory.likedBy : []).map(String).filter(Boolean)));
+      const safeReactionCount = (value) => {
+        const number = Number(value || 0);
+        return Number.isFinite(number) && number > 0 ? Math.round(number) : 0;
+      };
       const formatVisibility = (value) => {
         if (value === 'private') return 'Chỉ mình tôi';
         if (value === 'tagged') return 'Chọn người xem';
@@ -1063,6 +1069,11 @@
               const isVideo = memory.mediaType === 'video';
               const visibility = memory.visibility || 'public';
               const viewerNames = Array.isArray(memory.visibleToNames) ? memory.visibleToNames.filter(Boolean) : [];
+              const likedCount = uniqueLikedBy(memory).length;
+              const shownReactions = safeReactionCount(memory.reactions);
+              const originalReactions = Number(memory.managerHeartOriginalReactions);
+              const hasHeartBackup = Number.isFinite(originalReactions);
+              const heartMismatch = shownReactions !== likedCount;
 
               return `
                 <article class="item memory-item ${isSelected(selectKey) ? 'selected' : ''}">
@@ -1076,13 +1087,18 @@
                       <strong>${escapeHtml(memory.name || 'Không rõ tên')}</strong>
                       <span class="pill">${formatDate(memory.createdAt)}</span>
                       <span class="pill ${visibility === 'public' ? '' : 'pink'}">${formatVisibility(visibility)}</span>
-                      <span class="pill dark">${Number(memory.reactions || 0)} tim</span>
+                      <span class="pill dark">${shownReactions} tim</span>
+                      <span class="pill ${heartMismatch ? 'pink' : ''}">${likedCount} UID tim thật</span>
+                      ${hasHeartBackup ? `<span class="pill blue">Tim gốc: ${safeReactionCount(originalReactions)}</span>` : ''}
                     </div>
                     <p class="muted">Collection: ${escapeHtml(memory.collectionName || PUBLIC_MEMORIES_COLLECTION)} | UID: ${escapeHtml(memory.uid || '')}</p>
+                    ${heartMismatch ? '<p class="muted"><strong>Cảnh báo:</strong> Số tim hiển thị đang lệch với danh sách người đã tim. Có thể bấm Reset tim để sửa.</p>' : ''}
                     ${visibility === 'tagged' ? `<p class="muted">Người được xem: ${escapeHtml(viewerNames.join(', ') || 'Chưa có tên hiển thị')}</p>` : ''}
                     <p class="caption">${escapeHtml(memory.caption || '')}</p>
                     <p class="muted">${Array.isArray(memory.hashtags) ? memory.hashtags.map((tag) => `#${escapeHtml(tag)}`).join(' ') : ''}</p>
                     <div class="row" style="margin-top: 10px">
+                      <button class="secondary" data-memory-action="reset-hearts" data-key="${escapeHtml(key)}">Reset tim</button>
+                      ${hasHeartBackup ? `<button class="secondary" data-memory-action="restore-hearts" data-key="${escapeHtml(key)}">Khôi phục tim gốc</button>` : ''}
                       <button class="danger" data-memory-action="delete" data-key="${escapeHtml(key)}">Xóa ${isVideo ? 'video' : 'ảnh'}</button>
                     </div>
                   </div>
@@ -1272,6 +1288,50 @@
         });
         if (memory.mediaType === 'video') await deleteMemoryVideoChunks(memory.id);
         await deleteDoc(doc(db, collectionName, memory.id));
+      };
+
+      const resetMemoryHeartCount = async (memory) => {
+        const collectionName = memory.collectionName || PUBLIC_MEMORIES_COLLECTION;
+        const likedBy = uniqueLikedBy(memory);
+        const currentReactions = safeReactionCount(memory.reactions);
+        const updatePayload = {
+          reactions: likedBy.length,
+          likedBy,
+          managerHeartLastResetFrom: currentReactions,
+          managerHeartLastResetTo: likedBy.length,
+          managerHeartResetAt: serverTimestamp(),
+          managerKey: MANAGER_PASSWORD,
+          managerUpdatedAt: serverTimestamp(),
+        };
+
+        if (!Number.isFinite(Number(memory.managerHeartOriginalReactions))) {
+          updatePayload.managerHeartOriginalReactions = currentReactions;
+        }
+
+        await updateDoc(doc(db, collectionName, memory.id), updatePayload);
+        memory.reactions = likedBy.length;
+        memory.likedBy = likedBy;
+        memory.managerHeartLastResetFrom = currentReactions;
+        memory.managerHeartLastResetTo = likedBy.length;
+        if (!Number.isFinite(Number(memory.managerHeartOriginalReactions))) {
+          memory.managerHeartOriginalReactions = currentReactions;
+        }
+      };
+
+      const restoreMemoryOriginalHeartCount = async (memory) => {
+        const originalReactions = safeReactionCount(memory.managerHeartOriginalReactions);
+        if (!Number.isFinite(Number(memory.managerHeartOriginalReactions))) {
+          throw new Error('Ảnh này chưa có số tim gốc đã lưu.');
+        }
+
+        const collectionName = memory.collectionName || PUBLIC_MEMORIES_COLLECTION;
+        await updateDoc(doc(db, collectionName, memory.id), {
+          reactions: originalReactions,
+          managerHeartRestoredAt: serverTimestamp(),
+          managerKey: MANAGER_PASSWORD,
+          managerUpdatedAt: serverTimestamp(),
+        });
+        memory.reactions = originalReactions;
       };
 
       const deleteAccountRecord = async (account) => {
@@ -1778,6 +1838,43 @@
           await refreshManagerData();
         } catch (error) {
           accountStatus.textContent = error.message || 'Không thể cập nhật tài khoản.';
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      $('memories').addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-memory-action="reset-hearts"], button[data-memory-action="restore-hearts"]');
+        if (!button) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const key = button.dataset.key;
+        const action = button.dataset.memoryAction;
+        const memory = memories.find((item) => getMemoryKey(item) === key);
+        if (!memory) return;
+
+        const mediaLabel = memory.mediaType === 'video' ? 'video' : 'ảnh';
+        button.disabled = true;
+        try {
+          if (action === 'reset-hearts') {
+            const shownReactions = safeReactionCount(memory.reactions);
+            const realLikedCount = uniqueLikedBy(memory).length;
+            if (!window.confirm(`Reset tim của ${mediaLabel} này từ ${shownReactions} về ${realLikedCount} tim thật? Số tim gốc sẽ được giữ lại trong manager.`)) return;
+            await resetMemoryHeartCount(memory);
+            renderMemories();
+            memoryStatus.textContent = `Đã reset tim: ${shownReactions} -> ${realLikedCount}. Số tim gốc vẫn được lưu lại.`;
+            return;
+          }
+
+          const originalReactions = safeReactionCount(memory.managerHeartOriginalReactions);
+          if (!window.confirm(`Khôi phục số tim hiển thị về số tim gốc ${originalReactions}?`)) return;
+          await restoreMemoryOriginalHeartCount(memory);
+          renderMemories();
+          memoryStatus.textContent = `Đã khôi phục số tim gốc: ${originalReactions}.`;
+        } catch (error) {
+          memoryStatus.textContent = error.message || 'Không thể cập nhật số tim lúc này.';
         } finally {
           button.disabled = false;
         }
