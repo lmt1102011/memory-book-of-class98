@@ -1,0 +1,2424 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Memory98 Manager</title>
+    <style>
+      :root {
+        --cream: #fbf3e7;
+        --paper: #fffaf1;
+        --ink: #35291f;
+        --coffee: #7a5639;
+        --pink: #f7b7c7;
+        --blue: #a9cde8;
+        --green: #385b58;
+        --danger: #9d3b4b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        background:
+          linear-gradient(115deg, rgba(247, 183, 199, 0.3), transparent 34%),
+          linear-gradient(245deg, rgba(169, 205, 232, 0.24), transparent 40%),
+          var(--cream);
+        color: var(--ink);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
+
+      button {
+        border: 0;
+        border-radius: 999px;
+        background: var(--ink);
+        color: var(--paper);
+        cursor: pointer;
+        font-weight: 850;
+        padding: 10px 14px;
+      }
+
+      button:disabled {
+        cursor: wait;
+        opacity: 0.56;
+      }
+
+      button.secondary {
+        background: rgba(169, 205, 232, 0.52);
+        color: var(--ink);
+      }
+
+      button.danger {
+        background: var(--danger);
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        min-width: 0;
+        border: 0;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.78);
+        color: var(--ink);
+        outline: none;
+        padding: 12px 13px;
+        box-shadow: inset 0 0 0 1px rgba(122, 86, 57, 0.14);
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: clamp(34px, 7vw, 68px);
+        letter-spacing: -0.03em;
+        line-height: 0.88;
+        text-transform: uppercase;
+      }
+
+      h2 {
+        font-size: 22px;
+        margin-bottom: 12px;
+      }
+
+      h3 {
+        font-size: 15px;
+      }
+
+      .shell {
+        width: min(1280px, 100%);
+        margin: 0 auto;
+        padding: 18px 14px 42px;
+      }
+
+      .card,
+      .topbar,
+      .tabs {
+        border: 1px solid rgba(255, 255, 255, 0.74);
+        background: rgba(255, 250, 241, 0.82);
+        box-shadow: 0 18px 45px rgba(84, 57, 35, 0.12);
+      }
+
+      .card {
+        border-radius: 14px;
+        padding: 15px;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 4;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-radius: 0 0 18px 18px;
+        padding: 14px;
+        backdrop-filter: blur(16px);
+      }
+
+      .muted {
+        color: rgba(53, 41, 31, 0.62);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .status {
+        color: var(--coffee);
+        font-size: 13px;
+        line-height: 1.6;
+        margin-top: 10px;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      .gate {
+        max-width: 560px;
+        margin: 12vh auto 0;
+      }
+
+      .form {
+        display: grid;
+        gap: 10px;
+      }
+
+      .dashboard {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .stat {
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.58);
+        padding: 12px;
+        box-shadow: inset 0 0 0 1px rgba(122, 86, 57, 0.08);
+      }
+
+      .stat strong {
+        display: block;
+        font-size: 24px;
+      }
+
+      .toolbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(190px, 0.35fr) auto;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .bulkbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 10px;
+        border-radius: 14px;
+        border: 1px solid rgba(122, 86, 57, 0.12);
+        background: rgba(255, 250, 241, 0.9);
+        padding: 10px;
+        box-shadow: 0 12px 30px rgba(84, 57, 35, 0.1);
+      }
+
+      .bulkbar strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .bulkbar-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .setting-card {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        margin-top: 12px;
+        align-items: center;
+      }
+
+      .setting-card strong {
+        display: block;
+        font-size: 16px;
+      }
+
+      .health-card {
+        display: grid;
+        gap: 12px;
+        margin-top: 12px;
+      }
+
+      .health-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .health-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .health-metric,
+      .issue-row {
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.6);
+        box-shadow: inset 0 0 0 1px rgba(122, 86, 57, 0.08);
+      }
+
+      .health-metric {
+        padding: 12px;
+      }
+
+      .health-metric strong {
+        display: block;
+        font-size: 22px;
+      }
+
+      .issue-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .issue-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+      }
+
+      .tabs {
+        position: sticky;
+        top: 86px;
+        z-index: 3;
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+        overflow-x: auto;
+        border-radius: 16px;
+        padding: 8px;
+        backdrop-filter: blur(16px);
+      }
+
+      .tab {
+        flex: 0 0 auto;
+        background: rgba(255, 255, 255, 0.66);
+        color: rgba(53, 41, 31, 0.68);
+      }
+
+      .tab.active {
+        background: var(--ink);
+        color: var(--paper);
+      }
+
+      .panel {
+        display: none;
+        margin-top: 12px;
+      }
+
+      .panel.active {
+        display: block;
+      }
+
+      .panel-grid {
+        display: grid;
+        grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr);
+        gap: 12px;
+      }
+
+      .list {
+        display: grid;
+        gap: 10px;
+        max-height: 68vh;
+        overflow: auto;
+        padding-right: 3px;
+      }
+
+      .item {
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.64);
+        padding: 12px;
+      }
+
+      .item.selected {
+        background: rgba(169, 205, 232, 0.22);
+        box-shadow: inset 0 0 0 2px rgba(56, 91, 88, 0.22);
+      }
+
+      .select-box {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border-radius: 999px;
+        background: rgba(255, 250, 241, 0.86);
+        color: var(--coffee);
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 850;
+        padding: 6px 9px;
+        user-select: none;
+      }
+
+      .select-box input {
+        width: 16px;
+        min-width: 16px;
+        height: 16px;
+        margin: 0;
+        accent-color: var(--green);
+        box-shadow: none;
+      }
+
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        background: rgba(56, 91, 88, 0.12);
+        color: var(--green);
+        font-size: 12px;
+        font-weight: 850;
+        padding: 5px 8px;
+      }
+
+      .pill.pink {
+        background: rgba(247, 183, 199, 0.34);
+        color: var(--danger);
+      }
+
+      .pill.dark {
+        background: rgba(53, 41, 31, 0.12);
+        color: var(--ink);
+      }
+
+      .pill.blue {
+        background: rgba(169, 205, 232, 0.38);
+        color: #294c64;
+      }
+
+      .message {
+        margin-top: 9px;
+        white-space: pre-wrap;
+        line-height: 1.65;
+      }
+
+      .memory-item {
+        display: grid;
+        grid-template-columns: 98px minmax(0, 1fr);
+        gap: 12px;
+      }
+
+      .memory-thumb {
+        width: 100%;
+        aspect-ratio: 4 / 5;
+        border-radius: 10px;
+        object-fit: cover;
+        background: rgba(53, 41, 31, 0.1);
+      }
+
+      .memory-thumb-wrap {
+        position: relative;
+      }
+
+      .memory-thumb-badge {
+        position: absolute;
+        left: 6px;
+        top: 6px;
+        border-radius: 999px;
+        background: rgba(53, 41, 31, 0.82);
+        color: var(--paper);
+        font-size: 11px;
+        font-weight: 900;
+        padding: 4px 7px;
+      }
+
+      .caption {
+        display: -webkit-box;
+        margin-top: 7px;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        line-height: 1.55;
+      }
+
+      @media (max-width: 920px) {
+        .dashboard {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .panel-grid,
+        .setting-card,
+        .toolbar,
+        .health-head {
+          grid-template-columns: 1fr;
+        }
+
+        .health-head {
+          display: grid;
+        }
+
+        .health-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .bulkbar {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .bulkbar-actions {
+          display: grid;
+          grid-template-columns: 1fr;
+          width: 100%;
+        }
+
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .tabs {
+          top: 0;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .dashboard {
+          grid-template-columns: 1fr;
+        }
+
+        .health-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .memory-item {
+          grid-template-columns: 78px minmax(0, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section id="gate" class="card gate">
+        <h1>Manager</h1>
+        <p class="status">Nhập mật khẩu manager để quản lý dữ liệu lớp 9/8.</p>
+        <form id="gateForm" class="form" style="margin-top: 14px">
+          <label>
+            Mật khẩu manager
+            <input id="managerPassword" type="password" autocomplete="current-password" placeholder="Nhập mật khẩu" />
+          </label>
+          <button type="submit">Mở manager</button>
+        </form>
+        <p id="gateStatus" class="status"></p>
+      </section>
+
+      <section id="app" class="hidden">
+        <div class="topbar">
+          <div>
+            <h1>Memory98 Manager</h1>
+            <p class="muted">Quản lý tài khoản, ảnh/video, thư lớp, Secret Message, nhật ký và lịch sử tải.</p>
+          </div>
+          <div class="row">
+            <button id="refreshButton" class="secondary">Tải lại dữ liệu</button>
+            <button id="lockButton" class="secondary">Khóa manager</button>
+          </div>
+        </div>
+
+        <section class="dashboard">
+          <div class="stat"><strong id="statAccounts">0</strong><span class="muted">tài khoản</span></div>
+          <div class="stat"><strong id="statMemories">0</strong><span class="muted">ảnh/video</span></div>
+          <div class="stat"><strong id="statLetters">0</strong><span class="muted">thư lớp</span></div>
+          <div class="stat"><strong id="statRemember">0</strong><span class="muted">Secret Message</span></div>
+          <div class="stat"><strong id="statDiaries">0</strong><span class="muted">nhật ký</span></div>
+          <div class="stat"><strong id="statDownloads">0</strong><span class="muted">lượt tải</span></div>
+        </section>
+
+        <section class="card health-card">
+          <div class="health-head">
+            <div>
+              <h2>Sức khỏe hệ thống</h2>
+              <p class="muted">Tóm tắt lỗi dữ liệu hay gặp: tim lệch, comment emoji thiếu field, kỷ niệm thiếu nameKey.</p>
+            </div>
+            <button id="repairDataButton" class="secondary">Quét và sửa lỗi</button>
+          </div>
+          <div id="systemHealth" class="health-grid"></div>
+          <div id="systemIssues" class="issue-list"></div>
+          <p id="healthStatus" class="status"></p>
+        </section>
+
+        <section class="card setting-card">
+          <div>
+            <strong>Memory Recap nổi bật</strong>
+            <p class="muted">
+              Khi bật, trang Ký ức sẽ hiện poster tổng kết lớp 9/8 thật nổi bật và cho học sinh tải về.
+            </p>
+            <p id="recapStatus" class="status"></p>
+          </div>
+          <button id="toggleRecapButton" class="secondary">Đang tải...</button>
+        </section>
+
+        <section class="card setting-card">
+          <div>
+            <strong>Thư lớp trong Ký ức</strong>
+            <p class="muted">
+              Khi bật, bảng thư lớp và nút viết thư sẽ hiện ngay trong trang Ký ức. Khi tắt, học sinh sẽ không thấy mục gửi thư cho lớp.
+            </p>
+            <p id="classLettersStatus" class="status"></p>
+          </div>
+          <button id="toggleClassLettersButton" class="secondary">Đang tải...</button>
+        </section>
+
+        <section class="card setting-card">
+          <div>
+            <strong>Gợi nhắc cuối năm</strong>
+            <p class="muted">
+              Khi bật, học sinh sẽ thấy một khung gợi nhắc gọn để viết Secret Message, nhật ký riêng, lời nhắn tương lai và thư lớp nếu mục thư lớp đang mở.
+            </p>
+            <p id="writingPromptsStatus" class="status"></p>
+          </div>
+          <button id="toggleWritingPromptsButton" class="secondary">Đang tải...</button>
+        </section>
+
+        <section class="card setting-card">
+          <div>
+            <strong>Slideshow điện ảnh</strong>
+            <p class="muted">
+              Khi bật, trang Ký ức sẽ hiện slideshow nổi bật. Manager chọn mood, học sinh chỉ thấy một trải nghiệm đã chỉnh sẵn.
+            </p>
+            <select id="slideshowMoodSelect" style="margin-top: 10px">
+              <option value="cinematic">Điện ảnh</option>
+              <option value="scrapbook">Lưu bút</option>
+              <option value="photobooth">Photobooth Hàn Quốc</option>
+            </select>
+            <p id="slideshowStatus" class="status"></p>
+          </div>
+          <button id="toggleSlideshowButton" class="secondary">Đang tải...</button>
+        </section>
+
+        <section class="card setting-card">
+          <div>
+            <strong>Gửi cho lớp trong tương lai</strong>
+            <p class="muted">
+              Đây là mục riêng trong nhóm Lời nhắn. Trước giờ mở, học sinh chỉ thấy số lời nhắn đã gửi.
+            </p>
+            <input id="timeCapsuleUnlockAt" type="datetime-local" style="margin-top: 10px" />
+            <p id="timeCapsuleStatus" class="status"></p>
+          </div>
+          <button id="saveTimeCapsuleButton" class="secondary">Lưu giờ mở</button>
+        </section>
+
+        <section class="toolbar">
+          <input id="managerSearch" placeholder="Tìm tên, nội dung, uid, hashtag..." />
+          <select id="managerFilter" aria-label="Bộ lọc manager"></select>
+          <button id="clearSearchButton" class="secondary">Xóa tìm</button>
+        </section>
+
+        <section id="bulkBar" class="bulkbar hidden" aria-live="polite">
+          <div>
+            <strong id="bulkTitle">Chọn nhiều mục</strong>
+            <p id="bulkHint" class="muted">Chọn mục trong danh sách rồi xóa một lượt khi cần.</p>
+          </div>
+          <div class="bulkbar-actions">
+            <button id="selectVisibleButton" class="secondary">Chọn mục đang hiện</button>
+            <button id="clearSelectionButton" class="secondary">Bỏ chọn</button>
+            <button id="bulkDeleteButton" class="danger">Xóa mục đã chọn</button>
+          </div>
+        </section>
+
+        <nav class="tabs" aria-label="Manager sections">
+          <button class="tab active" data-tab="accounts">Tài khoản</button>
+          <button class="tab" data-tab="memories">Ảnh/video</button>
+          <button class="tab" data-tab="letters">Thư lớp</button>
+          <button class="tab" data-tab="future">Gửi cho lớp trong tương lai</button>
+          <button class="tab" data-tab="remember">Secret Message</button>
+          <button class="tab" data-tab="diaries">Nhật ký</button>
+          <button class="tab" data-tab="downloads">Lượt tải</button>
+        </nav>
+
+        <section class="panel active" data-panel="accounts">
+          <div class="panel-grid">
+            <section class="card">
+              <h2>Thêm tài khoản</h2>
+              <form id="addAccountForm" class="form">
+                <input id="studentName" placeholder="Họ tên học sinh" autocomplete="name" />
+                <input id="studentPassword" type="password" placeholder="Mật khẩu tối thiểu 6 ký tự" autocomplete="new-password" />
+                <button>Thêm tài khoản</button>
+              </form>
+              <p id="accountStatus" class="status"></p>
+            </section>
+            <section class="card">
+              <h2>Danh sách tài khoản</h2>
+              <div id="accounts" class="list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="memories">
+          <section class="card">
+            <h2>Ảnh / video đã đăng</h2>
+            <p class="muted" style="margin-bottom: 12px">Manager có thể xóa kỷ niệm công khai, riêng tư và video ngắn.</p>
+            <p id="memoryStatus" class="status"></p>
+            <div id="memories" class="list"></div>
+          </section>
+        </section>
+
+        <section class="panel" data-panel="letters">
+          <section class="card">
+            <h2>Thư lớp</h2>
+            <p class="muted" style="margin-bottom: 12px">Thư ẩn danh vẫn hiện tên thật của người viết trong manager.</p>
+            <p id="letterStatus" class="status"></p>
+            <div id="classLetters" class="list"></div>
+          </section>
+        </section>
+
+        <section class="panel" data-panel="future">
+          <section class="card">
+            <h2>Gửi cho lớp trong tương lai</h2>
+            <p class="muted" style="margin-bottom: 12px">
+              Manager thấy người viết, nội dung lời nhắn cho lớp trong tương lai và có thể xóa khi cần.
+            </p>
+            <div id="futureMessages" class="list"></div>
+          </section>
+        </section>
+
+        <section class="panel" data-panel="remember">
+          <section class="card">
+            <h2>Secret Message</h2>
+            <p class="muted" style="margin-bottom: 12px">Manager thấy người gửi thật, người nhận và nội dung của cả thư ẩn danh.</p>
+            <p id="rememberStatus" class="status"></p>
+            <div id="rememberNotes" class="list"></div>
+          </section>
+        </section>
+
+        <section class="panel" data-panel="diaries">
+          <section class="card">
+            <h2>Nhật ký bí mật</h2>
+            <p class="muted" style="margin-bottom: 12px">Chỉ manager thấy tên người viết nhật ký.</p>
+            <p id="diaryStatus" class="status"></p>
+            <div id="diaries" class="list"></div>
+          </section>
+        </section>
+
+        <section class="panel" data-panel="downloads">
+          <section class="card">
+            <h2>Lịch sử tải ảnh / video</h2>
+            <div id="downloads" class="list"></div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <script type="module">
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js';
+      import {
+        createUserWithEmailAndPassword,
+        getAuth,
+        onAuthStateChanged,
+        signOut,
+        updateProfile,
+      } from 'https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js';
+      import {
+        collection,
+        deleteDoc,
+        doc,
+        getDoc,
+        getDocs,
+        getFirestore,
+        orderBy,
+        query,
+        serverTimestamp,
+        setDoc,
+        updateDoc,
+      } from 'https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore-lite.js';
+
+      const firebaseConfig = {
+        apiKey: 'AIzaSyCxCn9rXklHcVlW20NN3q4KAx5KhnnBoRM',
+        authDomain: 'memorybook-of-class98.firebaseapp.com',
+        projectId: 'memorybook-of-class98',
+        storageBucket: 'memorybook-of-class98.firebasestorage.app',
+        messagingSenderId: '661004126531',
+        appId: '1:661004126531:web:5d3b394ef2e9839b7e87f6',
+        measurementId: 'G-Q7EXKD9G7B',
+      };
+
+      const MANAGER_PASSWORD = 'lmt1102011';
+      const MANAGER_NAME_KEY = 'le-minh-tri';
+      const AUTH_DOMAIN = 'memorybook-of-class98.firebaseapp.com';
+      const CLASS_NAME = '9/8';
+      const PUBLIC_MEMORIES_COLLECTION = 'memories98';
+      const PRIVATE_MEMORIES_COLLECTION = 'privateMemories98';
+      const MEMORY_VIDEO_CHUNKS_COLLECTION = 'memoryVideoChunks98';
+      const MEMORY_COMMENTS_COLLECTION = 'memoryComments98';
+      const MEMORY_DOWNLOAD_LOGS_COLLECTION = 'memoryDownloadLogs98';
+      const GUESTBOOK_COLLECTION = 'guestbook98';
+      const TIME_CAPSULE_COLLECTION = 'timeCapsules98';
+      const REMEMBER_NOTES_COLLECTION = 'rememberNotes98';
+      const DIARY_COLLECTION = 'secretMailboxPrivate98';
+      const SITE_SETTINGS_COLLECTION = 'siteSettings98';
+      const MEMORY_RECAP_SETTING_ID = 'memoryRecap';
+      const CLASS_LETTERS_SETTING_ID = 'classLetters';
+      const WRITING_PROMPTS_SETTING_ID = 'writingPrompts';
+      const CINEMATIC_SLIDESHOW_SETTING_ID = 'cinematicSlideshow';
+      const TIME_CAPSULE_SETTING_ID = 'timeCapsule';
+
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const managerAuth = getAuth(app);
+      const creatorApp = initializeApp(firebaseConfig, 'creator');
+      const creatorAuth = getAuth(creatorApp);
+      const creatorDb = getFirestore(creatorApp);
+
+      const $ = (id) => document.getElementById(id);
+      const gate = $('gate');
+      const managerApp = $('app');
+      const accountStatus = $('accountStatus');
+      const gateStatus = $('gateStatus');
+      const managerPasswordInput = $('managerPassword');
+      const memoryStatus = $('memoryStatus');
+      const letterStatus = $('letterStatus');
+      const rememberStatus = $('rememberStatus');
+      const diaryStatus = $('diaryStatus');
+      const recapStatus = $('recapStatus');
+      const classLettersStatus = $('classLettersStatus');
+      const writingPromptsStatus = $('writingPromptsStatus');
+      const slideshowStatus = $('slideshowStatus');
+      const timeCapsuleStatus = $('timeCapsuleStatus');
+      const healthStatus = $('healthStatus');
+
+      let accounts = [];
+      let diaries = [];
+      let memories = [];
+      let memoryComments = [];
+      let downloads = [];
+      let classLetters = [];
+      let timeCapsules = [];
+      let rememberNotes = [];
+      let memoryRecapSetting = { enabled: false };
+      let classLettersSetting = { enabled: false };
+      let writingPromptsSetting = { enabled: false };
+      let cinematicSlideshowSetting = { enabled: false, mood: 'cinematic' };
+      let timeCapsuleSetting = { unlockAt: '' };
+      let appVersionInfo = null;
+      let activeTab = 'accounts';
+      let managerPoll = 0;
+      let isLoadingManagerData = false;
+      let selectedItems = new Set();
+      let isBulkDeleting = false;
+      let isRepairingData = false;
+
+      const cleanDisplayName = (name) => name.trim().replace(/\s+/g, ' ');
+      const makeNameKey = (name) =>
+        cleanDisplayName(name)
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .replace(/\u0111/g, 'd')
+          .replace(/\u0110/g, 'd')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+
+      const makeStudentEmail = (nameKey) => `${nameKey}@${AUTH_DOMAIN}`;
+      const isManagerFirebaseUser = () => managerAuth.currentUser?.email?.toLowerCase() === makeStudentEmail(MANAGER_NAME_KEY);
+
+      const waitForCurrentUser = () =>
+        new Promise((resolve) => {
+          const unsubscribe = onAuthStateChanged(managerAuth, (user) => {
+            unsubscribe();
+            resolve(user);
+          });
+        });
+
+      const ensureManagerFirebaseAuth = async () => {
+        await waitForCurrentUser();
+        if (isManagerFirebaseUser()) return true;
+        // Manager is local-only now: no password prompt and no Firebase Auth login request.
+        // The local managerKey below is still used for manager-only writes allowed by Firestore Rules.
+        return true;
+      };
+
+      const formatDate = (value) => {
+        if (!value) return '';
+        const date = value.toDate ? value.toDate() : new Date(value);
+        if (Number.isNaN(date.getTime())) return '';
+        return new Intl.DateTimeFormat('vi-VN', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+          timeZone: 'Asia/Ho_Chi_Minh',
+        }).format(date);
+      };
+
+      const toDateTimeLocalValue = (value) => {
+        if (!value) return '';
+        const date = value?.toDate ? value.toDate() : new Date(value);
+        if (Number.isNaN(date.getTime())) return '';
+        const parts = Object.fromEntries(
+          new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          })
+            .formatToParts(date)
+            .filter((part) => part.type !== 'literal')
+            .map((part) => [part.type, part.value]),
+        );
+        return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+      };
+
+      const vietnamDateTimeLocalToIso = (value) => {
+        const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+        if (!match) return '';
+        const [, year, month, day, hour, minute] = match.map(Number);
+        const utcTime = Date.UTC(year, month - 1, day, hour - 7, minute, 0, 0);
+        return new Date(utcTime).toISOString();
+      };
+
+      const escapeHtml = (value) =>
+        String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+
+      const getMemoryKey = (memory) => `${memory.collectionName || PUBLIC_MEMORIES_COLLECTION}:${memory.id}`;
+      const uniqueLikedBy = (memory) =>
+        Array.from(new Set((Array.isArray(memory.likedBy) ? memory.likedBy : []).map(String).filter(Boolean)));
+      const safeReactionCount = (value) => {
+        const number = Number(value || 0);
+        return Number.isFinite(number) && number > 0 ? Math.round(number) : 0;
+      };
+      const COMMENT_REACTION_FIELDS = ['reactionHahaBy', 'reactionLoveBy', 'reactionMissBy', 'reactionWowBy', 'reactionAngryBy'];
+      const safeStringList = (value) =>
+        Array.from(new Set((Array.isArray(value) ? value : []).map(String).filter(Boolean)));
+      const commentNeedsReactionRepair = (comment) => {
+        const seenUids = new Set();
+        let hasDuplicateAcrossReactions = false;
+        let hasMissingField = false;
+
+        COMMENT_REACTION_FIELDS.forEach((field) => {
+          if (!Array.isArray(comment[field])) hasMissingField = true;
+          const rawList = (Array.isArray(comment[field]) ? comment[field] : []).map(String).filter(Boolean);
+          const uniqueList = safeStringList(rawList);
+          if (rawList.length !== uniqueList.length) hasDuplicateAcrossReactions = true;
+          uniqueList.forEach((uid) => {
+            if (seenUids.has(uid)) hasDuplicateAcrossReactions = true;
+            seenUids.add(uid);
+          });
+        });
+
+        return hasMissingField || hasDuplicateAcrossReactions;
+      };
+      const repairedCommentReactionPayload = (comment) => {
+        const uidToField = new Map();
+        COMMENT_REACTION_FIELDS.forEach((field) => {
+          safeStringList(comment[field]).forEach((uid) => {
+            if (!uidToField.has(uid)) uidToField.set(uid, field);
+          });
+        });
+
+        const payload = COMMENT_REACTION_FIELDS.reduce((acc, field) => {
+          acc[field] = [];
+          return acc;
+        }, {});
+
+        uidToField.forEach((field, uid) => {
+          payload[field].push(uid);
+        });
+
+        return payload;
+      };
+      const formatVisibility = (value) => {
+        if (value === 'private') return 'Chỉ mình tôi';
+        if (value === 'tagged') return 'Chọn người xem';
+        return 'Công khai';
+      };
+
+      const normalizeSearch = (value) =>
+        String(value || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase();
+
+      const searchValue = () => normalizeSearch($('managerSearch').value);
+      const matchesSearch = (item, fields) => {
+        const term = searchValue();
+        if (!term) return true;
+        return fields.some((field) => normalizeSearch(item[field]).includes(term));
+      };
+
+      const filterOptionsByTab = {
+        accounts: [
+          ['all', 'Tất cả tài khoản'],
+          ['active', 'Đang mở'],
+          ['disabled', 'Đã khóa'],
+          ['deleted', 'Đã xóa'],
+        ],
+        memories: [
+          ['all', 'Tất cả ảnh/video'],
+          ['image', 'Chỉ ảnh'],
+          ['video', 'Chỉ video'],
+          ['public', 'Công khai'],
+          ['private', 'Riêng tư'],
+          ['tagged', 'Chọn người xem'],
+        ],
+        letters: [
+          ['all', 'Tất cả thư lớp'],
+          ['named', 'Có tên'],
+          ['anonymous', 'Ẩn danh'],
+        ],
+        future: [
+          ['all', 'Tất cả lời nhắn'],
+        ],
+        remember: [
+          ['all', 'Tất cả Secret Message'],
+          ['named', 'Có tên'],
+          ['anonymous', 'Ẩn danh'],
+          ['viewed', 'Đã xem'],
+          ['unviewed', 'Chưa xem'],
+          ['reacted', 'Đã phản hồi'],
+        ],
+        diaries: [
+          ['all', 'Tất cả nhật ký'],
+        ],
+        downloads: [
+          ['all', 'Tất cả lượt tải'],
+          ['image', 'Tải ảnh'],
+          ['video', 'Tải video'],
+        ],
+      };
+
+      const selectablePrefixByTab = {
+        accounts: 'account',
+        memories: 'memory',
+        letters: 'letter',
+        future: 'future',
+        remember: 'remember',
+        diaries: 'diary',
+      };
+
+      const selectionKey = (type, id) => `${type}:${id}`;
+      const isSelected = (key) => selectedItems.has(key);
+      const selectedKeysForTab = () => {
+        const prefix = selectablePrefixByTab[activeTab];
+        if (!prefix) return [];
+        return Array.from(selectedItems).filter((key) => key.startsWith(`${prefix}:`));
+      };
+
+      const filterValue = () => $('managerFilter')?.value || 'all';
+      const matchesActiveFilter = (item, type) => {
+        if (type !== activeTab) return true;
+        const filter = filterValue();
+        if (filter === 'all') return true;
+
+        if (type === 'accounts') {
+          if (filter === 'active') return !item.disabled && !item.deleted;
+          if (filter === 'disabled') return Boolean(item.disabled) && !item.deleted;
+          if (filter === 'deleted') return Boolean(item.deleted);
+        }
+
+        if (type === 'memories') {
+          if (filter === 'image') return item.mediaType !== 'video';
+          if (filter === 'video') return item.mediaType === 'video';
+          return (item.visibility || 'public') === filter;
+        }
+
+        if (type === 'letters') {
+          const anonymous = isAnonymousLetter(item);
+          if (filter === 'anonymous') return anonymous;
+          if (filter === 'named') return !anonymous;
+        }
+
+        if (type === 'remember') {
+          if (filter === 'anonymous') return Boolean(item.anonymous);
+          if (filter === 'named') return !item.anonymous;
+          if (filter === 'viewed') return Boolean(item.viewedAt);
+          if (filter === 'unviewed') return !item.viewedAt;
+          if (filter === 'reacted') return Boolean(item.reactionId || item.reactionLabel);
+        }
+
+        if (type === 'downloads') {
+          if (filter === 'image') return item.memoryMediaType !== 'video';
+          if (filter === 'video') return item.memoryMediaType === 'video';
+        }
+
+        return true;
+      };
+
+      const renderFilterOptions = () => {
+        const filter = $('managerFilter');
+        const options = filterOptionsByTab[activeTab] || [['all', 'Tất cả']];
+        const previousValue = filter.value;
+        filter.innerHTML = options.map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
+        filter.value = options.some(([value]) => value === previousValue) ? previousValue : 'all';
+      };
+
+      const checkboxHtml = (key, label = 'Chọn') => `
+        <label class="select-box">
+          <input type="checkbox" data-select-key="${escapeHtml(key)}" ${isSelected(key) ? 'checked' : ''} />
+          <span>${label}</span>
+        </label>
+      `;
+
+      const pruneSelection = () => {
+        const validKeys = new Set([
+          ...accounts.map((item) => selectionKey('account', item.id)),
+          ...memories.map((item) => selectionKey('memory', getMemoryKey(item))),
+          ...classLetters.map((item) => selectionKey('letter', item.id)),
+          ...timeCapsules.map((item) => selectionKey('future', item.id)),
+          ...rememberNotes.map((item) => selectionKey('remember', item.id)),
+          ...diaries.map((item) => selectionKey('diary', item.id)),
+        ]);
+        selectedItems = new Set(Array.from(selectedItems).filter((key) => validKeys.has(key)));
+      };
+
+      const updateBulkBar = () => {
+        const prefix = selectablePrefixByTab[activeTab];
+        const bar = $('bulkBar');
+        if (!prefix || activeTab === 'downloads') {
+          bar.classList.add('hidden');
+          return;
+        }
+
+        const selectedCount = selectedKeysForTab().length;
+        const labels = {
+          accounts: 'tài khoản',
+          memories: 'ảnh/video',
+          letters: 'thư lớp',
+          future: 'lời nhắn tương lai',
+          remember: 'Secret Message',
+          diaries: 'nhật ký',
+        };
+
+        bar.classList.remove('hidden');
+        $('bulkTitle').textContent = selectedCount
+          ? `Đã chọn ${selectedCount} ${labels[activeTab]}`
+          : `Chọn nhiều ${labels[activeTab]}`;
+        $('bulkHint').textContent = selectedCount
+          ? 'Kiểm tra kỹ trước khi xóa. Thao tác này áp dụng cho các mục đang được chọn trong tab hiện tại.'
+          : 'Dùng checkbox từng mục hoặc bấm chọn tất cả mục đang hiện.';
+        $('bulkDeleteButton').disabled = selectedCount === 0 || isBulkDeleting;
+        $('clearSelectionButton').disabled = selectedCount === 0 || isBulkDeleting;
+        $('selectVisibleButton').disabled = isBulkDeleting;
+      };
+
+      const accountByUid = (uid) => accounts.find((account) => uid && account.uid === uid);
+      const accountByNameKey = (nameKey) => accounts.find((account) => nameKey && account.id === nameKey);
+      const resolveTrueName = ({ uid, nameKey, fallback }) =>
+        accountByUid(uid)?.name || accountByNameKey(nameKey)?.name || fallback || 'Không rõ tên';
+
+      const isAnonymousLetter = (letter) =>
+        Boolean(letter.anonymous || letter.kind === 'anonymous-board' || ['ẩn danh', 'an danh'].includes(normalizeSearch(letter.name)));
+
+      const updateStats = () => {
+        $('statAccounts').textContent = accounts.filter((account) => !account.deleted).length;
+        $('statMemories').textContent = memories.length;
+        $('statLetters').textContent = classLetters.length + timeCapsules.length;
+        $('statRemember').textContent = rememberNotes.length;
+        $('statDiaries').textContent = diaries.length;
+        $('statDownloads').textContent = downloads.length;
+      };
+
+      const systemHealthSnapshot = () => {
+        const activeAccounts = accounts.filter((account) => !account.deleted && !account.disabled).length;
+        const lockedAccounts = accounts.filter((account) => account.disabled && !account.deleted).length;
+        const deletedAccounts = accounts.filter((account) => account.deleted).length;
+        const memoryIds = new Set(memories.map((memory) => memory.id));
+        const heartIssues = memories.filter((memory) => safeReactionCount(memory.reactions) !== uniqueLikedBy(memory).length);
+        const ownerIssues = memories.filter((memory) => !memory.nameKey && memory.name);
+        const commentIssues = memoryComments.filter(commentNeedsReactionRepair);
+        const orphanComments = memoryComments.filter((comment) => comment.memoryId && !memoryIds.has(comment.memoryId));
+
+        return {
+          metrics: [
+            ['Tài khoản mở', activeAccounts],
+            ['Tài khoản khóa/xóa', lockedAccounts + deletedAccounts],
+            ['Kỷ niệm', memories.length],
+            ['Bình luận', memoryComments.length],
+            ['App version', appVersionInfo?.version || 'chưa rõ'],
+          ],
+          issues: [
+            ['Tim ảnh/video bị lệch', heartIssues.length, 'Sửa về đúng số UID đã tim và lưu lại số tim gốc.'],
+            ['Kỷ niệm thiếu nameKey', ownerIssues.length, 'Bổ sung nameKey từ tên nếu có thể, để album lọc ổn hơn.'],
+            ['Comment emoji cần sửa', commentIssues.length, 'Thêm đủ field emoji và gom mỗi UID về đúng 1 cảm xúc.'],
+            ['Bình luận mồ côi', orphanComments.length, 'Bình luận trỏ tới ảnh/video không còn trong database; manager chỉ báo để kiểm tra.'],
+          ],
+          counts: {
+            heartIssues: heartIssues.length,
+            ownerIssues: ownerIssues.length,
+            commentIssues: commentIssues.length,
+            orphanComments: orphanComments.length,
+          },
+        };
+      };
+
+      const renderSystemHealth = () => {
+        const health = systemHealthSnapshot();
+        const totalFixable = health.counts.heartIssues + health.counts.ownerIssues + health.counts.commentIssues;
+
+        $('systemHealth').innerHTML = health.metrics
+          .map(([label, value]) => `
+            <div class="health-metric">
+              <strong>${value}</strong>
+              <span class="muted">${escapeHtml(label)}</span>
+            </div>
+          `)
+          .join('');
+
+        $('systemIssues').innerHTML = health.issues
+          .map(([label, value, hint]) => `
+            <div class="issue-row">
+              <div>
+                <strong>${escapeHtml(label)}</strong>
+                <p class="muted">${escapeHtml(hint)}</p>
+              </div>
+              <span class="pill ${value ? 'pink' : ''}">${value ? `${value} lỗi` : 'Ổn'}</span>
+            </div>
+          `)
+          .join('');
+
+        $('repairDataButton').disabled = isLoadingManagerData || isBulkDeleting || isRepairingData || totalFixable === 0;
+        healthStatus.textContent = totalFixable
+          ? `Có ${totalFixable} lỗi có thể sửa tự động. Bình luận mồ côi chỉ được báo để manager kiểm tra trước khi xóa.`
+          : 'Dữ liệu chính đang ổn, chưa thấy lỗi cần sửa tự động.';
+      };
+
+      const renderSettings = () => {
+        $('toggleRecapButton').textContent = memoryRecapSetting.enabled ? 'Tắt Memory Recap' : 'Bật Memory Recap';
+        $('toggleRecapButton').classList.toggle('danger', memoryRecapSetting.enabled);
+        recapStatus.textContent = memoryRecapSetting.enabled
+          ? 'Đang bật: học sinh sẽ thấy recap nổi bật trên trang Ký ức.'
+          : 'Đang tắt: recap sẽ được ẩn khỏi trang học sinh.';
+
+        $('toggleClassLettersButton').textContent = classLettersSetting.enabled ? 'Tắt Thư lớp' : 'Bật Thư lớp';
+        $('toggleClassLettersButton').classList.toggle('danger', classLettersSetting.enabled);
+        classLettersStatus.textContent = classLettersSetting.enabled
+          ? 'Đang bật: bảng thư lớp sẽ hiện ngay trong trang Ký ức.'
+          : 'Đang tắt: học sinh sẽ không thấy mục gửi thư cho lớp.';
+
+        $('toggleWritingPromptsButton').textContent = writingPromptsSetting.enabled ? 'Tắt gợi nhắc' : 'Bật gợi nhắc';
+        $('toggleWritingPromptsButton').classList.toggle('danger', writingPromptsSetting.enabled);
+        writingPromptsStatus.textContent = writingPromptsSetting.enabled
+          ? 'Đang bật: học sinh sẽ thấy khung gợi nhắc viết lời nhắn và nhật ký.'
+          : 'Đang tắt: khung gợi nhắc sẽ được ẩn để giao diện gọn hơn.';
+
+        $('slideshowMoodSelect').value = cinematicSlideshowSetting.mood || 'cinematic';
+        $('toggleSlideshowButton').textContent = cinematicSlideshowSetting.enabled ? 'Tắt slideshow' : 'Bật slideshow';
+        $('toggleSlideshowButton').classList.toggle('danger', cinematicSlideshowSetting.enabled);
+        slideshowStatus.textContent = cinematicSlideshowSetting.enabled
+          ? `Đang bật: mood ${$('slideshowMoodSelect').selectedOptions[0]?.textContent || 'Điện ảnh'} sẽ hiện trên trang Ký ức.`
+          : 'Đang tắt: slideshow sẽ ẩn để feed gọn hơn.';
+
+        $('timeCapsuleUnlockAt').value = toDateTimeLocalValue(timeCapsuleSetting.unlockAt);
+        timeCapsuleStatus.textContent = timeCapsuleSetting.unlockAt
+          ? `Giờ mở hiện tại: ${formatDate(timeCapsuleSetting.unlockAt)} theo giờ Việt Nam. Đã có ${timeCapsules.length} lời nhắn.`
+          : `Chưa đặt giờ mở. Đã có ${timeCapsules.length} lời nhắn.`;
+      };
+
+      const showManager = () => {
+        gate.classList.add('hidden');
+        managerApp.classList.remove('hidden');
+        renderFilterOptions();
+        updateBulkBar();
+        startPolling();
+      };
+
+      const hideManager = () => {
+        if (managerPoll) {
+          window.clearInterval(managerPoll);
+          managerPoll = 0;
+        }
+        managerApp.classList.add('hidden');
+        gate.classList.remove('hidden');
+        if (managerPasswordInput) managerPasswordInput.value = '';
+        gateStatus.textContent = '';
+      };
+
+      const setActiveTab = (tab) => {
+        activeTab = tab;
+        document.querySelectorAll('.tab').forEach((button) => button.classList.toggle('active', button.dataset.tab === tab));
+        document.querySelectorAll('.panel').forEach((panel) => panel.classList.toggle('active', panel.dataset.panel === tab));
+        renderFilterOptions();
+        renderCurrentTab();
+      };
+
+      const renderAccounts = () => {
+        const items = accounts
+          .filter((account) => matchesSearch(account, ['name', 'id', 'uid']) && matchesActiveFilter(account, 'accounts'))
+          .sort((left, right) => Number(Boolean(left.deleted)) - Number(Boolean(right.deleted)) || String(left.name || '').localeCompare(String(right.name || ''), 'vi'));
+
+        $('accounts').innerHTML =
+          items
+            .map((account) => {
+              const deleted = Boolean(account.deleted);
+              const disabled = Boolean(account.disabled);
+              const selectKey = selectionKey('account', account.id);
+              return `
+                <article class="item ${isSelected(selectKey) ? 'selected' : ''}">
+                  <div class="row">
+                    ${account.id === MANAGER_NAME_KEY ? '' : checkboxHtml(selectKey)}
+                    <strong>${escapeHtml(account.name || account.id)}</strong>
+                    ${deleted ? '<span class="pill pink">Đã xóa</span>' : disabled ? '<span class="pill pink">Đã khóa</span>' : '<span class="pill">Đang mở</span>'}
+                  </div>
+                  <p class="muted">Class ${escapeHtml(account.className || CLASS_NAME)} | key: ${escapeHtml(account.id)}</p>
+                  <p class="muted">UID: ${escapeHtml(account.uid || 'manual')}</p>
+                  <p class="muted">Joined: ${formatDate(account.createdAt)} ${deleted ? `| Deleted: ${formatDate(account.deletedAt || account.managerDeletedAt)}` : ''}</p>
+                  ${disabled && account.disabledReason ? `<p class="muted"><strong>Lý do khóa:</strong> ${escapeHtml(account.disabledReason)}</p>` : ''}
+                  <div class="row" style="margin-top: 10px">
+                    ${
+                      deleted
+                        ? `<button class="secondary" data-account-action="restore-deleted" data-id="${account.id}">Khôi phục</button>`
+                        : disabled
+                          ? `<button class="secondary" data-account-action="restore" data-id="${account.id}">Mở lại</button>`
+                          : `<button class="secondary" data-account-action="disable" data-id="${account.id}">Khóa</button>`
+                    }
+                    ${account.id === MANAGER_NAME_KEY ? '' : `<button class="danger" data-account-action="delete" data-id="${account.id}">Xóa khỏi database</button>`}
+                  </div>
+                </article>
+              `;
+            })
+            .join('') || '<p class="muted">Không có tài khoản phù hợp.</p>';
+        updateBulkBar();
+      };
+
+      const renderMemories = () => {
+        const items = memories.filter((memory) => matchesSearch(memory, ['name', 'nameKey', 'uid', 'caption', 'className']) && matchesActiveFilter(memory, 'memories'));
+        $('memories').innerHTML =
+          items
+            .map((memory) => {
+              const key = getMemoryKey(memory);
+              const selectKey = selectionKey('memory', key);
+              const isVideo = memory.mediaType === 'video';
+              const visibility = memory.visibility || 'public';
+              const viewerNames = Array.isArray(memory.visibleToNames) ? memory.visibleToNames.filter(Boolean) : [];
+              const likedCount = uniqueLikedBy(memory).length;
+              const shownReactions = safeReactionCount(memory.reactions);
+              const originalReactions = Number(memory.managerHeartOriginalReactions);
+              const hasHeartBackup = Number.isFinite(originalReactions);
+              const heartMismatch = shownReactions !== likedCount;
+
+              return `
+                <article class="item memory-item ${isSelected(selectKey) ? 'selected' : ''}">
+                  <div class="memory-thumb-wrap">
+                    <img class="memory-thumb" src="${escapeHtml(memory.imageUrl || '')}" alt="Kỷ niệm của ${escapeHtml(memory.name || 'học sinh')}" loading="lazy" decoding="async" />
+                    <span class="memory-thumb-badge">${isVideo ? 'Video' : 'Ảnh'}</span>
+                  </div>
+                  <div>
+                    <div class="row">
+                      ${checkboxHtml(selectKey)}
+                      <strong>${escapeHtml(memory.name || 'Không rõ tên')}</strong>
+                      <span class="pill">${formatDate(memory.createdAt)}</span>
+                      <span class="pill ${visibility === 'public' ? '' : 'pink'}">${formatVisibility(visibility)}</span>
+                      <span class="pill dark">${shownReactions} tim</span>
+                      <span class="pill ${heartMismatch ? 'pink' : ''}">${likedCount} UID tim thật</span>
+                      ${hasHeartBackup ? `<span class="pill blue">Tim gốc: ${safeReactionCount(originalReactions)}</span>` : ''}
+                    </div>
+                    <p class="muted">Collection: ${escapeHtml(memory.collectionName || PUBLIC_MEMORIES_COLLECTION)} | UID: ${escapeHtml(memory.uid || '')}</p>
+                    ${heartMismatch ? '<p class="muted"><strong>Cảnh báo:</strong> Số tim hiển thị đang lệch với danh sách người đã tim. Có thể bấm Reset tim để sửa.</p>' : ''}
+                    ${visibility === 'tagged' ? `<p class="muted">Người được xem: ${escapeHtml(viewerNames.join(', ') || 'Chưa có tên hiển thị')}</p>` : ''}
+                    <p class="caption">${escapeHtml(memory.caption || '')}</p>
+                    <p class="muted">${Array.isArray(memory.hashtags) ? memory.hashtags.map((tag) => `#${escapeHtml(tag)}`).join(' ') : ''}</p>
+                    <div class="row" style="margin-top: 10px">
+                      <button class="secondary" data-memory-action="reset-hearts" data-key="${escapeHtml(key)}">Reset tim</button>
+                      ${hasHeartBackup ? `<button class="secondary" data-memory-action="restore-hearts" data-key="${escapeHtml(key)}">Khôi phục tim gốc</button>` : ''}
+                      <button class="danger" data-memory-action="delete" data-key="${escapeHtml(key)}">Xóa ${isVideo ? 'video' : 'ảnh'}</button>
+                    </div>
+                  </div>
+                </article>
+              `;
+            })
+            .join('') || '<p class="muted">Không có kỷ niệm phù hợp.</p>';
+        updateBulkBar();
+      };
+
+      const renderLetters = () => {
+        const items = classLetters.filter((letter) => matchesSearch(letter, ['name', 'nameKey', 'uid', 'message', 'trueName']) && matchesActiveFilter(letter, 'letters'));
+        $('classLetters').innerHTML =
+          items
+            .map((letter) => {
+              const anonymous = isAnonymousLetter(letter);
+              const trueName = resolveTrueName({ uid: letter.uid, nameKey: letter.nameKey, fallback: letter.trueName || letter.name });
+              const selectKey = selectionKey('letter', letter.id);
+              return `
+              <article class="item ${isSelected(selectKey) ? 'selected' : ''}">
+                <div class="row">
+                  ${checkboxHtml(selectKey)}
+                  <strong>${anonymous ? 'Ẩn danh trên bảng lớp' : escapeHtml(letter.name || trueName)}</strong>
+                  <span class="pill">${formatDate(letter.createdAt)}</span>
+                  ${anonymous ? '<span class="pill pink">Ẩn danh</span>' : '<span class="pill">Có tên</span>'}
+                </div>
+                <p class="muted">Người viết thật: <strong>${escapeHtml(trueName)}</strong> | key: ${escapeHtml(letter.nameKey || '')} | UID: ${escapeHtml(letter.uid || '')}</p>
+                <p class="message">${escapeHtml(letter.message || '')}</p>
+                <div class="row" style="margin-top: 10px">
+                  <button class="danger" data-letter-action="delete" data-id="${escapeHtml(letter.id)}">Xóa thư lớp</button>
+                </div>
+              </article>
+            `;
+            })
+            .join('') || '<p class="muted">Chưa có thư lớp nào.</p>';
+        updateBulkBar();
+      };
+
+      const renderFutureMessages = () => {
+        const capsuleItems = timeCapsules.filter((letter) => matchesSearch(letter, ['name', 'nameKey', 'uid', 'message']) && matchesActiveFilter(letter, 'future'));
+        $('futureMessages').innerHTML =
+          capsuleItems
+            .map((letter) => {
+              const selectKey = selectionKey('future', letter.id);
+              return `
+            <article class="item ${isSelected(selectKey) ? 'selected' : ''}">
+              <div class="row">
+                ${checkboxHtml(selectKey)}
+                <strong>Gửi cho lớp trong tương lai: ${escapeHtml(letter.name || 'Không rõ tên')}</strong>
+                <span class="pill blue">${formatDate(letter.createdAt)}</span>
+                <span class="pill dark">Mở theo giờ VN: ${formatDate(timeCapsuleSetting.unlockAt)}</span>
+              </div>
+              <p class="muted">key: ${escapeHtml(letter.nameKey || '')} | UID: ${escapeHtml(letter.uid || '')}</p>
+              <p class="message">${escapeHtml(letter.message || '')}</p>
+              <div class="row" style="margin-top: 10px">
+                <button class="danger" data-capsule-action="delete" data-id="${escapeHtml(letter.id)}">Xóa lời nhắn</button>
+              </div>
+            </article>
+          `;
+            })
+            .join('') || '<p class="muted">Chưa có lời nhắn cho lớp trong tương lai nào.</p>';
+        updateBulkBar();
+      };
+
+      const renderRememberNotes = () => {
+        const items = rememberNotes.filter((note) => matchesSearch(note, ['fromName', 'fromNameKey', 'toName', 'toNameKey', 'message']) && matchesActiveFilter(note, 'remember'));
+        $('rememberNotes').innerHTML =
+          items
+            .map((note) => {
+              const selectKey = selectionKey('remember', note.id);
+              return `
+              <article class="item ${isSelected(selectKey) ? 'selected' : ''}">
+                <div class="row">
+                  ${checkboxHtml(selectKey)}
+                  <strong>${escapeHtml(note.anonymous ? 'Ẩn danh gửi Secret Message' : note.fromName || 'Không rõ người gửi')}</strong>
+                  <span class="pill">${formatDate(note.createdAt)}</span>
+                  ${note.anonymous ? '<span class="pill pink">Ẩn danh với người nhận</span>' : '<span class="pill">Có tên</span>'}
+                  ${note.viewedAt ? '<span class="pill blue">Đã xem</span>' : '<span class="pill dark">Chưa xem</span>'}
+                </div>
+                <p class="muted">Người gửi thật: <strong>${escapeHtml(note.fromName || 'Không rõ')}</strong> | key: ${escapeHtml(note.fromNameKey || '')} | UID: ${escapeHtml(note.fromUid || '')}</p>
+                <p class="muted">Gửi cho: <strong>${escapeHtml(note.toName || 'Không rõ')}</strong> | key: ${escapeHtml(note.toNameKey || '')}</p>
+                ${note.reactionLabel ? `<p class="muted">Phản hồi: ${escapeHtml(note.reactionLabel)} | ${formatDate(note.reactedAt)}</p>` : ''}
+                <p class="message">${escapeHtml(note.message || '')}</p>
+                <div class="row" style="margin-top: 10px">
+                  <button class="danger" data-remember-action="delete" data-id="${escapeHtml(note.id)}">Xóa Secret Message</button>
+                </div>
+              </article>
+            `;
+            })
+            .join('') || '<p class="muted">Chưa có Secret Message nào.</p>';
+        updateBulkBar();
+      };
+
+      const renderDiaries = () => {
+        const items = diaries.filter((diary) => matchesSearch(diary, ['name', 'nameKey', 'uid', 'message']) && matchesActiveFilter(diary, 'diaries'));
+        $('diaries').innerHTML =
+          items
+            .map((diary) => {
+              const selectKey = selectionKey('diary', diary.id);
+              return `
+              <article class="item ${isSelected(selectKey) ? 'selected' : ''}">
+                <div class="row">
+                  ${checkboxHtml(selectKey)}
+                  <strong>${escapeHtml(diary.name || 'Không rõ tên')}</strong>
+                  <span class="pill">${formatDate(diary.createdAt)}</span>
+                </div>
+                <p class="muted">UID: ${escapeHtml(diary.uid || '')} | key: ${escapeHtml(diary.nameKey || '')}</p>
+                <p class="message">${escapeHtml(diary.message || '')}</p>
+                <div class="row" style="margin-top: 10px">
+                  <button class="danger" data-diary-action="delete" data-id="${escapeHtml(diary.id)}">Xóa nhật ký</button>
+                </div>
+              </article>
+            `;
+            })
+            .join('') || '<p class="muted">Chưa có nhật ký bí mật nào.</p>';
+        updateBulkBar();
+      };
+
+      const renderDownloads = () => {
+        const items = downloads.filter((item) => matchesSearch(item, ['name', 'nameKey', 'uid', 'memoryOwnerName', 'memoryCaption']) && matchesActiveFilter(item, 'downloads'));
+        $('downloads').innerHTML =
+          items
+            .map((item) => {
+              const memoryKey = `${item.memoryCollection || PUBLIC_MEMORIES_COLLECTION}:${item.memoryId || ''}`;
+              const memory = memories.find((memoryItem) => getMemoryKey(memoryItem) === memoryKey);
+              const thumb = memory?.imageUrl || '';
+              const isVideo = item.memoryMediaType === 'video';
+              return `
+                <article class="item memory-item">
+                  ${
+                    thumb
+                      ? `<img class="memory-thumb" src="${escapeHtml(thumb)}" alt="Kỷ niệm đã tải" loading="lazy" decoding="async" />`
+                      : `<div class="memory-thumb" style="display:grid;place-items:center;color:rgba(53,41,31,.55);font-weight:900">${isVideo ? 'VIDEO' : 'ẢNH'}</div>`
+                  }
+                  <div>
+                    <div class="row">
+                      <strong>${escapeHtml(item.name || 'Không rõ tên')}</strong>
+                      <span class="pill">${formatDate(item.downloadedAt || item.createdAt)}</span>
+                      <span class="pill dark">${isVideo ? 'Video' : 'Ảnh'}</span>
+                    </div>
+                    <p class="muted">Đã tải kỷ niệm của ${escapeHtml(item.memoryOwnerName || 'không rõ tên')}</p>
+                    <p class="muted">Người tải: ${escapeHtml(item.nameKey || '')} | UID: ${escapeHtml(item.uid || '')}</p>
+                    <p class="caption">${escapeHtml(item.memoryCaption || memory?.caption || '')}</p>
+                  </div>
+                </article>
+              `;
+            })
+            .join('') || '<p class="muted">Chưa có lượt tải nào.</p>';
+        updateBulkBar();
+      };
+
+      const renderCurrentTab = () => {
+        updateStats();
+        renderSystemHealth();
+        if (activeTab === 'accounts') renderAccounts();
+        if (activeTab === 'memories') renderMemories();
+        if (activeTab === 'letters') renderLetters();
+        if (activeTab === 'future') renderFutureMessages();
+        if (activeTab === 'remember') renderRememberNotes();
+        if (activeTab === 'diaries') renderDiaries();
+        if (activeTab === 'downloads') renderDownloads();
+        renderSettings();
+      };
+
+      const renderAll = () => {
+        renderCurrentTab();
+      };
+
+      const deleteMemoryVideoChunks = async (memoryId) => {
+        const chunkSnapshot = await getDocs(collection(db, MEMORY_VIDEO_CHUNKS_COLLECTION, memoryId, 'chunks'));
+        await Promise.allSettled(
+          chunkSnapshot.docs.map(async (item) => {
+            const chunkRef = doc(db, MEMORY_VIDEO_CHUNKS_COLLECTION, memoryId, 'chunks', item.id);
+            await updateDoc(chunkRef, {
+              managerKey: MANAGER_PASSWORD,
+              managerDeletedAt: serverTimestamp(),
+            });
+            await deleteDoc(chunkRef);
+          }),
+        );
+      };
+
+      const deleteMemoryRecord = async (memory) => {
+        const collectionName = memory.collectionName || PUBLIC_MEMORIES_COLLECTION;
+        await updateDoc(doc(db, collectionName, memory.id), {
+          managerKey: MANAGER_PASSWORD,
+          managerDeletedAt: serverTimestamp(),
+        });
+        if (memory.mediaType === 'video') await deleteMemoryVideoChunks(memory.id);
+        await deleteDoc(doc(db, collectionName, memory.id));
+      };
+
+      const resetMemoryHeartCount = async (memory) => {
+        const collectionName = memory.collectionName || PUBLIC_MEMORIES_COLLECTION;
+        const likedBy = uniqueLikedBy(memory);
+        const currentReactions = safeReactionCount(memory.reactions);
+        const updatePayload = {
+          reactions: likedBy.length,
+          likedBy,
+          managerHeartLastResetFrom: currentReactions,
+          managerHeartLastResetTo: likedBy.length,
+          managerHeartResetAt: serverTimestamp(),
+          managerKey: MANAGER_PASSWORD,
+          managerUpdatedAt: serverTimestamp(),
+        };
+
+        if (!Number.isFinite(Number(memory.managerHeartOriginalReactions))) {
+          updatePayload.managerHeartOriginalReactions = currentReactions;
+        }
+
+        await updateDoc(doc(db, collectionName, memory.id), updatePayload);
+        memory.reactions = likedBy.length;
+        memory.likedBy = likedBy;
+        memory.managerHeartLastResetFrom = currentReactions;
+        memory.managerHeartLastResetTo = likedBy.length;
+        if (!Number.isFinite(Number(memory.managerHeartOriginalReactions))) {
+          memory.managerHeartOriginalReactions = currentReactions;
+        }
+      };
+
+      const restoreMemoryOriginalHeartCount = async (memory) => {
+        const originalReactions = safeReactionCount(memory.managerHeartOriginalReactions);
+        if (!Number.isFinite(Number(memory.managerHeartOriginalReactions))) {
+          throw new Error('Ảnh này chưa có số tim gốc đã lưu.');
+        }
+
+        const collectionName = memory.collectionName || PUBLIC_MEMORIES_COLLECTION;
+        await updateDoc(doc(db, collectionName, memory.id), {
+          reactions: originalReactions,
+          managerHeartRestoredAt: serverTimestamp(),
+          managerKey: MANAGER_PASSWORD,
+          managerUpdatedAt: serverTimestamp(),
+        });
+        memory.reactions = originalReactions;
+      };
+
+      const memoryNeedsRepair = (memory) => {
+        const rawLikedBy = Array.isArray(memory.likedBy) ? memory.likedBy.map(String).filter(Boolean) : [];
+        const likedBy = uniqueLikedBy(memory);
+        return safeReactionCount(memory.reactions) !== likedBy.length
+          || rawLikedBy.length !== likedBy.length
+          || (!memory.nameKey && memory.name);
+      };
+
+      const repairMemoryRecord = async (memory) => {
+        const collectionName = memory.collectionName || PUBLIC_MEMORIES_COLLECTION;
+        const likedBy = uniqueLikedBy(memory);
+        const rawLikedBy = Array.isArray(memory.likedBy) ? memory.likedBy.map(String).filter(Boolean) : [];
+        const currentReactions = safeReactionCount(memory.reactions);
+        const updatePayload = {
+          managerKey: MANAGER_PASSWORD,
+          managerUpdatedAt: serverTimestamp(),
+        };
+        let hasChanges = false;
+
+        if (!memory.nameKey && memory.name) {
+          updatePayload.nameKey = makeNameKey(memory.name);
+          hasChanges = true;
+        }
+
+        if (currentReactions !== likedBy.length || rawLikedBy.length !== likedBy.length || !Array.isArray(memory.likedBy)) {
+          updatePayload.reactions = likedBy.length;
+          updatePayload.likedBy = likedBy;
+          updatePayload.managerHeartLastResetFrom = currentReactions;
+          updatePayload.managerHeartLastResetTo = likedBy.length;
+          updatePayload.managerHeartResetAt = serverTimestamp();
+          if (!Number.isFinite(Number(memory.managerHeartOriginalReactions))) {
+            updatePayload.managerHeartOriginalReactions = currentReactions;
+          }
+          hasChanges = true;
+        }
+
+        if (!hasChanges) return false;
+        await updateDoc(doc(db, collectionName, memory.id), updatePayload);
+        Object.assign(memory, updatePayload, {
+          reactions: updatePayload.reactions ?? memory.reactions,
+          likedBy: updatePayload.likedBy ?? memory.likedBy,
+          nameKey: updatePayload.nameKey ?? memory.nameKey,
+        });
+        return true;
+      };
+
+      const repairCommentReactionRecord = async (comment) => {
+        if (!commentNeedsReactionRepair(comment)) return false;
+        const reactionPayload = repairedCommentReactionPayload(comment);
+        await updateDoc(doc(db, MEMORY_COMMENTS_COLLECTION, comment.id), {
+          ...reactionPayload,
+          managerKey: MANAGER_PASSWORD,
+          managerUpdatedAt: serverTimestamp(),
+        });
+        Object.assign(comment, reactionPayload);
+        return true;
+      };
+
+      const repairSystemData = async () => {
+        if (isRepairingData) return;
+        const memoriesToRepair = memories.filter(memoryNeedsRepair);
+        const commentsToRepair = memoryComments.filter(commentNeedsReactionRepair);
+        const total = memoriesToRepair.length + commentsToRepair.length;
+
+        if (!total) {
+          healthStatus.textContent = 'Không có lỗi nào cần sửa tự động.';
+          renderSystemHealth();
+          return;
+        }
+
+        if (!window.confirm(`Sửa tự động ${total} lỗi dữ liệu? Web sẽ giữ lại số tim gốc trước khi reset tim.`)) return;
+
+        isRepairingData = true;
+        renderSystemHealth();
+        healthStatus.textContent = `Đang sửa ${total} lỗi dữ liệu...`;
+
+        let repairedMemories = 0;
+        let repairedComments = 0;
+        let finalStatus = '';
+        try {
+          for (const memory of memoriesToRepair) {
+            if (await repairMemoryRecord(memory)) repairedMemories += 1;
+          }
+
+          for (const comment of commentsToRepair) {
+            if (await repairCommentReactionRecord(comment)) repairedComments += 1;
+          }
+
+          renderAll();
+          finalStatus = `Đã sửa ${repairedMemories} kỷ niệm và ${repairedComments} bình luận.`;
+        } catch (error) {
+          finalStatus = error.message || 'Không thể sửa dữ liệu lúc này.';
+        } finally {
+          isRepairingData = false;
+          renderSystemHealth();
+          if (finalStatus) healthStatus.textContent = finalStatus;
+        }
+      };
+
+      const deleteAccountRecord = async (account) => {
+        if (!account || account.id === MANAGER_NAME_KEY) return;
+        const nicknameKey = account.nicknameKey || makeNameKey(account.nickname || '');
+        if (nicknameKey) {
+          await updateDoc(doc(db, 'nicknameClaims98', nicknameKey), {
+            managerKey: MANAGER_PASSWORD,
+            managerDeletedAt: serverTimestamp(),
+            managerUpdatedAt: serverTimestamp(),
+          }).catch(() => undefined);
+          await deleteDoc(doc(db, 'nicknameClaims98', nicknameKey)).catch(() => undefined);
+        }
+        await updateDoc(doc(db, 'students98', account.id), {
+          managerKey: MANAGER_PASSWORD,
+          managerDeletedAt: serverTimestamp(),
+          managerUpdatedAt: serverTimestamp(),
+        });
+        await deleteDoc(doc(db, 'students98', account.id));
+      };
+
+      const deleteClassLetterRecord = async (letter) => {
+        await updateDoc(doc(db, GUESTBOOK_COLLECTION, letter.id), {
+          managerKey: MANAGER_PASSWORD,
+          managerDeletedAt: serverTimestamp(),
+        });
+        await deleteDoc(doc(db, GUESTBOOK_COLLECTION, letter.id));
+      };
+
+      const deleteFutureMessageRecord = async (letter) => {
+        await updateDoc(doc(db, TIME_CAPSULE_COLLECTION, letter.id), {
+          managerKey: MANAGER_PASSWORD,
+          managerDeletedAt: serverTimestamp(),
+        });
+        await deleteDoc(doc(db, TIME_CAPSULE_COLLECTION, letter.id));
+      };
+
+      const deleteRememberNoteRecord = async (note) => {
+        await deleteDoc(doc(db, REMEMBER_NOTES_COLLECTION, note.id));
+      };
+
+      const deleteDiaryRecord = async (diary) => {
+        await updateDoc(doc(db, DIARY_COLLECTION, diary.id), {
+          managerKey: MANAGER_PASSWORD,
+          managerDeletedAt: serverTimestamp(),
+        });
+        await deleteDoc(doc(db, DIARY_COLLECTION, diary.id));
+      };
+
+      const statusForActiveTab = () => {
+        if (activeTab === 'accounts') return accountStatus;
+        if (activeTab === 'memories') return memoryStatus;
+        if (activeTab === 'letters') return letterStatus;
+        if (activeTab === 'future') return timeCapsuleStatus;
+        if (activeTab === 'remember') return rememberStatus;
+        if (activeTab === 'diaries') return diaryStatus;
+        return accountStatus;
+      };
+
+      const selectedRecordsForActiveTab = () => {
+        if (activeTab === 'accounts') {
+          return selectedKeysForTab()
+            .map((key) => accounts.find((account) => selectionKey('account', account.id) === key))
+            .filter(Boolean)
+            .filter((account) => account.id !== MANAGER_NAME_KEY);
+        }
+
+        if (activeTab === 'memories') {
+          return selectedKeysForTab()
+            .map((key) => memories.find((memory) => selectionKey('memory', getMemoryKey(memory)) === key))
+            .filter(Boolean);
+        }
+
+        if (activeTab === 'letters') {
+          return selectedKeysForTab()
+            .map((key) => classLetters.find((letter) => selectionKey('letter', letter.id) === key))
+            .filter(Boolean);
+        }
+
+        if (activeTab === 'future') {
+          return selectedKeysForTab()
+            .map((key) => timeCapsules.find((letter) => selectionKey('future', letter.id) === key))
+            .filter(Boolean);
+        }
+
+        if (activeTab === 'remember') {
+          return selectedKeysForTab()
+            .map((key) => rememberNotes.find((note) => selectionKey('remember', note.id) === key))
+            .filter(Boolean);
+        }
+
+        if (activeTab === 'diaries') {
+          return selectedKeysForTab()
+            .map((key) => diaries.find((diary) => selectionKey('diary', diary.id) === key))
+            .filter(Boolean);
+        }
+
+        return [];
+      };
+
+      const removeSelectedRecordsFromLocalState = (records) => {
+        if (activeTab === 'accounts') {
+          const ids = new Set(records.map((item) => item.id));
+          accounts = accounts.filter((account) => !ids.has(account.id));
+        }
+
+        if (activeTab === 'memories') {
+          const keys = new Set(records.map(getMemoryKey));
+          memories = memories.filter((item) => !keys.has(getMemoryKey(item)));
+        }
+
+        if (activeTab === 'letters') {
+          const ids = new Set(records.map((item) => item.id));
+          classLetters = classLetters.filter((item) => !ids.has(item.id));
+        }
+
+        if (activeTab === 'future') {
+          const ids = new Set(records.map((item) => item.id));
+          timeCapsules = timeCapsules.filter((item) => !ids.has(item.id));
+        }
+
+        if (activeTab === 'remember') {
+          const ids = new Set(records.map((item) => item.id));
+          rememberNotes = rememberNotes.filter((item) => !ids.has(item.id));
+        }
+
+        if (activeTab === 'diaries') {
+          const ids = new Set(records.map((item) => item.id));
+          diaries = diaries.filter((item) => !ids.has(item.id));
+        }
+      };
+
+      const deleteRecordForActiveTab = async (record) => {
+        if (activeTab === 'accounts') return await deleteAccountRecord(record);
+        if (activeTab === 'memories') return await deleteMemoryRecord(record);
+        if (activeTab === 'letters') return await deleteClassLetterRecord(record);
+        if (activeTab === 'future') return await deleteFutureMessageRecord(record);
+        if (activeTab === 'remember') return await deleteRememberNoteRecord(record);
+        if (activeTab === 'diaries') return await deleteDiaryRecord(record);
+        return undefined;
+      };
+
+      const bulkDeleteSelected = async () => {
+        const records = selectedRecordsForActiveTab();
+        if (!records.length) return;
+
+        const labels = {
+          accounts: 'tài khoản',
+          memories: 'ảnh/video',
+          letters: 'thư lớp',
+          future: 'lời nhắn cho lớp trong tương lai',
+          remember: 'Secret Message',
+          diaries: 'nhật ký',
+        };
+
+        if (!window.confirm(`Xóa ${records.length} ${labels[activeTab] || 'mục'} đã chọn?`)) return;
+
+        const status = statusForActiveTab();
+        isBulkDeleting = true;
+        updateBulkBar();
+        status.textContent = `Đang xóa ${records.length} mục đã chọn...`;
+
+        try {
+          await Promise.all(records.map((record) => deleteRecordForActiveTab(record)));
+          removeSelectedRecordsFromLocalState(records);
+          selectedKeysForTab().forEach((key) => selectedItems.delete(key));
+          pruneSelection();
+          renderCurrentTab();
+          status.textContent = `Đã xóa ${records.length} mục đã chọn.`;
+        } catch (error) {
+          status.textContent = error.message || 'Không thể xóa nhiều mục lúc này.';
+        } finally {
+          isBulkDeleting = false;
+          updateBulkBar();
+        }
+      };
+
+      const refreshManagerData = async () => {
+        if (isLoadingManagerData) return;
+
+        isLoadingManagerData = true;
+        accountStatus.textContent = 'Đang tải dữ liệu manager...';
+
+        try {
+          const [
+            accountSnapshot,
+            diarySnapshot,
+            publicMemorySnapshot,
+            privateMemorySnapshot,
+            commentSnapshot,
+            downloadSnapshot,
+            letterSnapshot,
+            timeCapsuleSnapshot,
+            rememberSnapshot,
+            recapSnapshot,
+            classLettersSnapshot,
+            writingPromptsSnapshot,
+            slideshowSnapshot,
+            timeCapsuleSettingSnapshot,
+            appVersionSnapshot,
+          ] = await Promise.all([
+            getDocs(query(collection(db, 'students98'), orderBy('name'))),
+            getDocs(query(collection(db, DIARY_COLLECTION), orderBy('createdAt', 'desc'))),
+            getDocs(query(collection(db, PUBLIC_MEMORIES_COLLECTION), orderBy('createdAt', 'desc'))),
+            isManagerFirebaseUser()
+              ? getDocs(query(collection(db, PRIVATE_MEMORIES_COLLECTION), orderBy('createdAt', 'desc')))
+              : Promise.resolve({ docs: [] }),
+            getDocs(query(collection(db, MEMORY_COMMENTS_COLLECTION), orderBy('createdAt', 'desc'))),
+            getDocs(query(collection(db, MEMORY_DOWNLOAD_LOGS_COLLECTION), orderBy('downloadedAt', 'desc'))),
+            getDocs(query(collection(db, GUESTBOOK_COLLECTION), orderBy('createdAt', 'desc'))),
+            getDocs(query(collection(db, TIME_CAPSULE_COLLECTION), orderBy('createdAt', 'desc'))),
+            getDocs(query(collection(db, REMEMBER_NOTES_COLLECTION), orderBy('createdAt', 'desc'))),
+            getDoc(doc(db, SITE_SETTINGS_COLLECTION, MEMORY_RECAP_SETTING_ID)),
+            getDoc(doc(db, SITE_SETTINGS_COLLECTION, CLASS_LETTERS_SETTING_ID)),
+            getDoc(doc(db, SITE_SETTINGS_COLLECTION, WRITING_PROMPTS_SETTING_ID)),
+            getDoc(doc(db, SITE_SETTINGS_COLLECTION, CINEMATIC_SLIDESHOW_SETTING_ID)),
+            getDoc(doc(db, SITE_SETTINGS_COLLECTION, TIME_CAPSULE_SETTING_ID)),
+            fetch(`./app-version.json?manager=${Date.now()}`).then((response) => (response.ok ? response.json() : null)).catch(() => null),
+          ]);
+
+          accounts = accountSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+          diaries = diarySnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+          memoryComments = commentSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+          downloads = downloadSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+          classLetters = letterSnapshot.docs.map((item) => {
+            const data = item.data();
+            return {
+              id: item.id,
+              ...data,
+              trueName: resolveTrueName({ uid: data.uid, nameKey: data.nameKey, fallback: data.name }),
+            };
+          });
+          timeCapsules = timeCapsuleSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+          rememberNotes = rememberSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+          memoryRecapSetting = recapSnapshot.exists() ? { enabled: Boolean(recapSnapshot.data().enabled) } : { enabled: false };
+          classLettersSetting = classLettersSnapshot.exists() ? { enabled: Boolean(classLettersSnapshot.data().enabled) } : { enabled: false };
+          writingPromptsSetting = writingPromptsSnapshot.exists() ? { enabled: Boolean(writingPromptsSnapshot.data().enabled) } : { enabled: false };
+          cinematicSlideshowSetting = slideshowSnapshot.exists()
+            ? { enabled: Boolean(slideshowSnapshot.data().enabled), mood: slideshowSnapshot.data().mood || 'cinematic' }
+            : { enabled: false, mood: 'cinematic' };
+          timeCapsuleSetting = timeCapsuleSettingSnapshot.exists()
+            ? { unlockAt: timeCapsuleSettingSnapshot.data().unlockAt || '' }
+            : { unlockAt: '' };
+          appVersionInfo = appVersionSnapshot;
+          memories = [
+            ...publicMemorySnapshot.docs.map((item) => ({ id: item.id, collectionName: PUBLIC_MEMORIES_COLLECTION, ...item.data() })),
+            ...privateMemorySnapshot.docs.map((item) => ({ id: item.id, collectionName: PRIVATE_MEMORIES_COLLECTION, ...item.data() })),
+          ]
+            .filter((item) => item.imageUrl)
+            .sort((left, right) => {
+              const leftDate = left.createdAt?.toDate ? left.createdAt.toDate() : new Date(left.createdAt || 0);
+              const rightDate = right.createdAt?.toDate ? right.createdAt.toDate() : new Date(right.createdAt || 0);
+              return rightDate.getTime() - leftDate.getTime();
+            });
+
+          pruneSelection();
+          renderAll();
+          accountStatus.textContent = isManagerFirebaseUser()
+            ? `Đã tải dữ liệu lúc ${new Intl.DateTimeFormat('vi-VN', { timeStyle: 'medium' }).format(new Date())}.`
+            : `Đã tải dữ liệu lúc ${new Intl.DateTimeFormat('vi-VN', { timeStyle: 'medium' }).format(new Date())}. Ảnh riêng tư chỉ hiện khi trình duyệt đã có phiên Firebase manager.`;
+        } catch (error) {
+          accountStatus.textContent = error.message || 'Không thể tải dữ liệu manager.';
+        } finally {
+          isLoadingManagerData = false;
+        }
+      };
+
+      const startPolling = () => {
+        if (managerPoll) return;
+        void refreshManagerData();
+        managerPoll = window.setInterval(() => {
+          if (document.visibilityState === 'visible') void refreshManagerData();
+        }, 20000);
+      };
+
+      const openManagerWithPassword = async () => {
+        try {
+          const typedPassword = String(managerPasswordInput?.value || '').trim();
+          if (typedPassword !== MANAGER_PASSWORD) {
+            gateStatus.textContent = 'Mật khẩu manager chưa đúng.';
+            managerPasswordInput?.focus();
+            return;
+          }
+
+          gateStatus.textContent = 'Đang mở manager...';
+          await ensureManagerFirebaseAuth();
+          gateStatus.textContent = '';
+          showManager();
+        } catch (error) {
+          gateStatus.textContent =
+            error.message ||
+            'Không thể mở manager. Hãy kiểm tra mạng hoặc quyền Firebase manager.';
+        }
+      };
+
+      $('gateForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        await openManagerWithPassword();
+      });
+
+      $('lockButton').addEventListener('click', async () => {
+        hideManager();
+      });
+
+      $('refreshButton').addEventListener('click', () => void refreshManagerData());
+      $('repairDataButton').addEventListener('click', () => void repairSystemData());
+      $('toggleRecapButton').addEventListener('click', async () => {
+        const nextEnabled = !memoryRecapSetting.enabled;
+        $('toggleRecapButton').disabled = true;
+        recapStatus.textContent = nextEnabled ? 'Đang bật Memory Recap...' : 'Đang tắt Memory Recap...';
+        try {
+          await setDoc(
+            doc(db, SITE_SETTINGS_COLLECTION, MEMORY_RECAP_SETTING_ID),
+            {
+              enabled: nextEnabled,
+              managerKey: MANAGER_PASSWORD,
+              updatedAt: serverTimestamp(),
+              updatedBy: MANAGER_NAME_KEY,
+            },
+            { merge: true },
+          );
+          memoryRecapSetting = { enabled: nextEnabled };
+          renderSettings();
+        } catch (error) {
+          recapStatus.textContent = error.message || 'Không thể cập nhật Memory Recap.';
+        } finally {
+          $('toggleRecapButton').disabled = false;
+        }
+      });
+      $('toggleClassLettersButton').addEventListener('click', async () => {
+        const nextEnabled = !classLettersSetting.enabled;
+        $('toggleClassLettersButton').disabled = true;
+        classLettersStatus.textContent = nextEnabled ? 'Đang bật Thư lớp trong Ký ức...' : 'Đang tắt Thư lớp trong Ký ức...';
+        try {
+          await setDoc(
+            doc(db, SITE_SETTINGS_COLLECTION, CLASS_LETTERS_SETTING_ID),
+            {
+              enabled: nextEnabled,
+              managerKey: MANAGER_PASSWORD,
+              updatedAt: serverTimestamp(),
+              updatedBy: MANAGER_NAME_KEY,
+            },
+            { merge: true },
+          );
+          classLettersSetting = { enabled: nextEnabled };
+          renderSettings();
+        } catch (error) {
+          classLettersStatus.textContent = error.message || 'Không thể cập nhật Thư lớp trong Ký ức.';
+        } finally {
+          $('toggleClassLettersButton').disabled = false;
+        }
+      });
+      $('toggleWritingPromptsButton').addEventListener('click', async () => {
+        const nextEnabled = !writingPromptsSetting.enabled;
+        $('toggleWritingPromptsButton').disabled = true;
+        writingPromptsStatus.textContent = nextEnabled ? 'Đang bật gợi nhắc cuối năm...' : 'Đang tắt gợi nhắc cuối năm...';
+        try {
+          await setDoc(
+            doc(db, SITE_SETTINGS_COLLECTION, WRITING_PROMPTS_SETTING_ID),
+            {
+              enabled: nextEnabled,
+              managerKey: MANAGER_PASSWORD,
+              updatedAt: serverTimestamp(),
+              updatedBy: MANAGER_NAME_KEY,
+            },
+            { merge: true },
+          );
+          writingPromptsSetting = { enabled: nextEnabled };
+          renderSettings();
+        } catch (error) {
+          writingPromptsStatus.textContent = error.message || 'Không thể cập nhật gợi nhắc cuối năm.';
+        } finally {
+          $('toggleWritingPromptsButton').disabled = false;
+        }
+      });
+      $('toggleSlideshowButton').addEventListener('click', async () => {
+        const nextEnabled = !cinematicSlideshowSetting.enabled;
+        const mood = $('slideshowMoodSelect').value || 'cinematic';
+        $('toggleSlideshowButton').disabled = true;
+        slideshowStatus.textContent = nextEnabled ? 'Đang bật slideshow...' : 'Đang tắt slideshow...';
+        try {
+          await setDoc(
+            doc(db, SITE_SETTINGS_COLLECTION, CINEMATIC_SLIDESHOW_SETTING_ID),
+            {
+              enabled: nextEnabled,
+              mood,
+              managerKey: MANAGER_PASSWORD,
+              updatedAt: serverTimestamp(),
+              updatedBy: MANAGER_NAME_KEY,
+            },
+            { merge: true },
+          );
+          cinematicSlideshowSetting = { enabled: nextEnabled, mood };
+          renderSettings();
+        } catch (error) {
+          slideshowStatus.textContent = error.message || 'Không thể cập nhật slideshow.';
+        } finally {
+          $('toggleSlideshowButton').disabled = false;
+        }
+      });
+      $('slideshowMoodSelect').addEventListener('change', async () => {
+        const mood = $('slideshowMoodSelect').value || 'cinematic';
+        slideshowStatus.textContent = 'Đang lưu mood slideshow...';
+        try {
+          await setDoc(
+            doc(db, SITE_SETTINGS_COLLECTION, CINEMATIC_SLIDESHOW_SETTING_ID),
+            {
+              enabled: Boolean(cinematicSlideshowSetting.enabled),
+              mood,
+              managerKey: MANAGER_PASSWORD,
+              updatedAt: serverTimestamp(),
+              updatedBy: MANAGER_NAME_KEY,
+            },
+            { merge: true },
+          );
+          cinematicSlideshowSetting = { ...cinematicSlideshowSetting, mood };
+          renderSettings();
+        } catch (error) {
+          slideshowStatus.textContent = error.message || 'Không thể lưu mood slideshow.';
+        }
+      });
+      $('saveTimeCapsuleButton').addEventListener('click', async () => {
+        const value = $('timeCapsuleUnlockAt').value;
+        const unlockAt = value ? vietnamDateTimeLocalToIso(value) : '';
+        if (!unlockAt) {
+          timeCapsuleStatus.textContent = 'Hãy chọn giờ mở hợp lệ theo giờ Việt Nam.';
+          return;
+        }
+
+        $('saveTimeCapsuleButton').disabled = true;
+        timeCapsuleStatus.textContent = 'Đang lưu giờ mở Gửi cho lớp trong tương lai...';
+        try {
+          await setDoc(
+            doc(db, SITE_SETTINGS_COLLECTION, TIME_CAPSULE_SETTING_ID),
+            {
+              unlockAt,
+              managerKey: MANAGER_PASSWORD,
+              updatedAt: serverTimestamp(),
+              updatedBy: MANAGER_NAME_KEY,
+            },
+            { merge: true },
+          );
+          timeCapsuleSetting = { unlockAt };
+          renderSettings();
+        } catch (error) {
+          timeCapsuleStatus.textContent = error.message || 'Không thể lưu giờ mở Gửi cho lớp trong tương lai.';
+        } finally {
+          $('saveTimeCapsuleButton').disabled = false;
+        }
+      });
+      $('managerSearch').addEventListener('input', renderCurrentTab);
+      $('managerFilter').addEventListener('change', renderCurrentTab);
+      $('clearSearchButton').addEventListener('click', () => {
+        $('managerSearch').value = '';
+        $('managerFilter').value = 'all';
+        renderCurrentTab();
+      });
+
+      managerApp.addEventListener('change', (event) => {
+        const checkbox = event.target.closest('input[data-select-key]');
+        if (!checkbox) return;
+
+        if (checkbox.checked) {
+          selectedItems.add(checkbox.dataset.selectKey);
+        } else {
+          selectedItems.delete(checkbox.dataset.selectKey);
+        }
+        renderCurrentTab();
+      });
+
+      $('selectVisibleButton').addEventListener('click', () => {
+        const activePanel = document.querySelector(`.panel[data-panel="${activeTab}"]`);
+        activePanel?.querySelectorAll('input[data-select-key]').forEach((input) => {
+          selectedItems.add(input.dataset.selectKey);
+        });
+        renderCurrentTab();
+      });
+
+      $('clearSelectionButton').addEventListener('click', () => {
+        selectedKeysForTab().forEach((key) => selectedItems.delete(key));
+        renderCurrentTab();
+      });
+
+      $('bulkDeleteButton').addEventListener('click', () => void bulkDeleteSelected());
+
+      document.querySelectorAll('.tab').forEach((button) => {
+        button.addEventListener('click', () => setActiveTab(button.dataset.tab));
+      });
+
+      $('accounts').addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-account-action]');
+        if (!button) return;
+
+        const id = button.dataset.id;
+        const action = button.dataset.accountAction;
+        const account = accounts.find((item) => item.id === id);
+        if (!id || !account) return;
+
+        button.disabled = true;
+        try {
+          if (action === 'delete') {
+            if (!window.confirm(`Xóa hẳn tài khoản ${account.name || id} khỏi database lớp 9/8?`)) return;
+            await deleteAccountRecord(account);
+            accounts = accounts.filter((item) => item.id !== id);
+            selectedItems.delete(selectionKey('account', id));
+            renderAccounts();
+            updateStats();
+            accountStatus.textContent = 'Đã xóa hẳn tài khoản khỏi database.';
+            return;
+          }
+
+          if (action === 'restore-deleted' || action === 'restore') {
+            await updateDoc(doc(db, 'students98', id), {
+              disabled: false,
+              deleted: false,
+              disabledReason: '',
+              restoredAt: serverTimestamp(),
+              managerKey: MANAGER_PASSWORD,
+              managerUpdatedAt: serverTimestamp(),
+            });
+          }
+
+          if (action === 'disable') {
+            const reason = (window.prompt(`Nhập lý do khóa tài khoản ${account.name || id} để user nhìn thấy:`, account.disabledReason || '') || '').trim();
+            if (!reason) {
+              accountStatus.textContent = 'Đã hủy khóa vì chưa nhập lý do.';
+              return;
+            }
+            await updateDoc(doc(db, 'students98', id), {
+              disabled: true,
+              deleted: false,
+              disabledReason: reason.slice(0, 240),
+              disabledAt: serverTimestamp(),
+              managerKey: MANAGER_PASSWORD,
+              managerUpdatedAt: serverTimestamp(),
+            });
+          }
+
+          await refreshManagerData();
+        } catch (error) {
+          accountStatus.textContent = error.message || 'Không thể cập nhật tài khoản.';
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      $('memories').addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-memory-action="reset-hearts"], button[data-memory-action="restore-hearts"]');
+        if (!button) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const key = button.dataset.key;
+        const action = button.dataset.memoryAction;
+        const memory = memories.find((item) => getMemoryKey(item) === key);
+        if (!memory) return;
+
+        const mediaLabel = memory.mediaType === 'video' ? 'video' : 'ảnh';
+        button.disabled = true;
+        try {
+          if (action === 'reset-hearts') {
+            const shownReactions = safeReactionCount(memory.reactions);
+            const realLikedCount = uniqueLikedBy(memory).length;
+            if (!window.confirm(`Reset tim của ${mediaLabel} này từ ${shownReactions} về ${realLikedCount} tim thật? Số tim gốc sẽ được giữ lại trong manager.`)) return;
+            await resetMemoryHeartCount(memory);
+            renderMemories();
+            memoryStatus.textContent = `Đã reset tim: ${shownReactions} -> ${realLikedCount}. Số tim gốc vẫn được lưu lại.`;
+            return;
+          }
+
+          const originalReactions = safeReactionCount(memory.managerHeartOriginalReactions);
+          if (!window.confirm(`Khôi phục số tim hiển thị về số tim gốc ${originalReactions}?`)) return;
+          await restoreMemoryOriginalHeartCount(memory);
+          renderMemories();
+          memoryStatus.textContent = `Đã khôi phục số tim gốc: ${originalReactions}.`;
+        } catch (error) {
+          memoryStatus.textContent = error.message || 'Không thể cập nhật số tim lúc này.';
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      $('memories').addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-memory-action="delete"][data-key]');
+        if (!button) return;
+
+        const key = button.dataset.key;
+        const memory = memories.find((item) => getMemoryKey(item) === key);
+        if (!memory) return;
+
+        const collectionName = memory.collectionName || PUBLIC_MEMORIES_COLLECTION;
+        const mediaLabel = memory.mediaType === 'video' ? 'video' : 'ảnh';
+        if (!window.confirm(`Xóa ${mediaLabel} đã đăng của ${memory.name || 'học sinh này'} khỏi feed lớp?`)) return;
+
+        button.disabled = true;
+        try {
+          await updateDoc(doc(db, collectionName, memory.id), {
+            managerKey: MANAGER_PASSWORD,
+            managerDeletedAt: serverTimestamp(),
+          });
+          if (memory.mediaType === 'video') await deleteMemoryVideoChunks(memory.id);
+          await deleteDoc(doc(db, collectionName, memory.id));
+          memories = memories.filter((item) => getMemoryKey(item) !== key);
+          selectedItems.delete(selectionKey('memory', key));
+          renderMemories();
+          updateStats();
+          memoryStatus.textContent = 'Đã xóa kỷ niệm khỏi feed lớp.';
+        } catch (error) {
+          memoryStatus.textContent = error.message || 'Không thể xóa kỷ niệm lúc này.';
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      $('futureMessages').addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-capsule-action="delete"][data-id]');
+        if (!button) return;
+
+        const id = button.dataset.id;
+        const letter = timeCapsules.find((item) => item.id === id);
+        if (!id || !letter) return;
+        if (!window.confirm(`Xóa lời nhắn cho lớp trong tương lai của ${letter.name || 'học sinh này'}?`)) return;
+
+        button.disabled = true;
+        try {
+          await updateDoc(doc(db, TIME_CAPSULE_COLLECTION, id), {
+            managerKey: MANAGER_PASSWORD,
+            managerDeletedAt: serverTimestamp(),
+          });
+          await deleteDoc(doc(db, TIME_CAPSULE_COLLECTION, id));
+          timeCapsules = timeCapsules.filter((item) => item.id !== id);
+          selectedItems.delete(selectionKey('future', id));
+          renderFutureMessages();
+          updateStats();
+          timeCapsuleStatus.textContent = 'Đã xóa lời nhắn cho lớp trong tương lai.';
+        } catch (error) {
+          timeCapsuleStatus.textContent = error.message || 'Không thể xóa lời nhắn cho lớp trong tương lai lúc này.';
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      $('classLetters').addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-letter-action="delete"][data-id]');
+        if (!button) return;
+
+        const id = button.dataset.id;
+        const letter = classLetters.find((item) => item.id === id);
+        if (!id || !letter) return;
+        const trueName = resolveTrueName({ uid: letter.uid, nameKey: letter.nameKey, fallback: letter.trueName || letter.name });
+        if (!window.confirm(`Xóa thư lớp của ${trueName || 'học sinh này'}?`)) return;
+
+        button.disabled = true;
+        try {
+          await deleteClassLetterRecord(letter);
+          classLetters = classLetters.filter((item) => item.id !== id);
+          selectedItems.delete(selectionKey('letter', id));
+          renderLetters();
+          updateStats();
+          letterStatus.textContent = 'Đã xóa thư lớp.';
+        } catch (error) {
+          letterStatus.textContent = error.message || 'Không thể xóa thư lớp lúc này.';
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      $('rememberNotes').addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-remember-action="delete"][data-id]');
+        if (!button) return;
+
+        const id = button.dataset.id;
+        const note = rememberNotes.find((item) => item.id === id);
+        if (!id || !note) return;
+        if (!window.confirm(`Xóa Secret Message gửi cho ${note.toName || 'người nhận này'}?`)) return;
+
+        button.disabled = true;
+        try {
+          await deleteRememberNoteRecord(note);
+          rememberNotes = rememberNotes.filter((item) => item.id !== id);
+          selectedItems.delete(selectionKey('remember', id));
+          renderRememberNotes();
+          updateStats();
+          rememberStatus.textContent = 'Đã xóa Secret Message.';
+        } catch (error) {
+          rememberStatus.textContent = error.message || 'Không thể xóa Secret Message lúc này.';
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      $('diaries').addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-diary-action="delete"][data-id]');
+        if (!button) return;
+
+        const id = button.dataset.id;
+        const diary = diaries.find((item) => item.id === id);
+        if (!id || !diary) return;
+        if (!window.confirm(`Xóa nhật ký bí mật của ${diary.name || 'học sinh này'}?`)) return;
+
+        button.disabled = true;
+        try {
+          await deleteDiaryRecord(diary);
+          diaries = diaries.filter((item) => item.id !== id);
+          selectedItems.delete(selectionKey('diary', id));
+          renderDiaries();
+          updateStats();
+          diaryStatus.textContent = 'Đã xóa nhật ký bí mật.';
+        } catch (error) {
+          diaryStatus.textContent = error.message || 'Không thể xóa nhật ký lúc này.';
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      $('addAccountForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const name = cleanDisplayName($('studentName').value);
+        const password = $('studentPassword').value;
+        const nameKey = makeNameKey(name);
+
+        if (!nameKey || password.length < 6) {
+          accountStatus.textContent = 'Hãy nhập tên hợp lệ và mật khẩu tối thiểu 6 ký tự.';
+          return;
+        }
+
+        if (accounts.some((account) => account.id === nameKey && !account.deleted)) {
+          accountStatus.textContent = 'Tài khoản này đã có trong lớp 9/8.';
+          return;
+        }
+
+        const deletedAccount = accounts.find((account) => account.id === nameKey && account.deleted);
+        if (deletedAccount) {
+          await updateDoc(doc(db, 'students98', nameKey), {
+            disabled: false,
+            deleted: false,
+            disabledReason: '',
+            restoredAt: serverTimestamp(),
+            managerKey: MANAGER_PASSWORD,
+            managerUpdatedAt: serverTimestamp(),
+          });
+          $('studentName').value = '';
+          $('studentPassword').value = '';
+          await refreshManagerData();
+          accountStatus.textContent = `Đã khôi phục tài khoản ${deletedAccount.name || name}. Người dùng đăng nhập bằng mật khẩu cũ.`;
+          return;
+        }
+
+        try {
+          accountStatus.textContent = 'Đang tạo tài khoản...';
+          const credential = await createUserWithEmailAndPassword(creatorAuth, makeStudentEmail(nameKey), password);
+          await updateProfile(credential.user, { displayName: name });
+          await setDoc(doc(creatorDb, 'students98', nameKey), {
+            uid: credential.user.uid,
+            name,
+            nameKey,
+            className: CLASS_NAME,
+            disabled: false,
+            createdAt: serverTimestamp(),
+            lastLoginAt: serverTimestamp(),
+            managerCreatedAt: serverTimestamp(),
+          });
+          await signOut(creatorAuth);
+          $('studentName').value = '';
+          $('studentPassword').value = '';
+          await refreshManagerData();
+          accountStatus.textContent = `Đã thêm tài khoản ${name}.`;
+        } catch (error) {
+          accountStatus.textContent = error.message || 'Không thể thêm tài khoản.';
+        }
+      });
+
+      managerPasswordInput?.focus();
+    </script>
+  </body>
+</html>
