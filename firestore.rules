@@ -301,6 +301,7 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.nameKey == nameKey
         && request.resource.data.className == '9/8'
+        && validStudentAuthEmail()
         && (
           !request.resource.data.keys().hasAny(['disabled'])
           || request.resource.data.disabled == false
@@ -314,6 +315,14 @@ service cloud.firestore {
     function authMatchesStudentNameKey(nameKey) {
       return request.auth != null
         && request.auth.token.email == nameKey + '@memorybook-of-class98.firebaseapp.com';
+    }
+
+    function validStudentAuthEmail() {
+      return !request.resource.data.keys().hasAny(['authEmail'])
+        || (
+          request.resource.data.authEmail is string
+          && request.resource.data.authEmail == request.auth.token.email
+        );
     }
 
     function studentIsDisabled() {
@@ -343,11 +352,13 @@ service cloud.firestore {
         && !studentIsDisabled()
         && !studentIsDeleted()
         && request.resource.data.uid == resource.data.uid
+        && validStudentAuthEmail()
         && (
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['nickname', 'nicknameKey'])
           || validStudentNicknameOwnership(nameKey)
         )
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'authEmail',
           'avatarDataUrl',
           'nickname',
           'nicknameKey',
@@ -364,17 +375,24 @@ service cloud.firestore {
         && (
           resource.data.uid == request.auth.uid
           || authMatchesStudentNameKey(nameKey)
+          || (
+            request.resource.data.keys().hasAny(['authEmail'])
+            && request.resource.data.authEmail == request.auth.token.email
+          )
         )
         && !studentIsDisabled()
         && studentIsDeleted()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.nameKey == nameKey
         && request.resource.data.className == '9/8'
+        && validStudentAuthEmail()
         && request.resource.data.disabled == false
         && request.resource.data.deleted == false
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'uid',
           'name',
           'nameKey',
+          'authEmail',
           'className',
           'disabled',
           'deleted',
@@ -394,12 +412,14 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.nameKey == nameKey
         && request.resource.data.className == '9/8'
+        && validStudentAuthEmail()
         && request.resource.data.disabled == false
         && request.resource.data.deleted == false
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'uid',
           'name',
           'nameKey',
+          'authEmail',
           'className',
           'disabled',
           'deleted',

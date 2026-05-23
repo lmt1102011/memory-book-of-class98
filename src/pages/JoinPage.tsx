@@ -17,6 +17,7 @@ export default function JoinPage({ profile, onJoin, onSkip }: JoinPageProps) {
   const [name, setName] = useState(profile?.name || '');
   const [password, setPassword] = useState('');
   const [mode, setMode] = useState<JoinMode>('name');
+  const [nameWasDeleted, setNameWasDeleted] = useState(false);
   const [joined, setJoined] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState('');
@@ -31,6 +32,7 @@ export default function JoinPage({ profile, onJoin, onSkip }: JoinPageProps) {
       if (mode === 'name') {
         setIsChecking(true);
         const result = await checkStudentName(name);
+        setNameWasDeleted(Boolean(result.deleted));
         setMode(result.exists ? 'login' : 'register');
         setPassword('');
         return;
@@ -61,6 +63,7 @@ export default function JoinPage({ profile, onJoin, onSkip }: JoinPageProps) {
 
   const resetName = () => {
     setMode('name');
+    setNameWasDeleted(false);
     setPassword('');
     setError('');
   };
@@ -146,7 +149,11 @@ export default function JoinPage({ profile, onJoin, onSkip }: JoinPageProps) {
                     >
                       <span className="mb-2 flex items-center gap-2 text-sm font-bold text-ink">
                         <Lock size={16} />
-                        {mode === 'login' ? 'Tên này đã có. Nhập mật khẩu' : 'Tên mới. Đặt mật khẩu'}
+                        {mode === 'login'
+                          ? 'Tên này đã có. Nhập mật khẩu'
+                          : nameWasDeleted
+                            ? 'Tên này đã từng bị xóa. Đặt mật khẩu mới để tạo lại'
+                            : 'Tên mới. Đặt mật khẩu'}
                       </span>
                       <input
                         className="input-field"

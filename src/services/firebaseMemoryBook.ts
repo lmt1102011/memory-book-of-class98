@@ -111,6 +111,12 @@ export const makeNameKey = (name: string) =>
     .replace(/^-+|-+$/g, '');
 
 const makeStudentEmail = (nameKey: string) => `${nameKey}@${AUTH_DOMAIN}`;
+const makeRecreatedStudentEmail = (nameKey: string) =>
+  `${nameKey}.re.${Date.now().toString(36)}.${Math.random().toString(36).slice(2, 8)}@${AUTH_DOMAIN}`;
+const makeNameKeyFromAuthEmail = (email: string) => {
+  const localPart = email.split('@')[0] || '';
+  return localPart.includes('.re.') ? localPart.split('.re.')[0] : localPart;
+};
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -282,6 +288,7 @@ const studentProfileWriteData = (
   uid: user.uid,
   name: displayName,
   nameKey,
+  authEmail: user.email || makeStudentEmail(nameKey),
   className: CLASS_NAME,
   disabled: false,
   deleted: false,
@@ -301,6 +308,7 @@ const firestoreRestFields = (
     uid: { stringValue: user.uid },
     name: { stringValue: displayName },
     nameKey: { stringValue: nameKey },
+    authEmail: { stringValue: user.email || makeStudentEmail(nameKey) },
     className: { stringValue: CLASS_NAME },
     disabled: { booleanValue: false },
     deleted: { booleanValue: false },
@@ -480,6 +488,7 @@ const profileFromData = (id: string, data: DocumentData, user?: User | null): Us
   disabled: Boolean(data.disabled),
   disabledReason: String(data.disabledReason || ''),
   deleted: Boolean(data.deleted),
+  authEmail: data.authEmail ? String(data.authEmail) : user?.email || undefined,
 });
 
 const disabledAccountMessage = (data: DocumentData) => {
@@ -701,9 +710,41 @@ export const checkStudentName = async (name: string) => {
   }
   return {
     exists: snapshot.exists() && !snapshot.data().deleted,
+    deleted: snapshot.exists() && Boolean(snapshot.data().deleted),
     nameKey,
     profile: snapshot.exists() && !snapshot.data().deleted ? profileFromData(nameKey, snapshot.data()) : null,
   };
+};
+
+const authEmailFromStudentData = (nameKey: string, data?: DocumentData) => {
+  const authEmail = data?.authEmail ? String(data.authEmail) : '';
+  return authEmail || makeStudentEmail(nameKey);
+};
+
+const createStudentCredential = async (nameKey: string, password: string, allowRecreatedEmail: boolean) => {
+  try {
+    return await withTimeout(
+      createUserWithEmailAndPassword(auth, makeStudentEmail(nameKey), password),
+      'Auth register',
+    );
+  } catch (error) {
+    if (!allowRecreatedEmail || !isAuthEmailAlreadyInUse(error)) throw error;
+  }
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await withTimeout(
+        createUserWithEmailAndPassword(auth, makeRecreatedStudentEmail(nameKey), password),
+        'Auth register',
+      );
+    } catch (error) {
+      lastError = error;
+      if (!isAuthEmailAlreadyInUse(error)) throw error;
+    }
+  }
+
+  throw lastError;
 };
 
 const writeRestoredStudentProfile = async (
@@ -726,6 +767,7 @@ const writeRestoredStudentProfile = async (
     joinedAt: new Date().toISOString(),
     disabled: false,
     deleted: false,
+    authEmail: user.email || undefined,
   };
 };
 
@@ -737,43 +779,18 @@ export const registerStudent = async (name: string, password: string) => {
 
   const studentRef = doc(db, STUDENTS_COLLECTION, nameKey);
   const existing = await withFirebaseRetry(() => getDoc(studentRef));
+  const wasDeleted = existing.exists() && Boolean(existing.data().deleted);
   if (existing.exists()) {
     if (existing.data().disabled) {
       throw new Error(disabledAccountMessage(existing.data()));
     }
 
-    if (existing.data().deleted) {
-      try {
-        return await loginStudent(name, password);
-      } catch (loginError) {
-        if (isInvalidAuthCredential(loginError)) {
-          throw new Error('Tên này từng được tạo trước đó. Hãy nhập mật khẩu cũ để khôi phục tài khoản.');
-        }
-        throw loginError;
-      }
-    }
-
-    throw new Error('Tên này đã có trong lớp 9/8. Hãy nhập mật khẩu để tiếp tục.');
-  }
-
-  let credential;
-  try {
-    credential = await withTimeout(
-      createUserWithEmailAndPassword(auth, makeStudentEmail(nameKey), password),
-      'Auth register',
-    );
-  } catch (error) {
-    if (!isAuthEmailAlreadyInUse(error)) throw error;
-
-    try {
-      return await loginStudent(name, password);
-    } catch (loginError) {
-      if (isInvalidAuthCredential(loginError)) {
-        throw new Error('Tên này từng được tạo trước đó. Hãy nhập mật khẩu cũ để khôi phục tài khoản.');
-      }
-      throw loginError;
+    if (!wasDeleted) {
+      throw new Error('Tên này đã có trong lớp 9/8. Hãy nhập mật khẩu để tiếp tục.');
     }
   }
+
+  const credential = await createStudentCredential(nameKey, password, true);
 
   await withTimeout(updateProfile(credential.user, { displayName }), 'Auth profile');
 
@@ -783,12 +800,15 @@ export const registerStudent = async (name: string, password: string) => {
     nameKey,
     className: CLASS_NAME,
     joinedAt: new Date().toISOString(),
+    deleted: false,
+    disabled: false,
+    authEmail: credential.user.email || undefined,
   };
 
   await writeStudentProfileDocument(credential.user, displayName, nameKey, {
-    includeCreatedAt: true,
-    includeRepairedAt: false,
-    merge: false,
+    includeCreatedAt: !existing.exists(),
+    includeRepairedAt: wasDeleted,
+    merge: existing.exists(),
   });
 
   return profile;
@@ -798,12 +818,13 @@ export const loginStudent = async (name: string, password: string) => {
   const nameKey = makeNameKey(name);
   if (!nameKey) throw new Error('Hãy nhập họ tên hợp lệ.');
 
-  const credential = await withTimeout(
-    signInWithEmailAndPassword(auth, makeStudentEmail(nameKey), password),
-    'Auth login',
-  );
   const studentRef = doc(db, STUDENTS_COLLECTION, nameKey);
   const snapshot = await withFirebaseRetry(() => getDoc(studentRef));
+  const authEmail = snapshot.exists() ? authEmailFromStudentData(nameKey, snapshot.data()) : makeStudentEmail(nameKey);
+  const credential = await withTimeout(
+    signInWithEmailAndPassword(auth, authEmail, password),
+    'Auth login',
+  );
 
   if (!snapshot.exists()) {
     const displayName = cleanDisplayName(name);
@@ -840,16 +861,23 @@ export const observeStudentSession = (onProfile: (profile: UserProfile | null) =
       return;
     }
 
-    const nameKey = user.email.split('@')[0];
-    let snapshot;
+    const nameKey = makeNameKeyFromAuthEmail(user.email);
+    let profileSnapshot: { id: string; data: () => DocumentData; exists?: () => boolean } | null = null;
     try {
-      snapshot = await withFirebaseRetry(() => getDoc(doc(db, STUDENTS_COLLECTION, nameKey)));
+      const directSnapshot = await withFirebaseRetry(() => getDoc(doc(db, STUDENTS_COLLECTION, nameKey)));
+      if (directSnapshot.exists()) {
+        profileSnapshot = directSnapshot;
+      } else {
+        const uidQuery = query(collection(db, STUDENTS_COLLECTION), where('uid', '==', user.uid), limit(1));
+        const uidSnapshot = await withFirebaseRetry(() => getDocs(uidQuery));
+        profileSnapshot = uidSnapshot.docs[0] || null;
+      }
     } catch {
       onProfile(null);
       return;
     }
-    if (snapshot.exists()) {
-      onProfile(profileFromData(nameKey, snapshot.data(), user));
+    if (profileSnapshot) {
+      onProfile(profileFromData(profileSnapshot.id || nameKey, profileSnapshot.data(), user));
       return;
     }
 

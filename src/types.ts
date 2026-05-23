@@ -47,6 +47,7 @@ export interface UserProfile {
   disabled?: boolean;
   disabledReason?: string;
   deleted?: boolean;
+  authEmail?: string;
 }
 
 export interface ClassmateProfile {
