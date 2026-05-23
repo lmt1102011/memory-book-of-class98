@@ -116,6 +116,29 @@ service cloud.firestore {
         && request.resource.data.reactionAngryBy.size() <= 1000;
     }
 
+    function validManagerCommentRepair() {
+      return isManagerWrite()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'reactionHahaBy',
+          'reactionLoveBy',
+          'reactionMissBy',
+          'reactionWowBy',
+          'reactionAngryBy',
+          'managerKey',
+          'managerUpdatedAt'
+        ])
+        && request.resource.data.reactionHahaBy is list
+        && request.resource.data.reactionLoveBy is list
+        && request.resource.data.reactionMissBy is list
+        && request.resource.data.reactionWowBy is list
+        && request.resource.data.reactionAngryBy is list
+        && request.resource.data.reactionHahaBy.size() <= 1000
+        && request.resource.data.reactionLoveBy.size() <= 1000
+        && request.resource.data.reactionMissBy.size() <= 1000
+        && request.resource.data.reactionWowBy.size() <= 1000
+        && request.resource.data.reactionAngryBy.size() <= 1000;
+    }
+
     function isPublicMemoryResource() {
       return !resource.data.keys().hasAny(['visibility'])
         || resource.data.visibility == 'public';
@@ -496,7 +519,7 @@ service cloud.firestore {
         && request.resource.data.message is string
         && request.resource.data.message.size() <= 240
         && emptyCommentReactionsOnCreate();
-      allow update: if validCommentReactionUpdate();
+      allow update: if validCommentReactionUpdate() || validManagerCommentRepair();
       allow delete: if ownsResource();
     }
 

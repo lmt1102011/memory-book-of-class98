@@ -16,6 +16,8 @@ import type {
 
 const EMPTY_COMMENTS: MemoryComment[] = [];
 
+type SmartMemoryFilter = 'all' | 'mine' | 'photos' | 'videos' | 'popular' | 'commented';
+
 const safeFilePart = (value: string) =>
   value
     .normalize('NFD')
@@ -165,6 +167,7 @@ export default function HomePage({
   const [keywordQuery, setKeywordQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [activePersonKey, setActivePersonKey] = useState<string | null>(null);
+  const [activeSmartFilter, setActiveSmartFilter] = useState<SmartMemoryFilter>('all');
   const [selectedMemory, setSelectedMemory] = useState<MemoryItem | null>(null);
   const [selectedImageLoaded, setSelectedImageLoaded] = useState(false);
   const [selectedImageFailed, setSelectedImageFailed] = useState(false);
@@ -517,6 +520,26 @@ export default function HomePage({
     return Array.from(unique.values()).sort((left, right) => right.count - left.count).slice(0, 16);
   }, [memories]);
 
+  const smartFilters = useMemo(
+    () => [
+      { id: 'all' as const, label: 'Tất cả', count: memories.length },
+      {
+        id: 'mine' as const,
+        label: 'Của tôi',
+        count: profile ? memories.filter((memory) => memory.uid === profile.uid || memory.nameKey === profile.nameKey).length : 0,
+      },
+      { id: 'photos' as const, label: 'Ảnh', count: memories.filter((memory) => memory.mediaType !== 'video').length },
+      { id: 'videos' as const, label: 'Video', count: memories.filter((memory) => memory.mediaType === 'video').length },
+      { id: 'popular' as const, label: 'Nhiều tim', count: memories.filter((memory) => (memory.reactions || 0) > 0).length },
+      {
+        id: 'commented' as const,
+        label: 'Có bình luận',
+        count: memories.filter((memory) => (commentsByMemory[memory.id]?.length || 0) > 0).length,
+      },
+    ],
+    [commentsByMemory, memories, profile],
+  );
+
   const slideshowMemories = useMemo(
     () => memories.filter((memory) => memory.mediaType === 'image' && memory.imageUrl).slice(0, 36),
     [memories],
@@ -612,7 +635,7 @@ export default function HomePage({
     const name = debouncedName.trim().toLowerCase();
     const keyword = debouncedKeyword.trim().toLowerCase();
 
-    return memories.filter((memory) => {
+    const filtered = memories.filter((memory) => {
       const byName = !name || memory.name.toLowerCase().includes(name);
       const byKeyword =
         !keyword ||
@@ -620,17 +643,36 @@ export default function HomePage({
         memory.hashtags.some((tag) => tag.toLowerCase().includes(keyword));
       const byTag = !activeTag || memory.hashtags.includes(activeTag);
       const byPerson = !activePersonKey || memory.nameKey === activePersonKey || memory.uid === activePersonKey;
-      return byName && byKeyword && byTag && byPerson;
-    });
-  }, [activePersonKey, activeTag, memories, debouncedKeyword, debouncedName]);
+      const bySmartFilter =
+        activeSmartFilter === 'all' ||
+        (activeSmartFilter === 'mine' && Boolean(profile && (memory.uid === profile.uid || memory.nameKey === profile.nameKey))) ||
+        (activeSmartFilter === 'photos' && memory.mediaType !== 'video') ||
+        (activeSmartFilter === 'videos' && memory.mediaType === 'video') ||
+        (activeSmartFilter === 'popular' && (memory.reactions || 0) > 0) ||
+        (activeSmartFilter === 'commented' && (commentsByMemory[memory.id]?.length || 0) > 0);
 
-  const hasActiveFilter = Boolean(nameQuery.trim() || keywordQuery.trim() || activeTag || activePersonKey);
+      return byName && byKeyword && byTag && byPerson && bySmartFilter;
+    });
+
+    if (activeSmartFilter === 'popular') {
+      return filtered.sort((left, right) => (right.reactions || 0) - (left.reactions || 0));
+    }
+
+    if (activeSmartFilter === 'commented') {
+      return filtered.sort((left, right) => (commentsByMemory[right.id]?.length || 0) - (commentsByMemory[left.id]?.length || 0));
+    }
+
+    return filtered;
+  }, [activePersonKey, activeSmartFilter, activeTag, commentsByMemory, memories, profile, debouncedKeyword, debouncedName]);
+
+  const hasActiveFilter = Boolean(nameQuery.trim() || keywordQuery.trim() || activeTag || activePersonKey || activeSmartFilter !== 'all');
 
   const clearFilters = () => {
     setNameQuery('');
     setKeywordQuery('');
     setActiveTag(null);
     setActivePersonKey(null);
+    setActiveSmartFilter('all');
   };
 
   const selectedDownloadHref =
@@ -913,6 +955,17 @@ export default function HomePage({
             <X size={16} />
             Xóa lọc
           </button>
+        </div>
+        <div className="mx-auto mt-3 flex max-w-7xl gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {smartFilters.map((filter) => (
+            <button
+              key={filter.id}
+              className={`tag-button ${activeSmartFilter === filter.id ? 'tag-button-active' : ''}`}
+              onClick={() => setActiveSmartFilter(filter.id)}
+            >
+              {filter.label} · {filter.count}
+            </button>
+          ))}
         </div>
         <div className="mx-auto mt-3 flex max-w-7xl gap-2 overflow-x-auto pb-1 scrollbar-hide">
           <button className={`tag-button ${activePersonKey === null ? 'tag-button-active' : ''}`} onClick={() => setActivePersonKey(null)}>

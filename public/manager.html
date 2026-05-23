@@ -222,6 +222,54 @@
         font-size: 16px;
       }
 
+      .health-card {
+        display: grid;
+        gap: 12px;
+        margin-top: 12px;
+      }
+
+      .health-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .health-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .health-metric,
+      .issue-row {
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.6);
+        box-shadow: inset 0 0 0 1px rgba(122, 86, 57, 0.08);
+      }
+
+      .health-metric {
+        padding: 12px;
+      }
+
+      .health-metric strong {
+        display: block;
+        font-size: 22px;
+      }
+
+      .issue-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .issue-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+      }
+
       .tabs {
         position: sticky;
         top: 86px;
@@ -388,8 +436,17 @@
 
         .panel-grid,
         .setting-card,
-        .toolbar {
+        .toolbar,
+        .health-head {
           grid-template-columns: 1fr;
+        }
+
+        .health-head {
+          display: grid;
+        }
+
+        .health-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
         .bulkbar {
@@ -415,6 +472,10 @@
 
       @media (max-width: 560px) {
         .dashboard {
+          grid-template-columns: 1fr;
+        }
+
+        .health-grid {
           grid-template-columns: 1fr;
         }
 
@@ -455,6 +516,19 @@
           <div class="stat"><strong id="statRemember">0</strong><span class="muted">Secret Message</span></div>
           <div class="stat"><strong id="statDiaries">0</strong><span class="muted">nhật ký</span></div>
           <div class="stat"><strong id="statDownloads">0</strong><span class="muted">lượt tải</span></div>
+        </section>
+
+        <section class="card health-card">
+          <div class="health-head">
+            <div>
+              <h2>Sức khỏe hệ thống</h2>
+              <p class="muted">Tóm tắt lỗi dữ liệu hay gặp: tim lệch, comment emoji thiếu field, kỷ niệm thiếu nameKey.</p>
+            </div>
+            <button id="repairDataButton" class="secondary">Quét và sửa lỗi</button>
+          </div>
+          <div id="systemHealth" class="health-grid"></div>
+          <div id="systemIssues" class="issue-list"></div>
+          <p id="healthStatus" class="status"></p>
         </section>
 
         <section class="card setting-card">
@@ -649,6 +723,7 @@
       const PUBLIC_MEMORIES_COLLECTION = 'memories98';
       const PRIVATE_MEMORIES_COLLECTION = 'privateMemories98';
       const MEMORY_VIDEO_CHUNKS_COLLECTION = 'memoryVideoChunks98';
+      const MEMORY_COMMENTS_COLLECTION = 'memoryComments98';
       const MEMORY_DOWNLOAD_LOGS_COLLECTION = 'memoryDownloadLogs98';
       const GUESTBOOK_COLLECTION = 'guestbook98';
       const TIME_CAPSULE_COLLECTION = 'timeCapsules98';
@@ -680,10 +755,12 @@
       const classLettersStatus = $('classLettersStatus');
       const slideshowStatus = $('slideshowStatus');
       const timeCapsuleStatus = $('timeCapsuleStatus');
+      const healthStatus = $('healthStatus');
 
       let accounts = [];
       let diaries = [];
       let memories = [];
+      let memoryComments = [];
       let downloads = [];
       let classLetters = [];
       let timeCapsules = [];
@@ -692,11 +769,13 @@
       let classLettersSetting = { enabled: false };
       let cinematicSlideshowSetting = { enabled: false, mood: 'cinematic' };
       let timeCapsuleSetting = { unlockAt: '' };
+      let appVersionInfo = null;
       let activeTab = 'accounts';
       let managerPoll = 0;
       let isLoadingManagerData = false;
       let selectedItems = new Set();
       let isBulkDeleting = false;
+      let isRepairingData = false;
 
       const cleanDisplayName = (name) => name.trim().replace(/\s+/g, ' ');
       const makeNameKey = (name) =>
@@ -786,6 +865,46 @@
       const safeReactionCount = (value) => {
         const number = Number(value || 0);
         return Number.isFinite(number) && number > 0 ? Math.round(number) : 0;
+      };
+      const COMMENT_REACTION_FIELDS = ['reactionHahaBy', 'reactionLoveBy', 'reactionMissBy', 'reactionWowBy', 'reactionAngryBy'];
+      const safeStringList = (value) =>
+        Array.from(new Set((Array.isArray(value) ? value : []).map(String).filter(Boolean)));
+      const commentNeedsReactionRepair = (comment) => {
+        const seenUids = new Set();
+        let hasDuplicateAcrossReactions = false;
+        let hasMissingField = false;
+
+        COMMENT_REACTION_FIELDS.forEach((field) => {
+          if (!Array.isArray(comment[field])) hasMissingField = true;
+          const rawList = (Array.isArray(comment[field]) ? comment[field] : []).map(String).filter(Boolean);
+          const uniqueList = safeStringList(rawList);
+          if (rawList.length !== uniqueList.length) hasDuplicateAcrossReactions = true;
+          uniqueList.forEach((uid) => {
+            if (seenUids.has(uid)) hasDuplicateAcrossReactions = true;
+            seenUids.add(uid);
+          });
+        });
+
+        return hasMissingField || hasDuplicateAcrossReactions;
+      };
+      const repairedCommentReactionPayload = (comment) => {
+        const uidToField = new Map();
+        COMMENT_REACTION_FIELDS.forEach((field) => {
+          safeStringList(comment[field]).forEach((uid) => {
+            if (!uidToField.has(uid)) uidToField.set(uid, field);
+          });
+        });
+
+        const payload = COMMENT_REACTION_FIELDS.reduce((acc, field) => {
+          acc[field] = [];
+          return acc;
+        }, {});
+
+        uidToField.forEach((field, uid) => {
+          payload[field].push(uid);
+        });
+
+        return payload;
       };
       const formatVisibility = (value) => {
         if (value === 'private') return 'Chỉ mình tôi';
@@ -976,6 +1095,70 @@
         $('statRemember').textContent = rememberNotes.length;
         $('statDiaries').textContent = diaries.length;
         $('statDownloads').textContent = downloads.length;
+      };
+
+      const systemHealthSnapshot = () => {
+        const activeAccounts = accounts.filter((account) => !account.deleted && !account.disabled).length;
+        const lockedAccounts = accounts.filter((account) => account.disabled && !account.deleted).length;
+        const deletedAccounts = accounts.filter((account) => account.deleted).length;
+        const memoryIds = new Set(memories.map((memory) => memory.id));
+        const heartIssues = memories.filter((memory) => safeReactionCount(memory.reactions) !== uniqueLikedBy(memory).length);
+        const ownerIssues = memories.filter((memory) => !memory.nameKey && memory.name);
+        const commentIssues = memoryComments.filter(commentNeedsReactionRepair);
+        const orphanComments = memoryComments.filter((comment) => comment.memoryId && !memoryIds.has(comment.memoryId));
+
+        return {
+          metrics: [
+            ['Tài khoản mở', activeAccounts],
+            ['Tài khoản khóa/xóa', lockedAccounts + deletedAccounts],
+            ['Kỷ niệm', memories.length],
+            ['Bình luận', memoryComments.length],
+            ['App version', appVersionInfo?.version || 'chưa rõ'],
+          ],
+          issues: [
+            ['Tim ảnh/video bị lệch', heartIssues.length, 'Sửa về đúng số UID đã tim và lưu lại số tim gốc.'],
+            ['Kỷ niệm thiếu nameKey', ownerIssues.length, 'Bổ sung nameKey từ tên nếu có thể, để album lọc ổn hơn.'],
+            ['Comment emoji cần sửa', commentIssues.length, 'Thêm đủ field emoji và gom mỗi UID về đúng 1 cảm xúc.'],
+            ['Bình luận mồ côi', orphanComments.length, 'Bình luận trỏ tới ảnh/video không còn trong database; manager chỉ báo để kiểm tra.'],
+          ],
+          counts: {
+            heartIssues: heartIssues.length,
+            ownerIssues: ownerIssues.length,
+            commentIssues: commentIssues.length,
+            orphanComments: orphanComments.length,
+          },
+        };
+      };
+
+      const renderSystemHealth = () => {
+        const health = systemHealthSnapshot();
+        const totalFixable = health.counts.heartIssues + health.counts.ownerIssues + health.counts.commentIssues;
+
+        $('systemHealth').innerHTML = health.metrics
+          .map(([label, value]) => `
+            <div class="health-metric">
+              <strong>${value}</strong>
+              <span class="muted">${escapeHtml(label)}</span>
+            </div>
+          `)
+          .join('');
+
+        $('systemIssues').innerHTML = health.issues
+          .map(([label, value, hint]) => `
+            <div class="issue-row">
+              <div>
+                <strong>${escapeHtml(label)}</strong>
+                <p class="muted">${escapeHtml(hint)}</p>
+              </div>
+              <span class="pill ${value ? 'pink' : ''}">${value ? `${value} lỗi` : 'Ổn'}</span>
+            </div>
+          `)
+          .join('');
+
+        $('repairDataButton').disabled = isLoadingManagerData || isBulkDeleting || isRepairingData || totalFixable === 0;
+        healthStatus.textContent = totalFixable
+          ? `Có ${totalFixable} lỗi có thể sửa tự động. Bình luận mồ côi chỉ được báo để manager kiểm tra trước khi xóa.`
+          : 'Dữ liệu chính đang ổn, chưa thấy lỗi cần sửa tự động.';
       };
 
       const renderSettings = () => {
@@ -1252,6 +1435,7 @@
 
       const renderCurrentTab = () => {
         updateStats();
+        renderSystemHealth();
         if (activeTab === 'accounts') renderAccounts();
         if (activeTab === 'memories') renderMemories();
         if (activeTab === 'letters') renderLetters();
@@ -1332,6 +1516,105 @@
           managerUpdatedAt: serverTimestamp(),
         });
         memory.reactions = originalReactions;
+      };
+
+      const memoryNeedsRepair = (memory) => {
+        const rawLikedBy = Array.isArray(memory.likedBy) ? memory.likedBy.map(String).filter(Boolean) : [];
+        const likedBy = uniqueLikedBy(memory);
+        return safeReactionCount(memory.reactions) !== likedBy.length
+          || rawLikedBy.length !== likedBy.length
+          || (!memory.nameKey && memory.name);
+      };
+
+      const repairMemoryRecord = async (memory) => {
+        const collectionName = memory.collectionName || PUBLIC_MEMORIES_COLLECTION;
+        const likedBy = uniqueLikedBy(memory);
+        const rawLikedBy = Array.isArray(memory.likedBy) ? memory.likedBy.map(String).filter(Boolean) : [];
+        const currentReactions = safeReactionCount(memory.reactions);
+        const updatePayload = {
+          managerKey: MANAGER_PASSWORD,
+          managerUpdatedAt: serverTimestamp(),
+        };
+        let hasChanges = false;
+
+        if (!memory.nameKey && memory.name) {
+          updatePayload.nameKey = makeNameKey(memory.name);
+          hasChanges = true;
+        }
+
+        if (currentReactions !== likedBy.length || rawLikedBy.length !== likedBy.length || !Array.isArray(memory.likedBy)) {
+          updatePayload.reactions = likedBy.length;
+          updatePayload.likedBy = likedBy;
+          updatePayload.managerHeartLastResetFrom = currentReactions;
+          updatePayload.managerHeartLastResetTo = likedBy.length;
+          updatePayload.managerHeartResetAt = serverTimestamp();
+          if (!Number.isFinite(Number(memory.managerHeartOriginalReactions))) {
+            updatePayload.managerHeartOriginalReactions = currentReactions;
+          }
+          hasChanges = true;
+        }
+
+        if (!hasChanges) return false;
+        await updateDoc(doc(db, collectionName, memory.id), updatePayload);
+        Object.assign(memory, updatePayload, {
+          reactions: updatePayload.reactions ?? memory.reactions,
+          likedBy: updatePayload.likedBy ?? memory.likedBy,
+          nameKey: updatePayload.nameKey ?? memory.nameKey,
+        });
+        return true;
+      };
+
+      const repairCommentReactionRecord = async (comment) => {
+        if (!commentNeedsReactionRepair(comment)) return false;
+        const reactionPayload = repairedCommentReactionPayload(comment);
+        await updateDoc(doc(db, MEMORY_COMMENTS_COLLECTION, comment.id), {
+          ...reactionPayload,
+          managerKey: MANAGER_PASSWORD,
+          managerUpdatedAt: serverTimestamp(),
+        });
+        Object.assign(comment, reactionPayload);
+        return true;
+      };
+
+      const repairSystemData = async () => {
+        if (isRepairingData) return;
+        const memoriesToRepair = memories.filter(memoryNeedsRepair);
+        const commentsToRepair = memoryComments.filter(commentNeedsReactionRepair);
+        const total = memoriesToRepair.length + commentsToRepair.length;
+
+        if (!total) {
+          healthStatus.textContent = 'Không có lỗi nào cần sửa tự động.';
+          renderSystemHealth();
+          return;
+        }
+
+        if (!window.confirm(`Sửa tự động ${total} lỗi dữ liệu? Web sẽ giữ lại số tim gốc trước khi reset tim.`)) return;
+
+        isRepairingData = true;
+        renderSystemHealth();
+        healthStatus.textContent = `Đang sửa ${total} lỗi dữ liệu...`;
+
+        let repairedMemories = 0;
+        let repairedComments = 0;
+        let finalStatus = '';
+        try {
+          for (const memory of memoriesToRepair) {
+            if (await repairMemoryRecord(memory)) repairedMemories += 1;
+          }
+
+          for (const comment of commentsToRepair) {
+            if (await repairCommentReactionRecord(comment)) repairedComments += 1;
+          }
+
+          renderAll();
+          finalStatus = `Đã sửa ${repairedMemories} kỷ niệm và ${repairedComments} bình luận.`;
+        } catch (error) {
+          finalStatus = error.message || 'Không thể sửa dữ liệu lúc này.';
+        } finally {
+          isRepairingData = false;
+          renderSystemHealth();
+          if (finalStatus) healthStatus.textContent = finalStatus;
+        }
       };
 
       const deleteAccountRecord = async (account) => {
@@ -1525,6 +1808,7 @@
             diarySnapshot,
             publicMemorySnapshot,
             privateMemorySnapshot,
+            commentSnapshot,
             downloadSnapshot,
             letterSnapshot,
             timeCapsuleSnapshot,
@@ -1533,11 +1817,13 @@
             classLettersSnapshot,
             slideshowSnapshot,
             timeCapsuleSettingSnapshot,
+            appVersionSnapshot,
           ] = await Promise.all([
             getDocs(query(collection(db, 'students98'), orderBy('name'))),
             getDocs(query(collection(db, DIARY_COLLECTION), orderBy('createdAt', 'desc'))),
             getDocs(query(collection(db, PUBLIC_MEMORIES_COLLECTION), orderBy('createdAt', 'desc'))),
             getDocs(query(collection(db, PRIVATE_MEMORIES_COLLECTION), orderBy('createdAt', 'desc'))),
+            getDocs(query(collection(db, MEMORY_COMMENTS_COLLECTION), orderBy('createdAt', 'desc'))),
             getDocs(query(collection(db, MEMORY_DOWNLOAD_LOGS_COLLECTION), orderBy('downloadedAt', 'desc'))),
             getDocs(query(collection(db, GUESTBOOK_COLLECTION), orderBy('createdAt', 'desc'))),
             getDocs(query(collection(db, TIME_CAPSULE_COLLECTION), orderBy('createdAt', 'desc'))),
@@ -1546,10 +1832,12 @@
             getDoc(doc(db, SITE_SETTINGS_COLLECTION, CLASS_LETTERS_SETTING_ID)),
             getDoc(doc(db, SITE_SETTINGS_COLLECTION, CINEMATIC_SLIDESHOW_SETTING_ID)),
             getDoc(doc(db, SITE_SETTINGS_COLLECTION, TIME_CAPSULE_SETTING_ID)),
+            fetch(`./app-version.json?manager=${Date.now()}`).then((response) => (response.ok ? response.json() : null)).catch(() => null),
           ]);
 
           accounts = accountSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
           diaries = diarySnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+          memoryComments = commentSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
           downloads = downloadSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
           classLetters = letterSnapshot.docs.map((item) => {
             const data = item.data();
@@ -1569,6 +1857,7 @@
           timeCapsuleSetting = timeCapsuleSettingSnapshot.exists()
             ? { unlockAt: timeCapsuleSettingSnapshot.data().unlockAt || '' }
             : { unlockAt: '' };
+          appVersionInfo = appVersionSnapshot;
           memories = [
             ...publicMemorySnapshot.docs.map((item) => ({ id: item.id, collectionName: PUBLIC_MEMORIES_COLLECTION, ...item.data() })),
             ...privateMemorySnapshot.docs.map((item) => ({ id: item.id, collectionName: PRIVATE_MEMORIES_COLLECTION, ...item.data() })),
@@ -1626,6 +1915,7 @@
       });
 
       $('refreshButton').addEventListener('click', () => void refreshManagerData());
+      $('repairDataButton').addEventListener('click', () => void repairSystemData());
       $('toggleRecapButton').addEventListener('click', async () => {
         const nextEnabled = !memoryRecapSetting.enabled;
         $('toggleRecapButton').disabled = true;
