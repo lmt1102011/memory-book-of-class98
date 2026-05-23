@@ -872,12 +872,6 @@
     <script type="module">
       import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js';
       import {
-        createUserWithEmailAndPassword,
-        getAuth,
-        signOut,
-        updateProfile,
-      } from 'https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js';
-      import {
         collection,
         deleteDoc,
         doc,
@@ -924,10 +918,6 @@
 
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
-      const managerAuth = getAuth(app);
-      const creatorApp = initializeApp(firebaseConfig, 'creator');
-      const creatorAuth = getAuth(creatorApp);
-      const creatorDb = getFirestore(creatorApp);
 
       const $ = (id) => document.getElementById(id);
       const gate = $('gate');
@@ -968,6 +958,7 @@
       let isRepairingData = false;
       let managerLoadedTabs = new Set();
       let managerLoadingTabs = new Set();
+      let creatorServicesPromise = null;
 
       const isCompactManager = () => window.matchMedia('(max-width: 720px)').matches;
       const dataLimitFor = (tab) => {
@@ -998,9 +989,25 @@
           .replace(/^-+|-+$/g, '');
 
       const makeStudentEmail = (nameKey) => `${nameKey}@${AUTH_DOMAIN}`;
-      const isManagerFirebaseUser = () => managerAuth.currentUser?.email?.toLowerCase() === makeStudentEmail(MANAGER_NAME_KEY);
+      const isManagerFirebaseUser = () => false;
 
       const ensureManagerAccess = () => true;
+
+      const getCreatorServices = async () => {
+        if (!creatorServicesPromise) {
+          creatorServicesPromise = import('https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js').then((authModule) => {
+            const creatorApp = initializeApp(firebaseConfig, `manager-creator-${Date.now()}`);
+            return {
+              creatorAuth: authModule.getAuth(creatorApp),
+              creatorDb: getFirestore(creatorApp),
+              createUserWithEmailAndPassword: authModule.createUserWithEmailAndPassword,
+              signOut: authModule.signOut,
+              updateProfile: authModule.updateProfile,
+            };
+          });
+        }
+        return creatorServicesPromise;
+      };
 
       const formatDate = (value) => {
         if (!value) return '';
@@ -1418,7 +1425,10 @@
         renderFilterOptions();
         renderTabLoading(activeTab);
         updateBulkBar();
-        startPolling();
+        accountStatus.textContent = 'Manager đã mở. Đang tải nhẹ từng mục...';
+        window.requestAnimationFrame(() => {
+          window.setTimeout(startPolling, isCompactManager() ? 450 : 80);
+        });
       };
 
       const hideManager = () => {
@@ -2695,6 +2705,15 @@
         }
 
         try {
+          accountStatus.textContent = 'Đang tải bộ tạo tài khoản...';
+          const {
+            creatorAuth,
+            creatorDb,
+            createUserWithEmailAndPassword,
+            signOut,
+            updateProfile,
+          } = await getCreatorServices();
+
           accountStatus.textContent = 'Đang tạo tài khoản...';
           const credential = await createUserWithEmailAndPassword(creatorAuth, makeStudentEmail(nameKey), password);
           await updateProfile(credential.user, { displayName: name });
