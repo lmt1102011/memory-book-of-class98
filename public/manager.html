@@ -858,7 +858,7 @@
             </section>
             <section class="card">
               <h2>Gán huy hiệu tự chế</h2>
-              <p class="muted" style="margin-bottom: 12px">Huy hiệu manager gắn sẽ hiện nổi bật trong hồ sơ học sinh.</p>
+              <p class="muted" style="margin-bottom: 12px">Huy hiệu tự chế sẽ hiện nổi bật trong hồ sơ học sinh.</p>
               <form id="customBadgeForm" class="form">
                 <select id="badgeStudentSelect" aria-label="Chọn học sinh"></select>
                 <input id="badgeLabel" maxlength="36" placeholder="Tên huy hiệu, ví dụ: Trùm cứu deadline" />
@@ -1621,7 +1621,7 @@
         if (!select) return;
         const previousValue = select.value;
         const assignableAccounts = accounts
-          .filter((account) => !account.deleted && account.id !== MANAGER_NAME_KEY)
+          .filter((account) => !account.deleted)
           .sort((left, right) => String(left.name || left.id).localeCompare(String(right.name || right.id), 'vi'));
 
         select.innerHTML =
@@ -1669,11 +1669,10 @@
                               (badge) => `
                                 <div class="custom-badge ${escapeHtml(badge.tone)}">
                                   <div class="row">
-                                    <span class="pill blue">Manager gắn</span>
                                     <span class="pill">${escapeHtml(badgeToneLabel(badge.tone))}</span>
                                     <strong>${escapeHtml(badge.label)}</strong>
                                   </div>
-                                  <p class="muted">${escapeHtml(badge.description || 'Huy hiệu tự chế của manager.')}</p>
+                                  <p class="muted">${escapeHtml(badge.description || 'Huy hiệu tự chế.')}</p>
                                   <button class="danger" style="margin-top: 8px" data-account-action="delete-badge" data-id="${escapeHtml(account.id)}" data-badge-id="${escapeHtml(badge.id)}">Xóa huy hiệu</button>
                                 </div>
                               `,

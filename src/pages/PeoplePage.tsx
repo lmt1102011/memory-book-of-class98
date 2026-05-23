@@ -1086,10 +1086,7 @@ function CustomBadgePill({ badge, compact = false }: { badge: CustomProfileBadge
 
   return (
     <article className={`relative overflow-hidden rounded-[1rem] border p-3 ${className}`}>
-      <span className="absolute right-3 top-3 rounded-full bg-white/55 px-2 py-1 text-[10px] font-black uppercase opacity-80">
-        Manager gắn
-      </span>
-      <div className="flex min-w-0 items-start gap-3 pr-16">
+      <div className="flex min-w-0 items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/62 shadow-sm">
           <BadgeCheck size={18} />
         </span>
@@ -1310,7 +1307,7 @@ function PersonDetail({
         <div className="profile-modal-section mt-5 overflow-hidden rounded-[1.15rem] border border-[#d8a847]/30 bg-gradient-to-br from-[#fff6cf] via-white to-blush/18 p-3 shadow-[0_18px_44px_rgba(216,168,71,0.16)]">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="text-sm font-black uppercase text-coffee/78">Huy hiệu tự chế từ manager</h3>
+              <h3 className="text-sm font-black uppercase text-coffee/78">Huy hiệu tự chế</h3>
               <p className="mt-1 text-xs leading-5 text-ink/58">
                 Những danh hiệu riêng được gắn trực tiếp cho hồ sơ này, nổi bật hơn huy hiệu tự động.
               </p>
