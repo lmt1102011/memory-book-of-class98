@@ -1231,7 +1231,7 @@
             };
           })
           .filter((badge) => badge.label)
-          .slice(0, 6);
+          .slice(0, 3);
       const getCustomBadges = (account) => normalizeCustomBadges(account?.customBadges);
       const badgeToneLabel = (tone) =>
         ({
@@ -1687,7 +1687,7 @@
           assignableAccounts
             .map((account) => {
               const badgeCount = getCustomBadges(account).length;
-              return `<option value="${escapeHtml(account.id)}">${escapeHtml(account.name || account.id)} (${badgeCount}/6 huy hiệu)</option>`;
+              return `<option value="${escapeHtml(account.id)}">${escapeHtml(account.name || account.id)} (${badgeCount}/3 huy hiệu)</option>`;
             })
             .join('') || '<option value="">Chưa có tài khoản để gán huy hiệu</option>';
 
@@ -2820,8 +2820,8 @@
         }
 
         const currentBadges = getCustomBadges(account);
-        if (currentBadges.length >= 6) {
-          badgeStatus.textContent = 'Mỗi hồ sơ tối đa 6 huy hiệu tự chế để giao diện không bị rối.';
+        if (currentBadges.length >= 3) {
+          badgeStatus.textContent = 'Mỗi hồ sơ tối đa 3 huy hiệu tự chế để giao diện gọn và nổi bật.';
           return;
         }
 

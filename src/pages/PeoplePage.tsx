@@ -69,6 +69,8 @@ const customBadgeToneLabel: Record<CustomProfileBadge['tone'], string> = {
   ink: 'Huy hiệu đặc biệt',
 };
 
+const MAX_PROFILE_BADGES = 3;
+
 const isProfileOnline = isRecentlyOnline;
 
 const defaultTags = ['ấm áp', 'hài hước', 'đáng nhớ'];
@@ -328,6 +330,12 @@ const getYouthBadges = (
   }
 
   return badges.slice(0, 10);
+};
+
+const getVisibleProfileBadges = (customBadges: CustomProfileBadge[], youthBadges: YouthBadge[]) => {
+  const custom = customBadges.slice(0, MAX_PROFILE_BADGES);
+  const youth = youthBadges.slice(0, Math.max(0, MAX_PROFILE_BADGES - custom.length));
+  return { custom, youth };
 };
 
 const getProfileProgress = (person: ClassmateProfile) =>
@@ -636,6 +644,7 @@ export default function PeoplePage({
   const selectedBadgeGoals = selectedPerson ? badgeGoalsByKey[getPersonKey(selectedPerson)] || [] : [];
   const selfBadges = selfProfile ? badgesByKey[getPersonKey(selfProfile)] || [] : [];
   const selfCustomBadges = selfProfile?.customBadges || [];
+  const selfVisibleBadges = getVisibleProfileBadges(selfCustomBadges, selfBadges);
   const totalMemories = memories.length;
   const onlineCount = useMemo(() => sortedClassmates.filter(isProfileOnline).length, [sortedClassmates]);
 
@@ -796,16 +805,12 @@ export default function PeoplePage({
                       <p className="mt-1 truncate text-xs font-bold text-coffee/68">{nickname || 'Chưa có biệt danh'}</p>
                     </div>
                   </div>
-                  {selfCustomBadges.length > 0 && (
-                    <div className="mt-3 grid gap-1.5">
-                      {selfCustomBadges.slice(0, 2).map((badge) => (
+                  {(selfVisibleBadges.custom.length > 0 || selfVisibleBadges.youth.length > 0) && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {selfVisibleBadges.custom.map((badge) => (
                         <CustomBadgePill key={badge.id} badge={badge} compact />
                       ))}
-                    </div>
-                  )}
-                  {selfBadges.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {selfBadges.slice(0, 2).map((badge) => (
+                      {selfVisibleBadges.youth.map((badge) => (
                         <YouthBadgePill key={badge.id} badge={badge} compact />
                       ))}
                     </div>
@@ -872,6 +877,7 @@ export default function PeoplePage({
               <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
                 {filteredClassmates.map((person) => {
                   const personBadges = badgesByKey[getPersonKey(person)] || [];
+                  const visibleBadges = getVisibleProfileBadges(person.customBadges, personBadges);
 
                   return (
                     <article
@@ -888,16 +894,12 @@ export default function PeoplePage({
                           <p className="truncate text-xs font-bold text-coffee/70">{person.nickname || 'Bạn lớp 9/8'}</p>
                         </div>
                       </div>
-                      {person.customBadges.length > 0 && (
-                        <div className="mt-3 grid gap-1.5">
-                          {person.customBadges.slice(0, 1).map((badge) => (
+                      {(visibleBadges.custom.length > 0 || visibleBadges.youth.length > 0) && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {visibleBadges.custom.map((badge) => (
                             <CustomBadgePill key={badge.id} badge={badge} compact />
                           ))}
-                        </div>
-                      )}
-                      {personBadges.length > 0 && (
-                        <div className="mt-3 flex flex-wrap gap-1.5">
-                          {personBadges.slice(0, 2).map((badge) => (
+                          {visibleBadges.youth.map((badge) => (
                             <YouthBadgePill key={badge.id} badge={badge} compact />
                           ))}
                         </div>
@@ -1395,6 +1397,8 @@ function PersonDetail({
   }
 
   const personStats = stats || emptyPersonStats;
+  const visibleBadges = getVisibleProfileBadges(person.customBadges, badges);
+  const hasVisibleBadges = visibleBadges.custom.length > 0 || visibleBadges.youth.length > 0;
 
   return (
     <div className="rounded-[1.15rem] bg-white p-3 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.08)] sm:p-4">
@@ -1453,47 +1457,29 @@ function PersonDetail({
         </div>
       </section>
 
-      {person.customBadges.length > 0 && (
-        <div className="profile-modal-section mt-5 overflow-hidden rounded-[1.15rem] border border-[#d8a847]/30 bg-gradient-to-br from-[#fff6cf] via-white to-blush/18 p-3 shadow-[0_18px_44px_rgba(216,168,71,0.16)]">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h3 className="text-sm font-black uppercase text-coffee/78">Huy hiệu tự chế</h3>
-              <p className="mt-1 text-xs leading-5 text-ink/58">
-                Những danh hiệu riêng được gắn trực tiếp cho hồ sơ này, nổi bật hơn huy hiệu tự động.
-              </p>
-            </div>
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/68 text-[#8a6119] shadow-sm">
-              <BadgeCheck size={20} />
-            </span>
-          </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {person.customBadges.map((badge) => (
-              <CustomBadgePill key={badge.id} badge={badge} />
-            ))}
-          </div>
-        </div>
-      )}
-
       <div className="profile-modal-section mt-5 overflow-hidden rounded-[1.15rem] border border-white/70 bg-gradient-to-br from-paper via-white to-skySoft/20 p-3 shadow-[0_14px_36px_rgba(84,57,35,0.10)]">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-sm font-black uppercase text-coffee/72">Huy hiệu thanh xuân</h3>
+            <h3 className="text-sm font-black uppercase text-coffee/72">Huy hiệu nổi bật</h3>
             <p className="mt-1 text-xs leading-5 text-ink/55">
-              Huy hiệu tự cập nhật theo ảnh/video, tim, bình luận và mức độ hoàn thiện hồ sơ.
+              Mỗi hồ sơ chỉ hiện tối đa 3 huy hiệu. Huy hiệu tự chế được ưu tiên trước huy hiệu tự động.
             </p>
           </div>
           <BadgeCheck className="shrink-0 text-coffee/62" size={20} />
         </div>
 
-        {badges.length ? (
+        {hasVisibleBadges ? (
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {badges.map((badge) => (
+            {visibleBadges.custom.map((badge) => (
+              <CustomBadgePill key={badge.id} badge={badge} />
+            ))}
+            {visibleBadges.youth.map((badge) => (
               <YouthBadgePill key={badge.id} badge={badge} />
             ))}
           </div>
         ) : (
           <p className="mt-3 rounded-[0.85rem] bg-white/58 px-3 py-3 text-sm font-bold text-ink/62">
-            Chưa có huy hiệu nào. Khi bạn này hoàn thiện hồ sơ hoặc đăng thêm kỷ niệm, huy hiệu sẽ xuất hiện ở đây.
+            Chưa có huy hiệu nào. Khi hồ sơ được gắn danh hiệu hoặc có thêm kỷ niệm, huy hiệu sẽ xuất hiện ở đây.
           </p>
         )}
 

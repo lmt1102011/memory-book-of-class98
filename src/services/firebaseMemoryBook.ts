@@ -549,7 +549,7 @@ const customBadgesFromData = (data: DocumentData): CustomProfileBadge[] =>
           };
         })
         .filter((badge) => badge.label)
-        .slice(0, 6)
+        .slice(0, 3)
     : [];
 
 const profileFromData = (id: string, data: DocumentData, user?: User | null): UserProfile => ({
