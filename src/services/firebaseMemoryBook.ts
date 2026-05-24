@@ -87,6 +87,7 @@ const FIREBASE_RETRY_DELAYS = [0, 450, 1000, 1800];
 const FIREBASE_TIMEOUT_MS = 12_000;
 const FIREBASE_POLL_MS = 20_000;
 const SITE_SETTINGS_POLL_MS = 4_000;
+const STUDENT_PRESENCE_HEARTBEAT_MS = 45_000;
 const REMEMBER_REACTION_LABELS: Record<RememberReactionId, string> = {
   'miss-you': 'Nhớ cậu',
   'thank-you': 'Cảm ơn',
@@ -258,6 +259,55 @@ const withTimeout = async <T,>(promise: Promise<T>, label: string) =>
 
 export const keepFirebaseOnline = () => () => undefined;
 
+export const updateStudentPresence = async (profile: UserProfile) => {
+  const user = currentUserForProfile(profile);
+  if (!user || !profile.nameKey) return;
+
+  await withFirebaseRetry(() =>
+    updateDoc(doc(db, STUDENTS_COLLECTION, profile.nameKey), {
+      onlineAt: serverTimestamp(),
+      lastSeenAt: serverTimestamp(),
+    }),
+  );
+};
+
+export const startStudentPresence = (profile: UserProfile) => {
+  if (typeof window === 'undefined') return () => undefined;
+
+  let disposed = false;
+  let inFlight = false;
+  const isPageActive = () =>
+    document.visibilityState === 'visible' && (typeof navigator === 'undefined' || navigator.onLine);
+
+  const heartbeat = () => {
+    if (disposed || inFlight || !isPageActive()) return;
+    inFlight = true;
+    void updateStudentPresence(profile)
+      .catch(() => undefined)
+      .finally(() => {
+        inFlight = false;
+      });
+  };
+
+  const handleVisible = () => {
+    if (document.visibilityState === 'visible') heartbeat();
+  };
+
+  heartbeat();
+  const interval = window.setInterval(heartbeat, STUDENT_PRESENCE_HEARTBEAT_MS);
+  window.addEventListener('focus', heartbeat);
+  window.addEventListener('online', heartbeat);
+  document.addEventListener('visibilitychange', handleVisible);
+
+  return () => {
+    disposed = true;
+    window.clearInterval(interval);
+    window.removeEventListener('focus', heartbeat);
+    window.removeEventListener('online', heartbeat);
+    document.removeEventListener('visibilitychange', handleVisible);
+  };
+};
+
 const withFirebaseRetry = async <T,>(operation: () => Promise<T>) => {
   let lastError: unknown;
 
@@ -300,6 +350,8 @@ const studentProfileWriteData = (
   ...(options.includeRepairedAt ? { repairedAt: serverTimestamp() } : {}),
   ...(options.includeCreatedAt ? { createdAt: serverTimestamp() } : {}),
   lastLoginAt: serverTimestamp(),
+  onlineAt: serverTimestamp(),
+  lastSeenAt: serverTimestamp(),
 });
 
 const firestoreRestFields = (
@@ -318,6 +370,8 @@ const firestoreRestFields = (
     disabled: { booleanValue: false },
     deleted: { booleanValue: false },
     lastLoginAt: { timestampValue: now },
+    onlineAt: { timestampValue: now },
+    lastSeenAt: { timestampValue: now },
   };
 
   if (options.includeCreatedAt) fields.createdAt = { timestampValue: now };
@@ -512,6 +566,8 @@ const profileFromData = (id: string, data: DocumentData, user?: User | null): Us
   classMessage: data.classMessage ? String(data.classMessage) : undefined,
   personalityTags: Array.isArray(data.personalityTags) ? data.personalityTags.map(String).slice(0, 3) : [],
   profileUpdatedAt: data.profileUpdatedAt ? timestampToIso(data.profileUpdatedAt) : undefined,
+  onlineAt: data.onlineAt ? timestampToIso(data.onlineAt) : undefined,
+  lastSeenAt: data.lastSeenAt ? timestampToIso(data.lastSeenAt) : undefined,
   disabled: Boolean(data.disabled),
   disabledReason: String(data.disabledReason || ''),
   deleted: Boolean(data.deleted),
@@ -643,6 +699,8 @@ const classmateFromDoc = (id: string, data: DocumentData): ClassmateProfile => (
   classMessage: data.classMessage ? String(data.classMessage) : undefined,
   personalityTags: Array.isArray(data.personalityTags) ? data.personalityTags.map(String).slice(0, 3) : [],
   profileUpdatedAt: data.profileUpdatedAt ? timestampToIso(data.profileUpdatedAt) : undefined,
+  onlineAt: data.onlineAt ? timestampToIso(data.onlineAt) : undefined,
+  lastSeenAt: data.lastSeenAt ? timestampToIso(data.lastSeenAt) : undefined,
 });
 
 const parseRememberReactionId = (value: unknown): RememberReactionId | undefined => {

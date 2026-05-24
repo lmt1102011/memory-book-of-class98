@@ -4,6 +4,7 @@ import ActionModal from '../components/ActionModal';
 import FirebaseNotice from '../components/FirebaseNotice';
 import type { ClassmateProfile, CustomProfileBadge, MemoryComment, MemoryItem, UserProfile, YouthProfileDraft } from '../types';
 import { formatUploadTime } from '../utils/date';
+import { isRecentlyOnline } from '../utils/presence';
 
 interface PeoplePageProps {
   classmates: ClassmateProfile[];
@@ -67,6 +68,8 @@ const customBadgeToneLabel: Record<CustomProfileBadge['tone'], string> = {
   green: 'Huy hiệu lớp',
   ink: 'Huy hiệu đặc biệt',
 };
+
+const isProfileOnline = isRecentlyOnline;
 
 const defaultTags = ['ấm áp', 'hài hước', 'đáng nhớ'];
 
@@ -634,6 +637,7 @@ export default function PeoplePage({
   const selfBadges = selfProfile ? badgesByKey[getPersonKey(selfProfile)] || [] : [];
   const selfCustomBadges = selfProfile?.customBadges || [];
   const totalMemories = memories.length;
+  const onlineCount = useMemo(() => sortedClassmates.filter(isProfileOnline).length, [sortedClassmates]);
 
   const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -747,8 +751,9 @@ export default function PeoplePage({
           </div>
 
           <div className="rounded-[1.35rem] border border-white/60 bg-white/48 p-4 shadow-paper backdrop-blur-xl">
-            <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
               <Stat value={sortedClassmates.length} label="hồ sơ" />
+              <Stat value={onlineCount} label="online" tone="bg-[#dff8e7]" />
               <Stat value={totalMemories} label="ảnh lớp" tone="bg-blush/30" />
               <Stat value={totalHearts} label="tim" tone="bg-skySoft/30" />
             </div>
@@ -780,8 +785,9 @@ export default function PeoplePage({
               <>
                 <div className="mt-5 rounded-[1rem] bg-paper/68 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
                   <div className="flex items-center gap-3">
-                    <span className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full bg-white/72 text-coffee shadow-sm">
+                    <span className="relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full bg-white/72 text-coffee shadow-sm">
                       {avatarDataUrl ? <img src={avatarDataUrl} alt="" className="h-full w-full object-cover" /> : <UserRound size={20} />}
+                      {selfProfile && isProfileOnline(selfProfile) && <OnlineDot />}
                     </span>
                     <div className="min-w-0">
                       <p className="break-words text-sm font-black">{profile.name}</p>
@@ -871,9 +877,12 @@ export default function PeoplePage({
                       className="min-w-0 rounded-[1rem] border border-white/65 bg-white/54 p-4 text-left text-ink shadow-paper transition hover:bg-white/72"
                     >
                       <div className="flex items-center gap-3">
-                        <Avatar person={person} />
+                        <Avatar person={person} online={isProfileOnline(person)} />
                         <div className="min-w-0">
-                          <h3 className="truncate text-base font-black">{person.name}</h3>
+                          <div className="flex min-w-0 items-center gap-2">
+                            <h3 className="truncate text-base font-black">{person.name}</h3>
+                            {isProfileOnline(person) && <OnlineBadge />}
+                          </div>
                           <p className="truncate text-xs font-bold text-coffee/70">{person.nickname || 'Bạn lớp 9/8'}</p>
                         </div>
                       </div>
@@ -1166,10 +1175,10 @@ function ProfileFormSection({
   );
 }
 
-function Avatar({ person, active = false }: { person: ClassmateProfile; active?: boolean }) {
+function Avatar({ person, active = false, online = false }: { person: ClassmateProfile; active?: boolean; online?: boolean }) {
   return (
     <span
-      className={`grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full ${
+      className={`relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full ${
         active ? 'bg-paper/18 text-paper' : 'bg-paper text-coffee'
       }`}
     >
@@ -1178,6 +1187,27 @@ function Avatar({ person, active = false }: { person: ClassmateProfile; active?:
       ) : (
         <UserRound size={22} />
       )}
+      {online && <OnlineDot />}
+    </span>
+  );
+}
+
+function OnlineDot({ large = false }: { large?: boolean }) {
+  return (
+    <span
+      className={`absolute rounded-full border-2 border-white bg-[#24c86a] shadow-[0_0_0_3px_rgba(36,200,106,0.16),0_0_16px_rgba(36,200,106,0.55)] ${
+        large ? 'bottom-2 right-2 h-4 w-4' : 'bottom-0.5 right-0.5 h-3.5 w-3.5'
+      }`}
+      aria-hidden="true"
+    />
+  );
+}
+
+function OnlineBadge({ label = 'Online' }: { label?: string }) {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#e4fbea] px-2 py-1 text-[10px] font-black uppercase leading-none text-[#167142] shadow-[inset_0_0_0_1px_rgba(36,200,106,0.18)]">
+      <span className="h-1.5 w-1.5 rounded-full bg-[#24c86a]" />
+      {label}
     </span>
   );
 }
@@ -1369,7 +1399,7 @@ function PersonDetail({
           <div className="relative bg-[#fff3df] p-4 text-center">
             <span className="scrapbook-tape left-8 top-2 z-[2] -rotate-6" />
             <div className="mx-auto w-full max-w-[13rem] rotate-[-1.5deg] rounded-[0.55rem] bg-white p-3 pb-7 shadow-paper">
-              <div className="aspect-[4/5] overflow-hidden rounded-[0.35rem] bg-paper text-coffee">
+              <div className="relative aspect-[4/5] overflow-hidden rounded-[0.35rem] bg-paper text-coffee">
                 {person.avatarDataUrl ? (
                   <img src={person.avatarDataUrl} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
                 ) : (
@@ -1377,6 +1407,7 @@ function PersonDetail({
                     <UserRound size={42} />
                   </div>
                 )}
+                {isProfileOnline(person) && <OnlineDot large />}
               </div>
               <p className="mt-3 truncate font-hand text-2xl font-bold text-coffee">{person.nickname || 'Bạn lớp 9/8'}</p>
             </div>
@@ -1385,7 +1416,10 @@ function PersonDetail({
           <div className="min-w-0 p-4 sm:p-5">
             <p className="section-kicker">{isSelf ? 'Hồ sơ của tôi' : 'Hồ sơ lớp 9/8'}</p>
             <h2 className="break-words font-display text-5xl leading-none text-ink sm:text-6xl">{person.name}</h2>
-            <p className="mt-2 text-sm font-bold text-coffee/70">Lớp {person.className || '9/8'}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <p className="text-sm font-bold text-coffee/70">Lớp {person.className || '9/8'}</p>
+              {isProfileOnline(person) && <OnlineBadge label="Đang online" />}
+            </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
               {(person.personalityTags.length ? person.personalityTags : ['9/8', 'memory']).map((tag) => (

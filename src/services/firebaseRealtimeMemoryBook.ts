@@ -157,6 +157,8 @@ const profileFromStudentDoc = (id: string, data: DocumentData, fallback: UserPro
   classMessage: data.classMessage ? String(data.classMessage) : fallback.classMessage,
   personalityTags: Array.isArray(data.personalityTags) ? data.personalityTags.map(String).slice(0, 3) : fallback.personalityTags,
   profileUpdatedAt: data.profileUpdatedAt ? timestampToIso(data.profileUpdatedAt) : fallback.profileUpdatedAt,
+  onlineAt: data.onlineAt ? timestampToIso(data.onlineAt) : fallback.onlineAt,
+  lastSeenAt: data.lastSeenAt ? timestampToIso(data.lastSeenAt) : fallback.lastSeenAt,
   disabled: Boolean(data.disabled),
   disabledReason: String(data.disabledReason || fallback.disabledReason || ''),
   deleted: Boolean(data.deleted),

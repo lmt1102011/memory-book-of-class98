@@ -8,6 +8,7 @@ interface MemoryCardProps {
   comments: MemoryComment[];
   profile: UserProfile | null;
   isReacting: boolean;
+  isOwnerOnline?: boolean;
   pendingCommentReactionIds: string[];
   onJoin: () => void;
   onOpenImage: (memory: MemoryItem) => void;
@@ -51,11 +52,21 @@ function ReactionIcon({ src, className }: { src: string; className: string }) {
   );
 }
 
+function OnlineDot() {
+  return (
+    <span
+      className="h-2.5 w-2.5 shrink-0 rounded-full border border-white bg-[#24c86a] shadow-[0_0_0_3px_rgba(36,200,106,0.14),0_0_12px_rgba(36,200,106,0.5)]"
+      aria-label="Đang online"
+    />
+  );
+}
+
 function MemoryCard({
   memory,
   comments,
   profile,
   isReacting,
+  isOwnerOnline = false,
   pendingCommentReactionIds,
   onJoin,
   onOpenImage,
@@ -166,11 +177,12 @@ function MemoryCard({
           <div className="min-w-0">
             <button
               type="button"
-              className="break-words text-left font-semibold text-ink underline-offset-4 transition hover:text-coffee hover:underline"
+              className="inline-flex max-w-full items-center gap-1.5 break-words text-left font-semibold text-ink underline-offset-4 transition hover:text-coffee hover:underline"
               onClick={() => (memory.nameKey || memory.uid) && onOpenProfile(memory.nameKey || memory.uid || '')}
               disabled={!memory.nameKey && !memory.uid}
             >
-              {memory.name}
+              {isOwnerOnline && <OnlineDot />}
+              <span className="min-w-0 break-words">{memory.name}</span>
             </button>
             <p className="text-xs font-semibold uppercase text-coffee/65">Lớp {memory.className}</p>
           </div>

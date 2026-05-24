@@ -49,6 +49,7 @@ import type {
   VoteRecord,
   YouthProfileDraft,
 } from './types';
+import { isRecentlyOnline } from './utils/presence';
 
 const JoinPage = lazy(() => import('./pages/JoinPage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -731,7 +732,7 @@ export default function App() {
         });
     }
 
-    if (route === 'remember' || route === 'people' || route === 'votes' || route === 'photobook') {
+    if (route === 'home' || route === 'remember' || route === 'people' || route === 'votes' || route === 'photobook') {
       setClassmatesLoading(true);
 
       void import('./services/firebaseMemoryBook')
@@ -1068,6 +1069,25 @@ export default function App() {
     };
   }, [profile?.uid, profile?.nameKey, signOutToJoin]);
 
+  useEffect(() => {
+    if (!profile?.uid || !profile.nameKey || accountBlock) return undefined;
+
+    let stopPresence: (() => void) | undefined;
+    let isActive = true;
+
+    void import('./services/firebaseMemoryBook')
+      .then((service) => {
+        if (!isActive) return;
+        stopPresence = service.startStudentPresence(profile);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      isActive = false;
+      stopPresence?.();
+    };
+  }, [accountBlock, profile?.uid, profile?.nameKey]);
+
   const handleBootSplashComplete = useCallback(() => {
     setBootSplashDone(true);
   }, []);
@@ -1096,6 +1116,10 @@ export default function App() {
 
   const allMemories = useMemo(() => remoteMemories, [remoteMemories]);
   const allGuestbook = useMemo(() => remoteGuestbook, [remoteGuestbook]);
+  const onlineNameKeys = useMemo(
+    () => new Set(classmates.filter(isRecentlyOnline).map((person) => person.nameKey)),
+    [classmates],
+  );
   const selfProfileForCompletion = useMemo(() => {
     if (!profile) return null;
     return classmates.find((person) => person.nameKey === profile.nameKey) || profile;
@@ -2479,6 +2503,7 @@ export default function App() {
           writingPromptsEnabled={writingPromptsEnabled}
           cinematicSlideshowSettings={cinematicSlideshowSettings}
           profile={profile}
+          onlineNameKeys={onlineNameKeys}
           pendingReactionIds={pendingReactionIds}
           pendingCommentReactionIds={pendingCommentReactionIds}
           onJoin={() => navigate('join')}

@@ -125,6 +125,7 @@ interface HomePageProps {
   writingPromptsEnabled: boolean;
   cinematicSlideshowSettings: CinematicSlideshowSettings;
   profile: UserProfile | null;
+  onlineNameKeys: Set<string>;
   pendingReactionIds: string[];
   pendingCommentReactionIds: string[];
   onJoin: () => void;
@@ -151,6 +152,7 @@ export default function HomePage({
   writingPromptsEnabled,
   cinematicSlideshowSettings,
   profile,
+  onlineNameKeys,
   pendingReactionIds,
   pendingCommentReactionIds,
   onJoin,
@@ -1089,6 +1091,7 @@ export default function HomePage({
                 comments={memory.visibility === 'public' ? commentsByMemory[memory.id] || EMPTY_COMMENTS : EMPTY_COMMENTS}
                 profile={profile}
                 isReacting={pendingReactionIds.includes(memory.id)}
+                isOwnerOnline={Boolean(memory.nameKey && onlineNameKeys.has(memory.nameKey))}
                 pendingCommentReactionIds={pendingCommentReactionIds}
                 onJoin={onJoin}
                 onOpenImage={setSelectedMemory}

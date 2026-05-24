@@ -366,7 +366,9 @@ service cloud.firestore {
           'classMessage',
           'personalityTags',
           'profileUpdatedAt',
-          'lastLoginAt'
+          'lastLoginAt',
+          'onlineAt',
+          'lastSeenAt'
         ]);
     }
 
@@ -398,7 +400,9 @@ service cloud.firestore {
           'deleted',
           'createdAt',
           'repairedAt',
-          'lastLoginAt'
+          'lastLoginAt',
+          'onlineAt',
+          'lastSeenAt'
         ]);
     }
 
@@ -425,7 +429,9 @@ service cloud.firestore {
           'deleted',
           'createdAt',
           'repairedAt',
-          'lastLoginAt'
+          'lastLoginAt',
+          'onlineAt',
+          'lastSeenAt'
         ]);
     }
 

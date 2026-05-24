@@ -45,6 +45,8 @@ export interface UserProfile {
   classMessage?: string;
   personalityTags?: string[];
   profileUpdatedAt?: string;
+  onlineAt?: string;
+  lastSeenAt?: string;
   disabled?: boolean;
   disabledReason?: string;
   deleted?: boolean;
@@ -64,6 +66,8 @@ export interface ClassmateProfile {
   classMessage?: string;
   personalityTags: string[];
   profileUpdatedAt?: string;
+  onlineAt?: string;
+  lastSeenAt?: string;
 }
 
 export type CustomProfileBadgeTone = 'gold' | 'pink' | 'blue' | 'green' | 'ink';
