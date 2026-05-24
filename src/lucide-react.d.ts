@@ -20,6 +20,7 @@ declare module 'lucide-react' {
   export const CheckCheck: LucideIcon;
   export const Download: LucideIcon;
   export const Eye: LucideIcon;
+  export const EyeOff: LucideIcon;
   export const Filter: LucideIcon;
   export const Heart: LucideIcon;
   export const Home: LucideIcon;

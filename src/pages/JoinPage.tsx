@@ -1,5 +1,5 @@
 import { m } from 'framer-motion';
-import { BadgeCheck, Camera, Lock, UserRound } from 'lucide-react';
+import { BadgeCheck, Camera, Eye, EyeOff, Lock, UserRound } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useMobilePerformanceMode } from '../hooks/useMobilePerformanceMode';
 import { checkStudentName, CLASS_NAME, loginStudent, registerStudent } from '../services/firebaseMemoryBook';
@@ -18,6 +18,7 @@ export default function JoinPage({ profile, onJoin, onSkip }: JoinPageProps) {
   const [password, setPassword] = useState('');
   const [mode, setMode] = useState<JoinMode>('name');
   const [nameWasDeleted, setNameWasDeleted] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [joined, setJoined] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState('');
@@ -35,6 +36,7 @@ export default function JoinPage({ profile, onJoin, onSkip }: JoinPageProps) {
         setNameWasDeleted(Boolean(result.deleted));
         setMode(result.exists ? 'login' : 'register');
         setPassword('');
+        setShowPassword(false);
         return;
       }
 
@@ -65,6 +67,7 @@ export default function JoinPage({ profile, onJoin, onSkip }: JoinPageProps) {
     setMode('name');
     setNameWasDeleted(false);
     setPassword('');
+    setShowPassword(false);
     setError('');
   };
 
@@ -155,15 +158,26 @@ export default function JoinPage({ profile, onJoin, onSkip }: JoinPageProps) {
                             ? 'Tên này đã từng bị xóa. Đặt mật khẩu mới để tạo lại'
                             : 'Tên mới. Đặt mật khẩu'}
                       </span>
-                      <input
-                        className="input-field"
-                        value={password}
-                        onChange={(event) => setPassword(event.target.value)}
-                        placeholder="Tối thiểu 6 ký tự"
-                        type="password"
-                        autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                        minLength={6}
-                      />
+                      <div className="relative">
+                        <input
+                          className="input-field pr-14"
+                          value={password}
+                          onChange={(event) => setPassword(event.target.value)}
+                          placeholder="Tối thiểu 6 ký tự"
+                          type={showPassword ? 'text' : 'password'}
+                          autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                          minLength={6}
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white/75 text-coffee shadow-sm transition hover:bg-white hover:text-ink focus:outline-none focus:ring-2 focus:ring-chalk/45 active:scale-95"
+                          aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                          aria-pressed={showPassword}
+                          onClick={() => setShowPassword((value) => !value)}
+                        >
+                          {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                        </button>
+                      </div>
                     </m.label>
                   )}
 
