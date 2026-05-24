@@ -785,8 +785,10 @@ export default function PeoplePage({
               <>
                 <div className="mt-5 rounded-[1rem] bg-paper/68 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
                   <div className="flex items-center gap-3">
-                    <span className="relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full bg-white/72 text-coffee shadow-sm">
-                      {avatarDataUrl ? <img src={avatarDataUrl} alt="" className="h-full w-full object-cover" /> : <UserRound size={20} />}
+                    <span className="relative shrink-0">
+                      <span className="grid h-14 w-14 place-items-center overflow-hidden rounded-full bg-white/72 text-coffee shadow-sm">
+                        {avatarDataUrl ? <img src={avatarDataUrl} alt="" className="h-full w-full object-cover" /> : <UserRound size={20} />}
+                      </span>
                       {selfProfile && isProfileOnline(selfProfile) && <OnlineDot />}
                     </span>
                     <div className="min-w-0">
@@ -1177,16 +1179,18 @@ function ProfileFormSection({
 
 function Avatar({ person, active = false, online = false }: { person: ClassmateProfile; active?: boolean; online?: boolean }) {
   return (
-    <span
-      className={`relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full ${
-        active ? 'bg-paper/18 text-paper' : 'bg-paper text-coffee'
-      }`}
-    >
-      {person.avatarDataUrl ? (
-        <img src={person.avatarDataUrl} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
-      ) : (
-        <UserRound size={22} />
-      )}
+    <span className="relative shrink-0">
+      <span
+        className={`grid h-14 w-14 place-items-center overflow-hidden rounded-full ${
+          active ? 'bg-paper/18 text-paper' : 'bg-paper text-coffee'
+        }`}
+      >
+        {person.avatarDataUrl ? (
+          <img src={person.avatarDataUrl} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
+        ) : (
+          <UserRound size={22} />
+        )}
+      </span>
       {online && <OnlineDot />}
     </span>
   );
@@ -1195,8 +1199,8 @@ function Avatar({ person, active = false, online = false }: { person: ClassmateP
 function OnlineDot({ large = false }: { large?: boolean }) {
   return (
     <span
-      className={`absolute rounded-full border-2 border-white bg-[#24c86a] shadow-[0_0_0_3px_rgba(36,200,106,0.16),0_0_16px_rgba(36,200,106,0.55)] ${
-        large ? 'bottom-2 right-2 h-4 w-4' : 'bottom-0.5 right-0.5 h-3.5 w-3.5'
+      className={`absolute rounded-full border-2 border-white bg-[#24c86a] ${
+        large ? '-bottom-1 -right-1 h-4 w-4' : '-bottom-0.5 -right-0.5 h-3.5 w-3.5'
       }`}
       aria-hidden="true"
     />
@@ -1205,7 +1209,7 @@ function OnlineDot({ large = false }: { large?: boolean }) {
 
 function OnlineBadge({ label = 'Online' }: { label?: string }) {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#e4fbea] px-2 py-1 text-[10px] font-black uppercase leading-none text-[#167142] shadow-[inset_0_0_0_1px_rgba(36,200,106,0.18)]">
+    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#e4fbea] px-2 py-1 text-[10px] font-black uppercase leading-none text-[#167142] ring-1 ring-[#24c86a]/20">
       <span className="h-1.5 w-1.5 rounded-full bg-[#24c86a]" />
       {label}
     </span>
@@ -1399,14 +1403,16 @@ function PersonDetail({
           <div className="relative bg-[#fff3df] p-4 text-center">
             <span className="scrapbook-tape left-8 top-2 z-[2] -rotate-6" />
             <div className="mx-auto w-full max-w-[13rem] rotate-[-1.5deg] rounded-[0.55rem] bg-white p-3 pb-7 shadow-paper">
-              <div className="relative aspect-[4/5] overflow-hidden rounded-[0.35rem] bg-paper text-coffee">
-                {person.avatarDataUrl ? (
-                  <img src={person.avatarDataUrl} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
-                ) : (
-                  <div className="grid h-full place-items-center">
-                    <UserRound size={42} />
-                  </div>
-                )}
+              <div className="relative">
+                <div className="aspect-[4/5] overflow-hidden rounded-[0.35rem] bg-paper text-coffee">
+                  {person.avatarDataUrl ? (
+                    <img src={person.avatarDataUrl} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                  ) : (
+                    <div className="grid h-full place-items-center">
+                      <UserRound size={42} />
+                    </div>
+                  )}
+                </div>
                 {isProfileOnline(person) && <OnlineDot large />}
               </div>
               <p className="mt-3 truncate font-hand text-2xl font-bold text-coffee">{person.nickname || 'Bạn lớp 9/8'}</p>

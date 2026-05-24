@@ -55,7 +55,7 @@ function ReactionIcon({ src, className }: { src: string; className: string }) {
 function OnlineDot() {
   return (
     <span
-      className="h-2.5 w-2.5 shrink-0 rounded-full border border-white bg-[#24c86a] shadow-[0_0_0_3px_rgba(36,200,106,0.14),0_0_12px_rgba(36,200,106,0.5)]"
+      className="h-2.5 w-2.5 shrink-0 rounded-full border border-white bg-[#24c86a]"
       aria-label="Đang online"
     />
   );
