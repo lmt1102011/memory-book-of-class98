@@ -27,6 +27,7 @@ import type {
 } from '../types';
 
 const EMPTY_COMMENTS: MemoryComment[] = [];
+type MemoryGuideStep = 'idle' | 'feed' | 'viewer' | 'done';
 
 type SmartMemoryFilter = 'all' | 'mine' | 'photos' | 'videos' | 'popular' | 'commented';
 
@@ -126,6 +127,8 @@ interface HomePageProps {
   cinematicSlideshowSettings: CinematicSlideshowSettings;
   profile: UserProfile | null;
   onlineNameKeys: Set<string>;
+  menuHintCompleted: boolean;
+  memoryGuideStorageKey: string;
   pendingReactionIds: string[];
   pendingCommentReactionIds: string[];
   onJoin: () => void;
@@ -153,6 +156,8 @@ export default function HomePage({
   cinematicSlideshowSettings,
   profile,
   onlineNameKeys,
+  menuHintCompleted,
+  memoryGuideStorageKey,
   pendingReactionIds,
   pendingCommentReactionIds,
   onJoin,
@@ -195,9 +200,19 @@ export default function HomePage({
   const [recapPosterError, setRecapPosterError] = useState('');
   const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
+  const [memoryGuideStep, setMemoryGuideStep] = useState<MemoryGuideStep>('idle');
 
   const debouncedName = useDebounce(nameQuery);
   const debouncedKeyword = useDebounce(keywordQuery);
+
+  useEffect(() => {
+    if (!profile || !memoryGuideStorageKey) {
+      setMemoryGuideStep('idle');
+      return;
+    }
+
+    setMemoryGuideStep(window.localStorage.getItem(memoryGuideStorageKey) === 'done' ? 'done' : 'feed');
+  }, [memoryGuideStorageKey, profile?.uid]);
 
   const syncZoomState = useCallback((immediate = false) => {
     const publish = () => {
@@ -292,18 +307,25 @@ export default function HomePage({
     scheduleZoomTransform({ zoom: 1, x: 0, y: 0 }, true);
   }, [scheduleZoomTransform, setZoomInteractionMode]);
 
+  const markMemoryGuideDone = useCallback(() => {
+    if (memoryGuideStorageKey) window.localStorage.setItem(memoryGuideStorageKey, 'done');
+    setMemoryGuideStep('done');
+  }, [memoryGuideStorageKey]);
+
   const closeSelectedMemory = useCallback(() => {
+    if (memoryGuideStep === 'viewer') markMemoryGuideDone();
     setSelectedMemory(null);
     setIsImageZoomOpen(false);
     resetImageZoom();
-  }, [resetImageZoom]);
+  }, [markMemoryGuideDone, memoryGuideStep, resetImageZoom]);
 
   const openImageZoomViewer = useCallback(() => {
     if (selectedMemory?.mediaType === 'video') return;
+    if (memoryGuideStep === 'viewer') markMemoryGuideDone();
     activePointersRef.current.clear();
     resetImageZoom();
     setIsImageZoomOpen(true);
-  }, [resetImageZoom, selectedMemory?.mediaType]);
+  }, [markMemoryGuideDone, memoryGuideStep, resetImageZoom, selectedMemory?.mediaType]);
 
   const closeImageZoomViewer = useCallback(() => {
     activePointersRef.current.clear();
@@ -680,6 +702,21 @@ export default function HomePage({
   }, [activePersonKey, activeSmartFilter, activeTag, commentsByMemory, memories, profile, debouncedKeyword, debouncedName]);
 
   const hasActiveFilter = Boolean(nameQuery.trim() || keywordQuery.trim() || activeTag || activePersonKey || activeSmartFilter !== 'all');
+  const canShowMemoryTapGuide = Boolean(
+    profile &&
+      menuHintCompleted &&
+      memoryGuideStep === 'feed' &&
+      !isLoadingMemories &&
+      filteredMemories.length &&
+      !selectedMemory,
+  );
+  const showZoomTapGuide = Boolean(
+    selectedMemory &&
+      selectedMemory.mediaType !== 'video' &&
+      menuHintCompleted &&
+      memoryGuideStep === 'viewer' &&
+      !isImageZoomOpen,
+  );
 
   const clearFilters = () => {
     setNameQuery('');
@@ -688,6 +725,24 @@ export default function HomePage({
     setActivePersonKey(null);
     setActiveSmartFilter('all');
   };
+
+  const openMemoryPreview = useCallback(
+    (memory: MemoryItem) => {
+      setSelectedMemory(memory);
+      if (menuHintCompleted && memoryGuideStep === 'feed' && memory.mediaType !== 'video') {
+        setMemoryGuideStep('viewer');
+      }
+    },
+    [memoryGuideStep, menuHintCompleted],
+  );
+
+  const openFirstGuidedMemory = useCallback(() => {
+    const firstPhoto = filteredMemories.find((memory) => memory.mediaType !== 'video') || filteredMemories[0];
+    if (!firstPhoto) return;
+    setSelectedMemory(firstPhoto);
+    setMemoryGuideStep(firstPhoto.mediaType === 'video' ? 'done' : 'viewer');
+    if (firstPhoto.mediaType === 'video') markMemoryGuideDone();
+  }, [filteredMemories, markMemoryGuideDone]);
 
   const selectedDownloadHref =
     selectedMemory?.mediaType === 'video' ? selectedVideoUrl : selectedMemory?.imageUrl || '';
@@ -1094,7 +1149,7 @@ export default function HomePage({
                 isOwnerOnline={Boolean(memory.nameKey && onlineNameKeys.has(memory.nameKey))}
                 pendingCommentReactionIds={pendingCommentReactionIds}
                 onJoin={onJoin}
-                onOpenImage={setSelectedMemory}
+                onOpenImage={openMemoryPreview}
                 onOpenProfile={onOpenProfile}
                 onReact={onReact}
                 onReactComment={onReactComment}
@@ -1129,6 +1184,41 @@ export default function HomePage({
           </div>
         )}
       </section>
+
+      {canShowMemoryTapGuide && (
+        <div
+          className="fixed inset-0 z-[92] grid place-items-center bg-ink/42 px-4 py-6 backdrop-blur-[2px]"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Hướng dẫn xem ảnh"
+        >
+          <div className="w-full max-w-[27rem] rounded-[1.6rem] border border-white/75 bg-[#fffaf1] p-5 text-ink shadow-[0_24px_70px_rgba(18,15,13,0.32)] sm:p-6">
+            <div className="flex items-start gap-3">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-ink text-paper shadow-sm">
+                <Camera size={22} />
+              </span>
+              <div className="min-w-0">
+                <p className="section-kicker mb-1">Mẹo xem ký ức</p>
+                <h2 className="font-display text-5xl leading-none">Bấm vào ảnh để xem rõ hơn</h2>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-2 rounded-[1rem] bg-paper/74 p-3 text-sm font-bold leading-6 text-coffee">
+              <p>1. Chạm vào một ảnh bất kỳ trong feed để mở popup xem rõ.</p>
+              <p>2. Khi popup ảnh hiện lên, chạm vào ảnh thêm một lần nữa để zoom bằng tay.</p>
+              <p className="text-xs text-ink/58">Hướng dẫn này chỉ hiện sau khi gợi ý dấu 3 gạch đã tắt và ảnh đã tải xong.</p>
+            </div>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <button className="primary-button min-h-12 justify-center" onClick={openFirstGuidedMemory}>
+                <Camera size={17} />
+                Mở thử một ảnh
+              </button>
+              <button className="secondary-button min-h-12 justify-center" onClick={markMemoryGuideDone}>
+                Đã hiểu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isSlideshowOpen && activeSlide && (
         <div
@@ -1299,6 +1389,32 @@ export default function HomePage({
                     onError={() => setSelectedImageFailed(true)}
                   />
                 </button>
+              )}
+              {showZoomTapGuide && (
+                <div
+                  className="absolute bottom-3 left-3 right-3 z-[4] rounded-[1.1rem] border border-white/18 bg-[#fffaf1] p-3 text-ink shadow-[0_18px_46px_rgba(18,15,13,0.28)] sm:left-auto sm:max-w-sm"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink text-paper">
+                      <Search size={18} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-black">Chạm ảnh thêm lần nữa để zoom</p>
+                      <p className="mt-1 text-xs font-bold leading-5 text-coffee/72">
+                        Trên điện thoại có thể kéo hai ngón tay. Trên máy tính có thể dùng con lăn chuột.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button className="primary-button min-h-10 justify-center px-3 text-xs" onClick={openImageZoomViewer}>
+                      Zoom thử
+                    </button>
+                    <button className="secondary-button min-h-10 justify-center px-3 text-xs" onClick={markMemoryGuideDone}>
+                      Đã hiểu
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
 

@@ -64,12 +64,14 @@ const MyMemoriesPage = lazy(() => import('./pages/MyMemoriesPage'));
 
 const appRoutes: AppRoute[] = ['landing', 'join', 'home', 'letters', 'future', 'remember', 'diary', 'photobook', 'people', 'votes', 'mine'];
 const MENU_HINT_STORAGE_VERSION = 'v4';
+const MEMORY_VIEW_GUIDE_STORAGE_VERSION = 'v1';
 const PROFILE_REMINDER_STORAGE_VERSION = 'v1';
 const PROFILE_REMINDER_INTERACTION_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const PROFILE_REMINDER_PASSIVE_INTERVAL_MS = 36 * 60 * 60 * 1000;
 const PROFILE_REMINDER_INTERACTION_THRESHOLD = 3;
 
 const menuHintStorageKey = (uid: string) => `memory98-menu-hint-seen:${MENU_HINT_STORAGE_VERSION}:${uid}`;
+const memoryViewGuideStorageKey = (uid: string) => `memory98-memory-view-guide:${MEMORY_VIEW_GUIDE_STORAGE_VERSION}:${uid}`;
 const profileReminderLastKey = (uid: string) => `memory98-profile-reminder-last:${PROFILE_REMINDER_STORAGE_VERSION}:${uid}`;
 const profileReminderCountKey = (uid: string) => `memory98-profile-reminder-count:${PROFILE_REMINDER_STORAGE_VERSION}:${uid}`;
 
@@ -1120,6 +1122,12 @@ export default function App() {
     () => new Set(classmates.filter(isRecentlyOnline).map((person) => person.nameKey)),
     [classmates],
   );
+  const menuHintCompleted = useMemo(() => {
+    if (!profile?.uid || typeof window === 'undefined') return false;
+    const isCompactNav = window.matchMedia('(max-width: 1023px)').matches;
+    return !isCompactNav || window.localStorage.getItem(menuHintStorageKey(profile.uid)) === '1';
+  }, [bootSplashDone, menuHintVisible, profile?.uid]);
+  const memoryGuideStorageKey = profile ? memoryViewGuideStorageKey(profile.uid) : '';
   const selfProfileForCompletion = useMemo(() => {
     if (!profile) return null;
     return classmates.find((person) => person.nameKey === profile.nameKey) || profile;
@@ -2504,6 +2512,8 @@ export default function App() {
           cinematicSlideshowSettings={cinematicSlideshowSettings}
           profile={profile}
           onlineNameKeys={onlineNameKeys}
+          menuHintCompleted={menuHintCompleted}
+          memoryGuideStorageKey={memoryGuideStorageKey}
           pendingReactionIds={pendingReactionIds}
           pendingCommentReactionIds={pendingCommentReactionIds}
           onJoin={() => navigate('join')}
@@ -2832,11 +2842,11 @@ export default function App() {
                 <span className="menu-hint-arrow" />
                 <span className="menu-hint-kicker">
                   <Sparkles size={14} aria-hidden="true" />
-                  Gợi ý nhanh
+                  Bước đầu tiên
                 </span>
-                <p>Khám phá thêm những tính năng mới mẻ</p>
-                <small>Chạm nút 3 gạch ở góc trên để mở menu.</small>
-                <span className="menu-hint-dismiss">Chạm màn hình, tự ẩn sau vài giây</span>
+                <p>Mở menu để thấy đủ tính năng của Memory98</p>
+                <small>Chạm nút 3 gạch ở góc trên bên phải. Trong đó có Hồ sơ lớp, Secret Message, Photobook và nhiều mục khác.</small>
+                <span className="menu-hint-dismiss">Chạm vào đây hoặc màn hình, hint sẽ tự tắt sau vài giây</span>
               </div>
             </m.button>
           )}

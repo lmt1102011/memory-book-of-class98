@@ -236,7 +236,7 @@
   .menu-discovery-hint {
     top: max(4.75rem, calc(env(safe-area-inset-top) + 4.75rem));
     right: max(0.75rem, calc(env(safe-area-inset-right) + 0.75rem));
-    width: min(19rem, calc(100vw - 1.5rem));
+    width: min(22.5rem, calc(100vw - 1.5rem));
     border: 0;
     background: transparent;
     color: inherit;
@@ -253,7 +253,7 @@
     background:
       linear-gradient(135deg, rgba(255, 250, 241, 0.98), rgba(255, 231, 239, 0.98) 54%, rgba(231, 245, 255, 0.98)),
       #fffaf1;
-    padding: 0.95rem 1rem 0.85rem;
+    padding: 1.15rem 1.15rem 1rem;
     color: #35291f;
     box-shadow:
       0 20px 48px rgba(53, 41, 31, 0.24),
@@ -290,9 +290,9 @@
   }
 
   .menu-hint-card p {
-    font-size: 1rem;
+    font-size: 1.16rem;
     font-weight: 950;
-    line-height: 1.28;
+    line-height: 1.22;
     text-wrap: balance;
   }
 
@@ -300,7 +300,7 @@
     display: block;
     margin-top: 0.4rem;
     color: rgba(76, 57, 43, 0.78);
-    font-size: 0.76rem;
+    font-size: 0.84rem;
     font-weight: 800;
     line-height: 1.45;
   }
