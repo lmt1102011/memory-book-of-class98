@@ -1773,14 +1773,14 @@
         if (!select) return;
         const previousValue = select.value || 'all';
         const targetAccounts = accounts
-          .filter((account) => !account.deleted && !account.disabled && account.id !== MANAGER_NAME_KEY)
+          .filter((account) => !account.deleted && !account.disabled)
           .sort((left, right) => String(left.name || left.id).localeCompare(String(right.name || right.id), 'vi'));
 
         select.innerHTML = [
           '<option value="all">Cả lớp 9/8</option>',
           ...targetAccounts.map(
             (account) =>
-              `<option value="${escapeHtml(account.id)}">${escapeHtml(account.name || account.id)}</option>`,
+              `<option value="${escapeHtml(account.id)}">${escapeHtml(account.name || account.id)}${account.id === MANAGER_NAME_KEY ? ' (tôi)' : ''}</option>`,
           ),
         ].join('');
         select.value = previousValue === 'all' || targetAccounts.some((account) => account.id === previousValue)
