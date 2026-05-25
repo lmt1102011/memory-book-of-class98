@@ -19,40 +19,195 @@ const signatureWallRotation = (index: number) => {
   return rotations[index % rotations.length];
 };
 
-const SIGNATURE_STROKE_WIDTH = 4.4;
+const SIGNATURE_MIN_STROKE_WIDTH = 1.8;
+const SIGNATURE_MAX_STROKE_WIDTH = 3.35;
+const SIGNATURE_EXPORT_WIDTH = 1200;
+const SIGNATURE_EXPORT_HEIGHT = 420;
 
-const exportTightSignature = (canvas: HTMLCanvasElement) => {
-  const context = canvas.getContext('2d', { willReadFrequently: true });
-  if (!context) return '';
+interface SignaturePoint {
+  x: number;
+  y: number;
+  time: number;
+  pressure: number;
+}
 
-  const { width, height } = canvas;
-  const pixels = context.getImageData(0, 0, width, height).data;
-  let minX = width;
-  let minY = height;
-  let maxX = 0;
-  let maxY = 0;
+type SignatureStroke = SignaturePoint[];
 
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      const alpha = pixels[(y * width + x) * 4 + 3];
-      if (alpha <= 8) continue;
-      if (x < minX) minX = x;
-      if (y < minY) minY = y;
-      if (x > maxX) maxX = x;
-      if (y > maxY) maxY = y;
+interface SignatureCanvasSize {
+  width: number;
+  height: number;
+}
+
+interface SignatureBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+interface RenderSignatureOptions {
+  scale?: number;
+  offsetX?: number;
+  offsetY?: number;
+  alpha?: number;
+  blur?: number;
+  color?: string;
+  widthMultiplier?: number;
+  smoothingPasses?: number;
+}
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const distanceBetween = (first: SignaturePoint, second: SignaturePoint) => {
+  const deltaX = second.x - first.x;
+  const deltaY = second.y - first.y;
+  return Math.hypot(deltaX, deltaY);
+};
+
+const interpolatePoint = (first: SignaturePoint, second: SignaturePoint, amount: number): SignaturePoint => ({
+  x: first.x + (second.x - first.x) * amount,
+  y: first.y + (second.y - first.y) * amount,
+  time: first.time + (second.time - first.time) * amount,
+  pressure: first.pressure + (second.pressure - first.pressure) * amount,
+});
+
+const smoothSignatureStroke = (stroke: SignatureStroke, passes = 1): SignatureStroke => {
+  if (stroke.length < 3) return stroke;
+
+  let points = stroke;
+  for (let pass = 0; pass < passes; pass += 1) {
+    const next: SignatureStroke = [points[0]];
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const current = points[index];
+      const following = points[index + 1];
+      next.push(interpolatePoint(current, following, 0.26));
+      next.push(interpolatePoint(current, following, 0.74));
     }
+    next.push(points[points.length - 1]);
+    points = next;
   }
 
-  if (minX > maxX || minY > maxY) return '';
+  return points;
+};
 
-  const padding = Math.max(30, Math.round(Math.max(maxX - minX, maxY - minY) * 0.16));
-  const sourceX = Math.max(0, minX - padding);
-  const sourceY = Math.max(0, minY - padding);
-  const sourceWidth = Math.min(width - sourceX, maxX - minX + 1 + padding * 2);
-  const sourceHeight = Math.min(height - sourceY, maxY - minY + 1 + padding * 2);
+const getSegmentWidth = (from: SignaturePoint, to: SignaturePoint) => {
+  const elapsed = Math.max(10, to.time - from.time);
+  const speed = distanceBetween(from, to) / elapsed;
+  const speedAmount = clamp(speed / 0.95, 0, 1);
+  const pressure = clamp((from.pressure + to.pressure) / 2 || 0.52, 0.28, 0.92);
+  const pressureAmount = 0.78 + pressure * 0.3;
+  const baseWidth = SIGNATURE_MAX_STROKE_WIDTH - (SIGNATURE_MAX_STROKE_WIDTH - SIGNATURE_MIN_STROKE_WIDTH) * speedAmount;
+
+  return clamp(baseWidth * pressureAmount, SIGNATURE_MIN_STROKE_WIDTH, SIGNATURE_MAX_STROKE_WIDTH);
+};
+
+const renderSignatureStrokes = (
+  context: CanvasRenderingContext2D,
+  strokes: SignatureStroke[],
+  options: RenderSignatureOptions = {},
+) => {
+  const {
+    scale = 1,
+    offsetX = 0,
+    offsetY = 0,
+    alpha = 1,
+    blur = 0,
+    color = '#2f241c',
+    widthMultiplier = 1,
+    smoothingPasses = 1,
+  } = options;
+
+  context.save();
+  context.globalAlpha = alpha;
+  context.strokeStyle = color;
+  context.fillStyle = color;
+  context.lineCap = 'round';
+  context.lineJoin = 'round';
+  context.miterLimit = 2;
+  context.filter = blur > 0 ? `blur(${blur}px)` : 'none';
+
+  const transformX = (value: number) => value * scale + offsetX;
+  const transformY = (value: number) => value * scale + offsetY;
+
+  strokes.forEach((stroke) => {
+    if (!stroke.length) return;
+
+    const points = smoothSignatureStroke(stroke, smoothingPasses);
+    if (points.length === 1) {
+      const point = points[0];
+      const dotRadius = Math.max(1.2, SIGNATURE_MAX_STROKE_WIDTH * scale * widthMultiplier * 0.42);
+      context.beginPath();
+      context.arc(transformX(point.x), transformY(point.y), dotRadius, 0, Math.PI * 2);
+      context.fill();
+      return;
+    }
+
+    let previous = points[0];
+    let previousMid = previous;
+
+    for (let index = 1; index < points.length; index += 1) {
+      const current = points[index];
+      const mid = interpolatePoint(previous, current, 0.5);
+      const lineWidth = Math.max(0.9, getSegmentWidth(previous, current) * scale * widthMultiplier);
+
+      context.beginPath();
+      context.moveTo(transformX(previousMid.x), transformY(previousMid.y));
+      context.quadraticCurveTo(transformX(previous.x), transformY(previous.y), transformX(mid.x), transformY(mid.y));
+      context.lineWidth = lineWidth;
+      context.stroke();
+
+      previousMid = mid;
+      previous = current;
+    }
+
+    const beforeLast = points[Math.max(0, points.length - 2)];
+    context.beginPath();
+    context.moveTo(transformX(previousMid.x), transformY(previousMid.y));
+    context.lineTo(transformX(previous.x), transformY(previous.y));
+    context.lineWidth = Math.max(0.9, getSegmentWidth(beforeLast, previous) * scale * widthMultiplier);
+    context.stroke();
+  });
+
+  context.restore();
+};
+
+const getSignatureBounds = (strokes: SignatureStroke[]): SignatureBounds | null => {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  strokes.forEach((stroke) => {
+    stroke.forEach((point) => {
+      if (point.x < minX) minX = point.x;
+      if (point.y < minY) minY = point.y;
+      if (point.x > maxX) maxX = point.x;
+      if (point.y > maxY) maxY = point.y;
+    });
+  });
+
+  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) return null;
+
+  return { minX, minY, maxX, maxY };
+};
+
+const exportPolishedSignature = (strokes: SignatureStroke[], canvasSize: SignatureCanvasSize) => {
+  const bounds = getSignatureBounds(strokes);
+  if (!bounds) return '';
+
+  const signatureWidth = Math.max(1, bounds.maxX - bounds.minX);
+  const signatureHeight = Math.max(1, bounds.maxY - bounds.minY);
+  if (signatureWidth < 8 && signatureHeight < 8) return '';
+
+  const padding = clamp(Math.max(signatureWidth, signatureHeight) * 0.18, 28, 92);
+  const sourceX = Math.max(0, bounds.minX - padding);
+  const sourceY = Math.max(0, bounds.minY - padding);
+  const sourceWidth = Math.min(canvasSize.width - sourceX, signatureWidth + padding * 2);
+  const sourceHeight = Math.min(canvasSize.height - sourceY, signatureHeight + padding * 2);
   const output = document.createElement('canvas');
-  output.width = 1200;
-  output.height = 420;
+  output.width = SIGNATURE_EXPORT_WIDTH;
+  output.height = SIGNATURE_EXPORT_HEIGHT;
+
   const outputContext = output.getContext('2d');
   if (!outputContext) return '';
 
@@ -60,25 +215,44 @@ const exportTightSignature = (canvas: HTMLCanvasElement) => {
   outputContext.imageSmoothingEnabled = true;
   outputContext.imageSmoothingQuality = 'high';
 
-  const fitScale = Math.min((output.width * 0.9) / sourceWidth, (output.height * 0.72) / sourceHeight);
-  const drawWidth = Math.max(1, Math.round(sourceWidth * fitScale));
-  const drawHeight = Math.max(1, Math.round(sourceHeight * fitScale));
-  const drawX = Math.round((output.width - drawWidth) / 2);
-  const drawY = Math.round((output.height - drawHeight) / 2);
+  const fitScale = Math.min((output.width * 0.88) / sourceWidth, (output.height * 0.72) / sourceHeight);
+  const drawWidth = sourceWidth * fitScale;
+  const drawHeight = sourceHeight * fitScale;
+  const offsetX = (output.width - drawWidth) / 2 - sourceX * fitScale;
+  const offsetY = (output.height - drawHeight) / 2 - sourceY * fitScale;
 
-  outputContext.save();
-  outputContext.globalAlpha = 0.2;
-  outputContext.filter = 'blur(0.55px)';
-  outputContext.drawImage(canvas, sourceX, sourceY, sourceWidth, sourceHeight, drawX, drawY, drawWidth, drawHeight);
-  outputContext.restore();
+  renderSignatureStrokes(outputContext, strokes, {
+    scale: fitScale,
+    offsetX,
+    offsetY,
+    alpha: 0.16,
+    blur: 1.2,
+    color: '#1f1712',
+    widthMultiplier: 1.5,
+    smoothingPasses: 2,
+  });
 
-  outputContext.save();
-  outputContext.globalAlpha = 0.98;
-  outputContext.filter = 'contrast(108%)';
-  outputContext.drawImage(canvas, sourceX, sourceY, sourceWidth, sourceHeight, drawX, drawY, drawWidth, drawHeight);
-  outputContext.restore();
+  renderSignatureStrokes(outputContext, strokes, {
+    scale: fitScale,
+    offsetX,
+    offsetY,
+    alpha: 0.98,
+    color: '#2f241c',
+    widthMultiplier: 1.02,
+    smoothingPasses: 2,
+  });
 
-  return output.toDataURL('image/webp', 0.93);
+  renderSignatureStrokes(outputContext, strokes, {
+    scale: fitScale,
+    offsetX,
+    offsetY,
+    alpha: 0.16,
+    color: '#8b6651',
+    widthMultiplier: 0.42,
+    smoothingPasses: 2,
+  });
+
+  return output.toDataURL('image/webp', 0.96);
 };
 
 export default function SignatureWallPage({
@@ -342,7 +516,10 @@ function SignatureEditorModal({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef(false);
   const hasInkRef = useRef(false);
-  const lastPointRef = useRef({ x: 0, y: 0 });
+  const strokesRef = useRef<SignatureStroke[]>([]);
+  const activeStrokeRef = useRef<SignatureStroke | null>(null);
+  const canvasSizeRef = useRef<SignatureCanvasSize>({ width: 0, height: 0 });
+  const redrawFrameRef = useRef<number | null>(null);
   const [hasInk, setHasInk] = useState(false);
   const [localError, setLocalError] = useState('');
 
@@ -352,98 +529,137 @@ function SignatureEditorModal({
     setHasInk(true);
   }, []);
 
-  const prepareCanvas = useCallback(() => {
+  const configureCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
+    const cssWidth = Math.max(320, Math.round(rect.width || 920));
+    const cssHeight = Math.max(220, Math.round(rect.height || 480));
     const pixelRatio = Math.min(Math.max(window.devicePixelRatio || 1, 1), 2.5);
-    const width = Math.max(320, Math.round((rect.width || 920) * pixelRatio));
-    const height = Math.max(220, Math.round((rect.height || 480) * pixelRatio));
-    canvas.width = width;
-    canvas.height = height;
+    const width = Math.max(320, Math.round(cssWidth * pixelRatio));
+    const height = Math.max(220, Math.round(cssHeight * pixelRatio));
+
+    const previousSize = canvasSizeRef.current;
+    if (
+      !drawingRef.current &&
+      previousSize.width > 0 &&
+      previousSize.height > 0 &&
+      strokesRef.current.length > 0 &&
+      (Math.abs(previousSize.width - cssWidth) > 1 || Math.abs(previousSize.height - cssHeight) > 1)
+    ) {
+      const scaleX = cssWidth / previousSize.width;
+      const scaleY = cssHeight / previousSize.height;
+      strokesRef.current = strokesRef.current.map((stroke) =>
+        stroke.map((point) => ({ ...point, x: point.x * scaleX, y: point.y * scaleY })),
+      );
+    }
+
+    canvasSizeRef.current = { width: cssWidth, height: cssHeight };
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
     const context = canvas.getContext('2d');
     if (!context) return null;
     context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.clearRect(0, 0, cssWidth, cssHeight);
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
     context.lineCap = 'round';
     context.lineJoin = 'round';
-    context.strokeStyle = '#35291f';
-    context.fillStyle = '#35291f';
-    context.lineWidth = SIGNATURE_STROKE_WIDTH;
     context.miterLimit = 2;
-    context.shadowColor = 'rgba(53,41,31,0.1)';
-    context.shadowBlur = 0.25;
-    context.shadowOffsetY = 0.25;
+
     return { canvas, context };
   }, []);
 
+  const redrawCanvas = useCallback(() => {
+    const prepared = configureCanvas();
+    if (!prepared) return;
+
+    renderSignatureStrokes(prepared.context, strokesRef.current, {
+      alpha: 0.14,
+      blur: 0.7,
+      color: '#1f1712',
+      widthMultiplier: 1.34,
+      smoothingPasses: 1,
+    });
+    renderSignatureStrokes(prepared.context, strokesRef.current, {
+      alpha: 0.98,
+      color: '#2f241c',
+      widthMultiplier: 1,
+      smoothingPasses: 1,
+    });
+  }, [configureCanvas]);
+
+  const requestRedraw = useCallback(() => {
+    if (redrawFrameRef.current !== null) return;
+    redrawFrameRef.current = window.requestAnimationFrame(() => {
+      redrawFrameRef.current = null;
+      redrawCanvas();
+    });
+  }, [redrawCanvas]);
+
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      prepareCanvas();
+      redrawCanvas();
       hasInkRef.current = false;
       setHasInk(false);
     });
 
     const handleResize = () => {
       if (drawingRef.current) return;
-      prepareCanvas();
-      hasInkRef.current = false;
-      setHasInk(false);
+      redrawCanvas();
     };
 
     window.addEventListener('resize', handleResize);
     return () => {
       window.cancelAnimationFrame(frame);
+      if (redrawFrameRef.current !== null) window.cancelAnimationFrame(redrawFrameRef.current);
       window.removeEventListener('resize', handleResize);
     };
-  }, [prepareCanvas]);
+  }, [redrawCanvas]);
 
-  const pointFromClient = useCallback((clientX: number, clientY: number) => {
+  const pointFromClient = useCallback((clientX: number, clientY: number, pressure = 0.52): SignaturePoint => {
     const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
+    if (!canvas) return { x: 0, y: 0, time: performance.now(), pressure: 0.52 };
     const rect = canvas.getBoundingClientRect();
     return {
-      x: clientX - rect.left,
-      y: clientY - rect.top,
+      x: clamp(clientX - rect.left, 0, rect.width),
+      y: clamp(clientY - rect.top, 0, rect.height),
+      time: performance.now(),
+      pressure: clamp(pressure > 0 ? pressure : 0.52, 0.25, 0.95),
     };
   }, []);
 
-  const drawToPoint = useCallback((point: { x: number; y: number }) => {
-    const canvas = canvasRef.current;
-    const context = canvas?.getContext('2d');
-    if (!canvas || !context) return;
-    const last = lastPointRef.current;
-    const controlX = (last.x + point.x) / 2;
-    const controlY = (last.y + point.y) / 2;
-    context.beginPath();
-    context.moveTo(last.x, last.y);
-    context.quadraticCurveTo(controlX, controlY, point.x, point.y);
-    context.stroke();
-    lastPointRef.current = point;
+  const appendPointToActiveStroke = useCallback((point: SignaturePoint) => {
+    const stroke = activeStrokeRef.current;
+    if (!stroke) return;
+
+    const last = stroke[stroke.length - 1];
+    if (last && distanceBetween(last, point) < 0.7 && point.time - last.time < 24) return;
+
+    stroke.push(point);
     markHasInk();
   }, [markHasInk]);
 
   const pointFromEvent = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
-    return pointFromClient(event.clientX, event.clientY);
+    return pointFromClient(event.clientX, event.clientY, event.pressure || 0.52);
   }, [pointFromClient]);
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
       event.preventDefault();
       const canvas = canvasRef.current;
-      const context = canvas?.getContext('2d');
-      if (!canvas || !context) return;
+      if (!canvas) return;
       canvas.setPointerCapture(event.pointerId);
       const point = pointFromEvent(event);
       drawingRef.current = true;
-      lastPointRef.current = point;
-      context.beginPath();
-      context.arc(point.x, point.y, context.lineWidth / 2, 0, Math.PI * 2);
-      context.fill();
+      const stroke: SignatureStroke = [point];
+      activeStrokeRef.current = stroke;
+      strokesRef.current.push(stroke);
       markHasInk();
       setLocalError('');
+      requestRedraw();
     },
-    [markHasInk, pointFromEvent],
+    [markHasInk, pointFromEvent, requestRedraw],
   );
 
   const handlePointerMove = useCallback(
@@ -452,32 +668,39 @@ function SignatureEditorModal({
       event.preventDefault();
       const nativeEvent = event.nativeEvent as PointerEvent & { getCoalescedEvents?: () => PointerEvent[] };
       const events = nativeEvent.getCoalescedEvents?.() ?? [nativeEvent];
-      events.forEach((item) => drawToPoint(pointFromClient(item.clientX, item.clientY)));
+      events.forEach((item) => {
+        appendPointToActiveStroke(pointFromClient(item.clientX, item.clientY, item.pressure || event.pressure || 0.52));
+      });
+      requestRedraw();
     },
-    [drawToPoint, pointFromClient],
+    [appendPointToActiveStroke, pointFromClient, requestRedraw],
   );
 
   const stopDrawing = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
       if (drawingRef.current) {
-        drawToPoint(pointFromEvent(event));
+        appendPointToActiveStroke(pointFromEvent(event));
       }
       drawingRef.current = false;
+      activeStrokeRef.current = null;
+      requestRedraw();
       try {
         event.currentTarget.releasePointerCapture(event.pointerId);
       } catch {
         // Pointer capture can already be released by the browser.
       }
     },
-    [drawToPoint, pointFromEvent],
+    [appendPointToActiveStroke, pointFromEvent, requestRedraw],
   );
 
   const clearCanvas = useCallback(() => {
-    prepareCanvas();
+    strokesRef.current = [];
+    activeStrokeRef.current = null;
+    redrawCanvas();
     hasInkRef.current = false;
     setHasInk(false);
     setLocalError('');
-  }, [prepareCanvas]);
+  }, [redrawCanvas]);
 
   const handleSave = useCallback(async () => {
     const canvas = canvasRef.current;
@@ -487,7 +710,11 @@ function SignatureEditorModal({
     }
 
     try {
-      const signatureImage = exportTightSignature(canvas);
+      const rect = canvas.getBoundingClientRect();
+      const canvasSize = canvasSizeRef.current.width > 0
+        ? canvasSizeRef.current
+        : { width: Math.max(320, rect.width || 920), height: Math.max(220, rect.height || 480) };
+      const signatureImage = exportPolishedSignature(strokesRef.current, canvasSize);
       if (!signatureImage) {
         setLocalError('Chữ ký hơi mờ, hãy ký rõ hơn một chút nha.');
         return;
