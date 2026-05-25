@@ -520,6 +520,7 @@ function SignatureEditorModal({
   const activeStrokeRef = useRef<SignatureStroke | null>(null);
   const canvasSizeRef = useRef<SignatureCanvasSize>({ width: 0, height: 0 });
   const redrawFrameRef = useRef<number | null>(null);
+  const liveMidPointRef = useRef<SignaturePoint | null>(null);
   const [hasInk, setHasInk] = useState(false);
   const [localError, setLocalError] = useState('');
 
@@ -529,7 +530,7 @@ function SignatureEditorModal({
     setHasInk(true);
   }, []);
 
-  const configureCanvas = useCallback(() => {
+  const configureCanvas = useCallback((clear = true) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
@@ -555,12 +556,19 @@ function SignatureEditorModal({
     }
 
     canvasSizeRef.current = { width: cssWidth, height: cssHeight };
-    if (canvas.width !== width) canvas.width = width;
-    if (canvas.height !== height) canvas.height = height;
+    let sizeChanged = false;
+    if (canvas.width !== width) {
+      canvas.width = width;
+      sizeChanged = true;
+    }
+    if (canvas.height !== height) {
+      canvas.height = height;
+      sizeChanged = true;
+    }
     const context = canvas.getContext('2d');
     if (!context) return null;
     context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-    context.clearRect(0, 0, cssWidth, cssHeight);
+    if (clear || sizeChanged) context.clearRect(0, 0, cssWidth, cssHeight);
     context.imageSmoothingEnabled = true;
     context.imageSmoothingQuality = 'high';
     context.lineCap = 'round';
@@ -571,7 +579,7 @@ function SignatureEditorModal({
   }, []);
 
   const redrawCanvas = useCallback(() => {
-    const prepared = configureCanvas();
+    const prepared = configureCanvas(true);
     if (!prepared) return;
 
     renderSignatureStrokes(prepared.context, strokesRef.current, {
@@ -597,6 +605,49 @@ function SignatureEditorModal({
     });
   }, [redrawCanvas]);
 
+  const drawLiveDot = useCallback((context: CanvasRenderingContext2D, point: SignaturePoint) => {
+    const radius = Math.max(1.45, SIGNATURE_MAX_STROKE_WIDTH * 0.42);
+    context.save();
+    context.fillStyle = '#2f241c';
+    context.globalAlpha = 0.96;
+    context.beginPath();
+    context.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    context.fill();
+    context.restore();
+  }, []);
+
+  const drawLiveSegment = useCallback((context: CanvasRenderingContext2D, from: SignaturePoint, to: SignaturePoint) => {
+    const previousMid = liveMidPointRef.current || from;
+    const nextMid = interpolatePoint(from, to, 0.5);
+    const width = Math.max(1.15, getSegmentWidth(from, to));
+
+    context.save();
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    context.strokeStyle = '#1f1712';
+    context.globalAlpha = 0.12;
+    context.lineWidth = width * 1.42;
+    context.beginPath();
+    context.moveTo(previousMid.x, previousMid.y);
+    context.quadraticCurveTo(from.x, from.y, nextMid.x, nextMid.y);
+    context.stroke();
+    context.restore();
+
+    context.save();
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    context.strokeStyle = '#2f241c';
+    context.globalAlpha = 0.96;
+    context.lineWidth = width;
+    context.beginPath();
+    context.moveTo(previousMid.x, previousMid.y);
+    context.quadraticCurveTo(from.x, from.y, nextMid.x, nextMid.y);
+    context.stroke();
+    context.restore();
+
+    liveMidPointRef.current = nextMid;
+  }, []);
+
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       redrawCanvas();
@@ -606,7 +657,7 @@ function SignatureEditorModal({
 
     const handleResize = () => {
       if (drawingRef.current) return;
-      redrawCanvas();
+      requestRedraw();
     };
 
     window.addEventListener('resize', handleResize);
@@ -615,7 +666,7 @@ function SignatureEditorModal({
       if (redrawFrameRef.current !== null) window.cancelAnimationFrame(redrawFrameRef.current);
       window.removeEventListener('resize', handleResize);
     };
-  }, [redrawCanvas]);
+  }, [redrawCanvas, requestRedraw]);
 
   const pointFromClient = useCallback((clientX: number, clientY: number, pressure = 0.52): SignaturePoint => {
     const canvas = canvasRef.current;
@@ -631,13 +682,14 @@ function SignatureEditorModal({
 
   const appendPointToActiveStroke = useCallback((point: SignaturePoint) => {
     const stroke = activeStrokeRef.current;
-    if (!stroke) return;
+    if (!stroke) return null;
 
     const last = stroke[stroke.length - 1];
-    if (last && distanceBetween(last, point) < 0.7 && point.time - last.time < 24) return;
+    if (last && distanceBetween(last, point) < 0.85 && point.time - last.time < 18) return null;
 
     stroke.push(point);
     markHasInk();
+    return last ? { from: last, to: point } : null;
   }, [markHasInk]);
 
   const pointFromEvent = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
@@ -649,53 +701,69 @@ function SignatureEditorModal({
       event.preventDefault();
       const canvas = canvasRef.current;
       if (!canvas) return;
+      const prepared = configureCanvas(false);
+      if (!prepared) return;
       canvas.setPointerCapture(event.pointerId);
       const point = pointFromEvent(event);
       drawingRef.current = true;
       const stroke: SignatureStroke = [point];
       activeStrokeRef.current = stroke;
+      liveMidPointRef.current = point;
       strokesRef.current.push(stroke);
       markHasInk();
       setLocalError('');
-      requestRedraw();
+      drawLiveDot(prepared.context, point);
     },
-    [markHasInk, pointFromEvent, requestRedraw],
+    [configureCanvas, drawLiveDot, markHasInk, pointFromEvent],
   );
 
   const handlePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
       if (!drawingRef.current) return;
       event.preventDefault();
+      const prepared = configureCanvas(false);
+      if (!prepared) return;
       const nativeEvent = event.nativeEvent as PointerEvent & { getCoalescedEvents?: () => PointerEvent[] };
       const events = nativeEvent.getCoalescedEvents?.() ?? [nativeEvent];
       events.forEach((item) => {
-        appendPointToActiveStroke(pointFromClient(item.clientX, item.clientY, item.pressure || event.pressure || 0.52));
+        const segment = appendPointToActiveStroke(pointFromClient(item.clientX, item.clientY, item.pressure || event.pressure || 0.52));
+        if (segment) drawLiveSegment(prepared.context, segment.from, segment.to);
       });
-      requestRedraw();
     },
-    [appendPointToActiveStroke, pointFromClient, requestRedraw],
+    [appendPointToActiveStroke, configureCanvas, drawLiveSegment, pointFromClient],
   );
 
   const stopDrawing = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
       if (drawingRef.current) {
-        appendPointToActiveStroke(pointFromEvent(event));
+        const prepared = configureCanvas(false);
+        const stroke = activeStrokeRef.current;
+        const finalPoint = pointFromEvent(event);
+        const segment = appendPointToActiveStroke(finalPoint);
+        if (prepared && segment) {
+          drawLiveSegment(prepared.context, segment.from, segment.to);
+        } else if (prepared && stroke && stroke.length === 1) {
+          drawLiveDot(prepared.context, stroke[0]);
+        } else if (stroke && stroke.length === 1) {
+          requestRedraw();
+        }
       }
       drawingRef.current = false;
       activeStrokeRef.current = null;
-      requestRedraw();
+      liveMidPointRef.current = null;
       try {
         event.currentTarget.releasePointerCapture(event.pointerId);
       } catch {
         // Pointer capture can already be released by the browser.
       }
     },
-    [appendPointToActiveStroke, pointFromEvent, requestRedraw],
+    [appendPointToActiveStroke, configureCanvas, drawLiveDot, drawLiveSegment, pointFromEvent, requestRedraw],
   );
 
   const clearCanvas = useCallback(() => {
     strokesRef.current = [];
     activeStrokeRef.current = null;
+    liveMidPointRef.current = null;
     redrawCanvas();
     hasInkRef.current = false;
     setHasInk(false);
