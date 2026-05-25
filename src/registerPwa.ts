@@ -1,7 +1,7 @@
 import { showAppUpdateOverlay } from './utils/appUpdateRecovery';
 import { isStandaloneMode } from './pwaInstallPrompt';
 
-const SW_VERSION = '20260525-solid-letter-writer-1';
+const SW_VERSION = '20260525-restore-letter-panel-1';
 const UPDATE_CHECK_INTERVAL = 60_000;
 const UPDATE_RELOAD_DELAY = 850;
 const INITIAL_UPDATE_CHECK_DELAY = 1_500;

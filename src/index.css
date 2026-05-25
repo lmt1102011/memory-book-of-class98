@@ -427,11 +427,7 @@
   .class-letter-modal-paper,
   .class-letter-modal-button,
   .class-letter-modal-x,
-  .class-letter-writer-overlay,
-  .class-letter-writer-panel,
-  .class-letter-writer-body,
-  .class-letter-writer-field,
-  .class-letter-writer-button {
+  .class-letter-intro-panel {
     opacity: 1 !important;
     filter: none !important;
     -webkit-filter: none !important;
@@ -440,47 +436,17 @@
     text-shadow: none !important;
   }
 
-  .class-letter-writer-overlay {
-    background: #120f0d !important;
-  }
-
-  .class-letter-writer-panel {
+  .class-letter-intro-panel {
     background: #fffaf1 !important;
-    border-color: rgba(122, 86, 57, 0.32) !important;
     color: #241b15 !important;
-    box-shadow: 0 26px 76px rgba(18, 15, 13, 0.38) !important;
-    isolation: isolate;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 
-  .class-letter-writer-panel h2,
-  .class-letter-writer-panel p,
-  .class-letter-writer-label {
-    opacity: 1 !important;
-    color: #241b15 !important;
+  .class-letter-intro-panel * {
     filter: none !important;
     -webkit-filter: none !important;
     text-shadow: none !important;
-  }
-
-  .class-letter-writer-panel p {
-    color: #5b3d28 !important;
-    font-weight: 700;
-  }
-
-  .class-letter-writer-field {
-    background: #fffdf8 !important;
-    color: #241b15 !important;
-    border: 1px solid rgba(122, 86, 57, 0.18) !important;
-    box-shadow: inset 0 0 0 1px rgba(122, 86, 57, 0.08) !important;
-  }
-
-  .class-letter-writer-field::placeholder {
-    color: rgba(53, 41, 31, 0.48) !important;
-  }
-
-  .class-letter-writer-anonymous {
-    background: #fff7ec !important;
-    border: 1px solid rgba(122, 86, 57, 0.14);
   }
 
   .class-letter-modal-panel {
@@ -539,19 +505,11 @@
     opacity: 1 !important;
   }
 
-  html.memory98-standalone .class-letter-writer-overlay {
-    background: #120f0d !important;
-  }
-
-  html.memory98-standalone .class-letter-writer-panel {
+  html.memory98-standalone .class-letter-intro-panel {
     background: #fffaf1 !important;
     color: #241b15 !important;
-    box-shadow: 0 24px 62px rgba(18, 15, 13, 0.4) !important;
-  }
-
-  html.memory98-standalone .class-letter-writer-field {
-    background: #fffdf8 !important;
-    color: #18110d !important;
+    border-color: rgba(122, 86, 57, 0.24) !important;
+    box-shadow: 0 14px 34px rgba(84, 57, 35, 0.18) !important;
   }
 
   @media (display-mode: standalone) {
@@ -590,19 +548,11 @@
       opacity: 1 !important;
     }
 
-    .class-letter-writer-overlay {
-      background: #120f0d !important;
-    }
-
-    .class-letter-writer-panel {
+    .class-letter-intro-panel {
       background: #fffaf1 !important;
       color: #241b15 !important;
-      box-shadow: 0 24px 62px rgba(18, 15, 13, 0.4) !important;
-    }
-
-    .class-letter-writer-field {
-      background: #fffdf8 !important;
-      color: #18110d !important;
+      border-color: rgba(122, 86, 57, 0.24) !important;
+      box-shadow: 0 14px 34px rgba(84, 57, 35, 0.18) !important;
     }
   }
 
