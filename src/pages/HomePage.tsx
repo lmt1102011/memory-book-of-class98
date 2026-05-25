@@ -21,6 +21,7 @@ import MemoryCard from '../components/MemoryCard';
 import { useDebounce } from '../hooks/useDebounce';
 import type {
   ClassmateProfile,
+  ClassSignature,
   CinematicSlideshowSettings,
   CommentReactionId,
   MemoryComment,
@@ -123,6 +124,7 @@ interface HomePageProps {
   memories: MemoryItem[];
   commentsByMemory: Record<string, MemoryComment[]>;
   classmates: ClassmateProfile[];
+  classSignatures: ClassSignature[];
   firebaseNotice: string;
   isLoadingMemories: boolean;
   memoryRecapEnabled: boolean;
@@ -147,12 +149,14 @@ interface HomePageProps {
   onDeleteComment: (comment: MemoryComment) => void | Promise<void>;
   onDeleteMemory: (memory: MemoryItem) => void | Promise<void>;
   onDownloadMemory: (memory: MemoryItem) => void | Promise<void>;
+  onSaveClassSignature: (imageDataUrl: string) => void | Promise<void>;
 }
 
 export default function HomePage({
   memories,
   commentsByMemory,
   classmates,
+  classSignatures,
   firebaseNotice,
   isLoadingMemories,
   memoryRecapEnabled,
@@ -177,6 +181,7 @@ export default function HomePage({
   onDeleteComment,
   onDeleteMemory,
   onDownloadMemory,
+  onSaveClassSignature,
 }: HomePageProps) {
   const mediaStageRef = useRef<HTMLDivElement | null>(null);
   const zoomImageRef = useRef<HTMLImageElement | null>(null);
@@ -195,6 +200,9 @@ export default function HomePage({
   const [selectedMemory, setSelectedMemory] = useState<MemoryItem | null>(null);
   const [profilePreviewKey, setProfilePreviewKey] = useState('');
   const [quickComment, setQuickComment] = useState('');
+  const [signatureWallOpen, setSignatureWallOpen] = useState(false);
+  const [isSavingSignature, setIsSavingSignature] = useState(false);
+  const [signatureError, setSignatureError] = useState('');
   const [selectedImageLoaded, setSelectedImageLoaded] = useState(false);
   const [selectedImageFailed, setSelectedImageFailed] = useState(false);
   const [isImageZoomOpen, setIsImageZoomOpen] = useState(false);
@@ -755,6 +763,13 @@ export default function HomePage({
   }, [commentsByMemory, memories, previewProfile]);
 
   const hasActiveFilter = Boolean(nameQuery.trim() || keywordQuery.trim() || activeTag || activePersonKey || activeSmartFilter !== 'all');
+  const ownSignature = useMemo(
+    () => (profile ? classSignatures.find((signature) => signature.nameKey === profile.nameKey || signature.uid === profile.uid) : undefined),
+    [classSignatures, profile],
+  );
+  const signatureGuideReady = Boolean(profile && menuHintCompleted && memoryGuideStep === 'done');
+  const showSignatureReminder = Boolean(signatureGuideReady && !ownSignature);
+  const canShowSignatureEntry = signatureGuideReady || Boolean(ownSignature) || classSignatures.length > 0;
   const canShowMemoryTapGuide = Boolean(
     profile &&
       menuHintCompleted &&
@@ -848,6 +863,21 @@ export default function HomePage({
     setQuickComment('');
     void onAddComment(selectedMemory, message);
   }, [onAddComment, quickComment, selectedMemory]);
+  const handleSignatureSave = useCallback(
+    async (imageDataUrl: string) => {
+      setIsSavingSignature(true);
+      setSignatureError('');
+      try {
+        await onSaveClassSignature(imageDataUrl);
+      } catch (caught) {
+        setSignatureError(caught instanceof Error ? caught.message : 'Không thể lưu chữ ký lúc này.');
+        throw caught;
+      } finally {
+        setIsSavingSignature(false);
+      }
+    },
+    [onSaveClassSignature],
+  );
 
   if (!profile) {
     return (
@@ -908,10 +938,18 @@ export default function HomePage({
               Đây là góc xem lại ảnh, video và những bình luận đang được lớp cập nhật theo thời gian thực.
             </p>
             {profile ? (
-              <button className="primary-button justify-center" onClick={onPhotobook}>
-                <Upload size={17} />
-                Đăng ảnh/video
-              </button>
+              <div className="grid gap-2">
+                <button className="primary-button justify-center" onClick={onPhotobook}>
+                  <Upload size={17} />
+                  Đăng ảnh/video
+                </button>
+                {canShowSignatureEntry && (
+                  <button className="secondary-button justify-center" onClick={() => setSignatureWallOpen(true)}>
+                    <BookOpen size={17} />
+                    Tường chữ ký lớp 9/8
+                  </button>
+                )}
+              </div>
             ) : (
               <button className="secondary-button justify-center" onClick={onJoin}>
                 Vào lớp 9/8
@@ -920,6 +958,30 @@ export default function HomePage({
           </div>
         </div>
       </section>
+
+      {showSignatureReminder && (
+        <section className="mx-auto max-w-7xl px-4 pb-7 sm:px-6 lg:px-8">
+          <div className="relative overflow-hidden rounded-[1.45rem] border border-[#d8a847]/35 bg-gradient-to-br from-[#fff4c8] via-[#fffaf1] to-blush/18 p-4 shadow-[0_22px_60px_rgba(122,86,57,0.16)] sm:p-5 lg:p-6">
+            <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-[#d8a847] via-blush to-skySoft" aria-hidden="true" />
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+              <div className="min-w-0">
+                <span className="inline-flex items-center gap-2 rounded-full bg-ink px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.08em] text-paper">
+                  <Sparkles size={14} />
+                  Bức tường chữ ký lớp 9/8
+                </span>
+                <h2 className="mt-3 font-display text-5xl leading-none text-ink">Bạn chưa để lại chữ ký cho lớp</h2>
+                <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-ink/64">
+                  Ký một nét nhỏ lên bảng lưu niệm chung. Sau này mở lại, lớp mình sẽ thấy từng chữ ký như trên áo đồng phục cuối cấp.
+                </p>
+              </div>
+              <button className="primary-button min-h-12 justify-center" onClick={() => setSignatureWallOpen(true)}>
+                <BookOpen size={17} />
+                Ký cho lớp ngay
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {writingPromptsEnabled && (
         <section className="mx-auto max-w-7xl px-4 pb-7 sm:px-6 lg:px-8">
@@ -1697,6 +1759,21 @@ export default function HomePage({
         />
       )}
 
+      {signatureWallOpen && (
+        <SignatureWallModal
+          signatures={classSignatures}
+          ownSignature={ownSignature}
+          profile={profile}
+          isSaving={isSavingSignature}
+          error={signatureError}
+          onClose={() => {
+            setSignatureWallOpen(false);
+            setSignatureError('');
+          }}
+          onSave={handleSignatureSave}
+        />
+      )}
+
       <FirebaseNotice message={firebaseNotice} />
     </div>
   );
@@ -1810,3 +1887,265 @@ function MiniProfileMetric({ icon: Icon, value, label }: { icon: typeof Camera; 
     </span>
   );
 }
+
+function SignatureWallModal({
+  signatures,
+  ownSignature,
+  profile,
+  isSaving,
+  error,
+  onClose,
+  onSave,
+}: {
+  signatures: ClassSignature[];
+  ownSignature?: ClassSignature;
+  profile: UserProfile;
+  isSaving: boolean;
+  error: string;
+  onClose: () => void;
+  onSave: (imageDataUrl: string) => Promise<void> | void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const drawingRef = useRef(false);
+  const lastPointRef = useRef({ x: 0, y: 0 });
+  const [hasInk, setHasInk] = useState(false);
+  const [localError, setLocalError] = useState('');
+
+  const prepareCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    canvas.width = 760;
+    canvas.height = 340;
+    const context = canvas.getContext('2d');
+    if (!context) return null;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    context.strokeStyle = '#35291f';
+    context.lineWidth = 7.5;
+    context.shadowColor = 'rgba(53,41,31,0.14)';
+    context.shadowBlur = 0.6;
+    context.shadowOffsetY = 0.5;
+    return { canvas, context };
+  }, []);
+
+  useEffect(() => {
+    prepareCanvas();
+    setHasInk(false);
+  }, [prepareCanvas]);
+
+  const pointFromEvent = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: ((event.clientX - rect.left) / Math.max(1, rect.width)) * canvas.width,
+      y: ((event.clientY - rect.top) / Math.max(1, rect.height)) * canvas.height,
+    };
+  }, []);
+
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLCanvasElement>) => {
+      event.preventDefault();
+      const canvas = canvasRef.current;
+      const context = canvas?.getContext('2d');
+      if (!canvas || !context) return;
+      canvas.setPointerCapture(event.pointerId);
+      const point = pointFromEvent(event);
+      drawingRef.current = true;
+      lastPointRef.current = point;
+      context.beginPath();
+      context.moveTo(point.x, point.y);
+      context.lineTo(point.x + 0.1, point.y + 0.1);
+      context.stroke();
+      setHasInk(true);
+      setLocalError('');
+    },
+    [pointFromEvent],
+  );
+
+  const handlePointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLCanvasElement>) => {
+      if (!drawingRef.current) return;
+      event.preventDefault();
+      const canvas = canvasRef.current;
+      const context = canvas?.getContext('2d');
+      if (!canvas || !context) return;
+      const point = pointFromEvent(event);
+      const last = lastPointRef.current;
+      const midX = (last.x + point.x) / 2;
+      const midY = (last.y + point.y) / 2;
+      context.beginPath();
+      context.moveTo(last.x, last.y);
+      context.quadraticCurveTo(last.x, last.y, midX, midY);
+      context.stroke();
+      lastPointRef.current = point;
+    },
+    [pointFromEvent],
+  );
+
+  const stopDrawing = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
+    drawingRef.current = false;
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      // Browser may already release capture after touch gestures.
+    }
+  }, []);
+
+  const clearCanvas = useCallback(() => {
+    prepareCanvas();
+    setHasInk(false);
+    setLocalError('');
+  }, [prepareCanvas]);
+
+  const handleSave = useCallback(async () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !hasInk) {
+      setLocalError('Hãy vẽ chữ ký lên bảng trước khi lưu nha.');
+      return;
+    }
+
+    const dataUrl = canvas.toDataURL('image/png');
+    try {
+      await onSave(dataUrl);
+      clearCanvas();
+    } catch (caught) {
+      setLocalError(caught instanceof Error ? caught.message : 'Không thể lưu chữ ký lúc này.');
+    }
+  }, [clearCanvas, hasInk, onSave]);
+
+  const visibleSignatures = signatures.slice(0, 80);
+
+  return (
+    <div
+      className="fixed inset-0 z-[98] grid place-items-center overflow-hidden bg-ink/82 p-2 backdrop-blur-sm sm:p-5"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Bức tường chữ ký lớp 9/8"
+      onClick={onClose}
+    >
+      <div
+        className="grid h-[calc(100svh-1rem)] w-full max-w-6xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-[1.35rem] border border-white/75 bg-[#fffaf1] text-ink shadow-[0_28px_90px_rgba(18,15,13,0.36)] sm:h-[min(92svh,820px)]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-coffee/10 bg-gradient-to-r from-[#fff4c8] via-[#fffaf1] to-blush/16 p-4 sm:p-5">
+          <div className="min-w-0">
+            <p className="section-kicker">Bức tường chữ ký</p>
+            <h2 className="font-display text-5xl leading-none sm:text-6xl">Lớp 9/8 đã ký ở đây</h2>
+            <p className="mt-2 max-w-2xl text-xs font-bold leading-5 text-coffee/66 sm:text-sm">
+              Vẽ chữ ký bằng tay, lưu lại như một mảnh áo đồng phục cuối cấp. Mỗi người có thể ký lại để chỉnh nét cho đẹp hơn.
+            </p>
+          </div>
+          <button className="icon-button shrink-0 bg-white/82" onClick={onClose} aria-label="Đóng tường chữ ký">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="grid min-h-0 gap-3 overflow-y-auto p-3 sm:p-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
+          <section className="min-h-[18rem] overflow-hidden rounded-[1.25rem] border border-coffee/12 bg-[#2f4b3f] p-3 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] sm:p-4">
+            <div className="mb-3 flex items-center justify-between gap-3 text-paper">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-paper/58">Bảng lưu niệm</p>
+                <strong className="block truncate text-sm">{visibleSignatures.length} chữ ký đã được dán lên bảng</strong>
+              </div>
+              {ownSignature && (
+                <span className="shrink-0 rounded-full bg-paper px-2.5 py-1 text-[11px] font-black text-ink">Bạn đã ký</span>
+              )}
+            </div>
+
+            {visibleSignatures.length ? (
+              <div className="grid auto-rows-fr grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+                {visibleSignatures.map((signature, index) => (
+                  <article
+                    key={signature.id}
+                    className="relative min-h-[7.2rem] rounded-[0.8rem] bg-[#fffaf1] p-2 shadow-[0_10px_20px_rgba(18,15,13,0.18)]"
+                    style={{ transform: `rotate(${signatureWallRotation(index)}deg)` }}
+                  >
+                    <span className="absolute left-1/2 top-1 h-4 w-14 -translate-x-1/2 rotate-1 rounded-sm bg-[#f7d6a4]/78 shadow-sm" />
+                    <div className="grid h-[4.65rem] place-items-center rounded-[0.6rem] bg-white/72">
+                      <img
+                        src={signature.imageDataUrl}
+                        alt={`Chữ ký của ${signature.name}`}
+                        className="max-h-full max-w-full object-contain"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </div>
+                    <p className="mt-1 truncate text-center text-[11px] font-black text-coffee">{signature.name}</p>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="grid min-h-[18rem] place-items-center rounded-[1rem] border border-dashed border-paper/32 p-6 text-center text-paper">
+                <div>
+                  <BookOpen className="mx-auto text-paper/72" size={34} />
+                  <p className="mt-3 font-hand text-3xl leading-tight">Chưa ai ký lên bảng này.</p>
+                  <p className="mt-1 text-sm font-bold text-paper/58">Bạn có thể là chữ ký đầu tiên của lớp 9/8.</p>
+                </div>
+              </div>
+            )}
+          </section>
+
+          <aside className="rounded-[1.25rem] border border-coffee/10 bg-white/70 p-3 shadow-paper sm:p-4">
+            <div className="flex items-start gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-ink text-paper">
+                <Sparkles size={18} />
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-base font-black">Ký bằng tay của {profile.name}</h3>
+                <p className="mt-1 text-xs font-bold leading-5 text-coffee/64">
+                  Dùng ngón tay hoặc chuột để ký. Nếu nét chưa ổn, xóa và ký lại trước khi lưu.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-[1rem] border border-coffee/10 bg-[#fff7ec] p-2 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.62)]">
+              <canvas
+                ref={canvasRef}
+                className="h-[12.2rem] w-full touch-none rounded-[0.8rem] bg-[linear-gradient(0deg,rgba(122,86,57,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(122,86,57,0.05)_1px,transparent_1px)] bg-[length:22px_22px] shadow-inner"
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={stopDrawing}
+                onPointerCancel={stopDrawing}
+                onLostPointerCapture={stopDrawing}
+                aria-label="Khung vẽ chữ ký"
+              />
+            </div>
+
+            {(localError || error) && (
+              <p className="mt-3 rounded-[0.9rem] bg-blush/24 px-3 py-2 text-xs font-bold leading-5 text-coffee">
+                {localError || error}
+              </p>
+            )}
+
+            <div className="mt-4 grid gap-2">
+              <button className="primary-button min-h-12 justify-center" onClick={() => void handleSave()} disabled={isSaving || !hasInk}>
+                <Sparkles size={17} />
+                {isSaving ? 'Đang lưu chữ ký...' : ownSignature ? 'Lưu lại chữ ký mới' : 'Dán chữ ký lên bảng'}
+              </button>
+              <button className="secondary-button min-h-11 justify-center" onClick={clearCanvas} disabled={isSaving}>
+                <RotateCcw size={16} />
+                Xóa nét và ký lại
+              </button>
+            </div>
+
+            {ownSignature && (
+              <div className="mt-4 rounded-[1rem] bg-paper/78 p-3 shadow-sm">
+                <p className="text-xs font-black uppercase text-coffee/58">Chữ ký hiện tại của bạn</p>
+                <div className="mt-2 grid h-20 place-items-center rounded-[0.75rem] bg-white">
+                  <img src={ownSignature.imageDataUrl} alt="Chữ ký hiện tại của bạn" className="max-h-full max-w-full object-contain" />
+                </div>
+              </div>
+            )}
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const signatureWallRotation = (index: number) => {
+  const rotations = [-1.8, 1.2, -0.7, 1.7, -1.1, 0.8, -1.4, 1.4];
+  return rotations[index % rotations.length];
+};

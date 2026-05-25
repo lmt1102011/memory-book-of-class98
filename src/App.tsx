@@ -30,6 +30,7 @@ import type {
   AppRoute,
   CinematicSlideshowSettings,
   ClassmateProfile,
+  ClassSignature,
   CommentReactionId,
   GuestbookEntry,
   MemoryComment,
@@ -201,6 +202,7 @@ export default function App() {
   const [memoriesLoading, setMemoriesLoading] = useState(false);
   const [remoteComments, setRemoteComments] = useState<MemoryComment[]>([]);
   const [remoteGuestbook, setRemoteGuestbook] = useState<GuestbookEntry[]>([]);
+  const [classSignatures, setClassSignatures] = useState<ClassSignature[]>([]);
   const [timeCapsules, setTimeCapsules] = useState<TimeCapsuleEntry[]>([]);
   const [classmates, setClassmates] = useState<ClassmateProfile[]>([]);
   const [classmatesLoading, setClassmatesLoading] = useState(false);
@@ -396,6 +398,7 @@ export default function App() {
       setRemoteMemories([]);
       setRemoteComments([]);
       setRemoteGuestbook([]);
+      setClassSignatures([]);
       setTimeCapsules([]);
       setClassmates([]);
       setVoteCategories([]);
@@ -682,6 +685,7 @@ export default function App() {
     let unsubscribeMemories: (() => void) | undefined;
     let unsubscribeComments: (() => void) | undefined;
     let unsubscribeGuestbook: (() => void) | undefined;
+    let unsubscribeClassSignatures: (() => void) | undefined;
     let unsubscribeClassmates: (() => void) | undefined;
     let unsubscribeRememberNotes: (() => void) | undefined;
     let unsubscribeSentRememberNotes: (() => void) | undefined;
@@ -695,6 +699,7 @@ export default function App() {
       setRemoteMemories([]);
       setRemoteComments([]);
       setRemoteGuestbook([]);
+      setClassSignatures([]);
       setFirebaseNotice('');
     }
 
@@ -762,6 +767,22 @@ export default function App() {
               setFirebaseNotice(error.message);
             },
           );
+
+          if (route === 'home' && profile) {
+            unsubscribeClassSignatures = service.subscribeClassSignatures(
+              (items) => {
+                if (!isActive) return;
+                setClassSignatures(items);
+                setFirebaseNotice('');
+              },
+              (error) => {
+                if (!isActive) return;
+                setFirebaseNotice(error.message);
+              },
+            );
+          } else {
+            setClassSignatures([]);
+          }
         })
         .catch((caught) => {
           if (!isActive) return;
@@ -893,6 +914,7 @@ export default function App() {
       unsubscribeMemories?.();
       unsubscribeComments?.();
       unsubscribeGuestbook?.();
+      unsubscribeClassSignatures?.();
       unsubscribeClassmates?.();
       unsubscribeRememberNotes?.();
       unsubscribeSentRememberNotes?.();
@@ -933,6 +955,7 @@ export default function App() {
     setRemoteMemories([]);
     setRemoteComments([]);
     setRemoteGuestbook([]);
+    setClassSignatures([]);
     setTimeCapsules([]);
     setClassmates([]);
     setVoteCategories([]);
@@ -2136,6 +2159,24 @@ export default function App() {
     [maybeShowProfileCompletionReminder, navigate, profile],
   );
 
+  const handleClassSignatureSave = useCallback(
+    async (imageDataUrl: string) => {
+      if (!profile) {
+        navigate('join');
+        return;
+      }
+
+      const service = await import('./services/firebaseMemoryBook');
+      const savedSignature = await service.saveClassSignature(profile, imageDataUrl);
+      setClassSignatures((items) => [
+        savedSignature,
+        ...items.filter((item) => item.nameKey !== savedSignature.nameKey && item.uid !== savedSignature.uid),
+      ]);
+      maybeShowProfileCompletionReminder('interaction');
+    },
+    [maybeShowProfileCompletionReminder, navigate, profile],
+  );
+
   const handleSecretDiaryAdd = useCallback(
     async (message: string) => {
       if (!profile) {
@@ -2520,6 +2561,7 @@ export default function App() {
           memories={allMemories}
           commentsByMemory={commentsByMemory}
           classmates={classmates}
+          classSignatures={classSignatures}
           firebaseNotice={firebaseNotice}
           isLoadingMemories={memoriesLoading}
           memoryRecapEnabled={memoryRecapEnabled}
@@ -2544,6 +2586,7 @@ export default function App() {
           onDeleteComment={handleMemoryCommentDelete}
           onDeleteMemory={handleMemoryDelete}
           onDownloadMemory={handleMemoryDownload}
+          onSaveClassSignature={handleClassSignatureSave}
         />
       </Suspense>
     );

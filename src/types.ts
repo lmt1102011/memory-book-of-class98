@@ -124,6 +124,17 @@ export interface MemoryComment {
   pending?: boolean;
 }
 
+export interface ClassSignature {
+  id: string;
+  uid: string;
+  name: string;
+  nameKey: string;
+  className: string;
+  imageDataUrl: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export type CommentReactionId = 'haha' | 'love' | 'miss' | 'wow' | 'angry';
 
 export interface GuestbookEntry {

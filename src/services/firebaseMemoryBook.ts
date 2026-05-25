@@ -33,6 +33,7 @@ import {
 import { auth, db } from '../firebase';
 import type {
   ClassmateProfile,
+  ClassSignature,
   ClassLettersSettings,
   CinematicSlideshowSettings,
   CommentReactionId,
@@ -70,6 +71,7 @@ const MEMORY_COMMENTS_COLLECTION = 'memoryComments98';
 const MEMORY_DOWNLOAD_LOGS_COLLECTION = 'memoryDownloadLogs98';
 const GUESTBOOK_COLLECTION = 'guestbook98';
 const TIME_CAPSULE_COLLECTION = 'timeCapsules98';
+const CLASS_SIGNATURES_COLLECTION = 'classSignatures98';
 const SECRET_MAILBOX_PRIVATE_COLLECTION = 'secretMailboxPrivate98';
 const REMEMBER_NOTES_COLLECTION = 'rememberNotes98';
 const VOTE_CATEGORIES_COLLECTION = 'voteCategories98';
@@ -677,6 +679,17 @@ const timeCapsuleFromDoc = (id: string, data: DocumentData): TimeCapsuleEntry =>
   createdAt: timestampToIso(data.createdAt),
 });
 
+const classSignatureFromDoc = (id: string, data: DocumentData): ClassSignature => ({
+  id,
+  uid: String(data.uid || ''),
+  name: String(data.name || 'Bạn lớp 9/8'),
+  nameKey: String(data.nameKey || id),
+  className: String(data.className || CLASS_NAME),
+  imageDataUrl: String(data.imageDataUrl || ''),
+  createdAt: timestampToIso(data.createdAt),
+  updatedAt: data.updatedAt ? timestampToIso(data.updatedAt) : undefined,
+});
+
 const secretDiaryFromDoc = (id: string, data: DocumentData): SecretDiaryEntry => ({
   id,
   uid: String(data.uid || ''),
@@ -1063,6 +1076,28 @@ export const subscribeTimeCapsules = (
     try {
       const snapshot = await withFirebaseRetry(() => getDocs(capsulesQuery));
       onNext(snapshot.docs.map((item) => timeCapsuleFromDoc(item.id, item.data())));
+    } catch (error) {
+      onError(friendlyFirebaseError(error));
+    }
+  };
+  void load();
+  const interval = createVisiblePolling(load);
+  return () => window.clearInterval(interval);
+};
+
+export const subscribeClassSignatures = (
+  onNext: (signatures: ClassSignature[]) => void,
+  onError: (error: Error) => void,
+) => {
+  const signaturesQuery = query(collection(db, CLASS_SIGNATURES_COLLECTION), orderBy('updatedAt', 'desc'), limit(120));
+  const load = async () => {
+    try {
+      const snapshot = await withFirebaseRetry(() => getDocs(signaturesQuery));
+      onNext(
+        snapshot.docs
+          .map((item) => classSignatureFromDoc(item.id, item.data()))
+          .filter((item) => item.imageDataUrl),
+      );
     } catch (error) {
       onError(friendlyFirebaseError(error));
     }
@@ -1694,6 +1729,40 @@ export const addTimeCapsuleEntry = async (profile: UserProfile, message: string)
     message: safeMessage,
     createdAt,
   };
+};
+
+export const saveClassSignature = async (profile: UserProfile, imageDataUrl: string) => {
+  const safeImage = imageDataUrl.trim();
+  if (!safeImage.startsWith('data:image/')) throw new Error('Chữ ký chưa hợp lệ, hãy ký lại nha.');
+  if (safeImage.length > 220_000) throw new Error('Chữ ký hơi nặng, hãy xóa bớt nét rồi lưu lại.');
+
+  const signatureRef = doc(db, CLASS_SIGNATURES_COLLECTION, profile.nameKey);
+  await withFirebaseRetry(() =>
+    setDoc(
+      signatureRef,
+      {
+        uid: profile.uid,
+        name: profile.name,
+        nameKey: profile.nameKey,
+        className: CLASS_NAME,
+        imageDataUrl: safeImage,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+
+  return {
+    id: profile.nameKey,
+    uid: profile.uid,
+    name: profile.name,
+    nameKey: profile.nameKey,
+    className: CLASS_NAME,
+    imageDataUrl: safeImage,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  } satisfies ClassSignature;
 };
 
 export const addSecretDiary = async (profile: UserProfile, message: string) => {

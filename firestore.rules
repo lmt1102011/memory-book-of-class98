@@ -17,6 +17,15 @@ service cloud.firestore {
         && request.auth.token.email == 'le-minh-tri@memorybook-of-class98.firebaseapp.com';
     }
 
+    function isSignedInStudent(nameKey) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/students98/$(nameKey))
+        && get(/databases/$(database)/documents/students98/$(nameKey)).data.uid == request.auth.uid
+        && get(/databases/$(database)/documents/students98/$(nameKey)).data.className == '9/8'
+        && get(/databases/$(database)/documents/students98/$(nameKey)).data.deleted != true
+        && get(/databases/$(database)/documents/students98/$(nameKey)).data.disabled != true;
+    }
+
     function ownsResource() {
       return request.auth != null
         && (
@@ -137,6 +146,31 @@ service cloud.firestore {
         && request.resource.data.reactionMissBy.size() <= 1000
         && request.resource.data.reactionWowBy.size() <= 1000
         && request.resource.data.reactionAngryBy.size() <= 1000;
+    }
+
+    function validClassSignatureWrite(signatureId) {
+      return request.auth != null
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'name',
+          'nameKey',
+          'className',
+          'imageDataUrl',
+          'createdAt',
+          'updatedAt'
+        ])
+        && signatureId == request.resource.data.nameKey
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.className == '9/8'
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.nameKey is string
+        && request.resource.data.imageDataUrl is string
+        && request.resource.data.imageDataUrl.matches('data:image/(png|webp);base64,.*')
+        && request.resource.data.imageDataUrl.size() <= 220000
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && isSignedInStudent(signatureId);
     }
 
     function isPublicMemoryResource() {
@@ -590,6 +624,12 @@ service cloud.firestore {
       allow create: if validTimeCapsuleCreate();
       allow update: if isManagerWrite()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['managerKey', 'managerDeletedAt']);
+      allow delete: if ownsResource() || isManagerMarkedResource();
+    }
+
+    match /classSignatures98/{signatureId} {
+      allow read: if true;
+      allow create, update: if validClassSignatureWrite(signatureId);
       allow delete: if ownsResource() || isManagerMarkedResource();
     }
 
