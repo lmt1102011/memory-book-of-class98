@@ -21,8 +21,8 @@ const signatureWallRotation = (index: number) => {
   return rotations[index % rotations.length];
 };
 
-const SIGNATURE_MIN_STROKE_WIDTH = 1.65;
-const SIGNATURE_MAX_STROKE_WIDTH = 4.05;
+const SIGNATURE_MIN_STROKE_WIDTH = 2.05;
+const SIGNATURE_MAX_STROKE_WIDTH = 3.18;
 const SIGNATURE_EXPORT_WIDTH = 1400;
 const SIGNATURE_EXPORT_HEIGHT = 500;
 const SIGNATURE_MAX_DATA_URL_LENGTH = 750_000;
@@ -111,22 +111,23 @@ const smoothSignatureStroke = (stroke: SignatureStroke, passes = 1): SignatureSt
 };
 
 const getStrokeTaper = (index: number, totalSegments: number) => {
-  if (totalSegments <= 3) return 0.92;
-  const start = clamp(easeOutSine(index / 5), 0.44, 1);
-  const end = clamp(easeOutSine((totalSegments - index) / 7), 0.34, 1);
+  if (totalSegments <= 3) return 0.96;
+  const start = clamp(easeOutSine((index + 1) / 4), 0.72, 1);
+  const end = clamp(easeOutSine((totalSegments - index) / 4), 0.68, 1);
   return Math.min(start, end);
 };
 
 const getSegmentWidth = (from: SignaturePoint, to: SignaturePoint, index = 0, totalSegments = 2) => {
-  const pressure = clamp((from.pressure + to.pressure) / 2 || 0.52, 0.36, 0.78);
+  const pressure = clamp((from.pressure + to.pressure) / 2 || 0.52, 0.38, 0.82);
   const deltaTime = Math.max(8, to.time - from.time);
   const speed = distanceBetween(from, to) / deltaTime;
-  const speedWeight = 1 - clamp((speed - 0.12) / 1.12, 0, 1);
-  const pressureNudge = (pressure - 0.52) * 1.35;
-  const width = SIGNATURE_MIN_STROKE_WIDTH + speedWeight * (SIGNATURE_MAX_STROKE_WIDTH - SIGNATURE_MIN_STROKE_WIDTH);
+  const speedWeight = 1 - clamp((speed - 0.16) / 1.85, 0, 1);
+  const pressureNudge = (pressure - 0.52) * 0.42;
+  const baseWidth = (SIGNATURE_MIN_STROKE_WIDTH + SIGNATURE_MAX_STROKE_WIDTH) / 2;
+  const width = baseWidth + speedWeight * 0.34 + pressureNudge;
   const taperedWidth = (width + pressureNudge) * getStrokeTaper(index, totalSegments);
 
-  return clamp(taperedWidth, 0.72, SIGNATURE_MAX_STROKE_WIDTH);
+  return clamp(taperedWidth, SIGNATURE_MIN_STROKE_WIDTH * 0.72, SIGNATURE_MAX_STROKE_WIDTH);
 };
 
 const renderSignatureStrokes = (
@@ -173,11 +174,13 @@ const renderSignatureStrokes = (
     let previous = points[0];
     let previousMid = previous;
     const totalSegments = Math.max(1, points.length - 1);
+    let previousLineWidth = getSegmentWidth(points[0], points[1] || points[0], 0, totalSegments) * scale * widthMultiplier;
 
     for (let index = 1; index < points.length; index += 1) {
       const current = points[index];
       const mid = interpolatePoint(previous, current, 0.5);
-      const lineWidth = Math.max(0.72, getSegmentWidth(previous, current, index - 1, totalSegments) * scale * widthMultiplier);
+      const targetWidth = getSegmentWidth(previous, current, index - 1, totalSegments) * scale * widthMultiplier;
+      const lineWidth = Math.max(0.72, previousLineWidth * 0.68 + targetWidth * 0.32);
 
       context.beginPath();
       context.moveTo(transformX(previousMid.x), transformY(previousMid.y));
@@ -187,13 +190,15 @@ const renderSignatureStrokes = (
 
       previousMid = mid;
       previous = current;
+      previousLineWidth = lineWidth;
     }
 
     const beforeLast = points[Math.max(0, points.length - 2)];
+    const finalWidth = getSegmentWidth(beforeLast, previous, totalSegments - 1, totalSegments) * scale * widthMultiplier;
     context.beginPath();
     context.moveTo(transformX(previousMid.x), transformY(previousMid.y));
     context.lineTo(transformX(previous.x), transformY(previous.y));
-    context.lineWidth = Math.max(0.72, getSegmentWidth(beforeLast, previous, totalSegments - 1, totalSegments) * scale * widthMultiplier);
+    context.lineWidth = Math.max(0.72, previousLineWidth * 0.72 + finalWidth * 0.28);
     context.stroke();
   });
 
@@ -588,6 +593,7 @@ function SignatureEditorModal({
   const canvasSizeRef = useRef<SignatureCanvasSize>({ width: 0, height: 0 });
   const redrawFrameRef = useRef<number | null>(null);
   const liveMidPointRef = useRef<SignaturePoint | null>(null);
+  const liveStrokeWidthRef = useRef<number | null>(null);
   const [hasInk, setHasInk] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [localError, setLocalError] = useState('');
@@ -687,7 +693,9 @@ function SignatureEditorModal({
   const drawLiveSegment = useCallback((context: CanvasRenderingContext2D, from: SignaturePoint, to: SignaturePoint) => {
     const previousMid = liveMidPointRef.current || from;
     const nextMid = interpolatePoint(from, to, 0.5);
-    const width = Math.max(1.15, getSegmentWidth(from, to));
+    const targetWidth = Math.max(1.15, getSegmentWidth(from, to, 2, 12));
+    const previousWidth = liveStrokeWidthRef.current ?? targetWidth;
+    const width = previousWidth * 0.74 + targetWidth * 0.26;
 
     context.save();
     context.lineCap = 'round';
@@ -714,6 +722,7 @@ function SignatureEditorModal({
     context.restore();
 
     liveMidPointRef.current = nextMid;
+    liveStrokeWidthRef.current = width;
   }, []);
 
   useEffect(() => {
@@ -753,14 +762,14 @@ function SignatureEditorModal({
     if (!stroke) return null;
 
     const last = stroke[stroke.length - 1];
-    if (last && distanceBetween(last, point) < 1.05 && point.time - last.time < 18) return null;
+    if (last && distanceBetween(last, point) < 0.72 && point.time - last.time < 14) return null;
 
     const nextPoint = last
       ? {
-          x: last.x + (point.x - last.x) * clamp(distanceBetween(last, point) / 24, 0.52, 0.88),
-          y: last.y + (point.y - last.y) * clamp(distanceBetween(last, point) / 24, 0.52, 0.88),
+          x: last.x + (point.x - last.x) * clamp(distanceBetween(last, point) / 20, 0.72, 0.96),
+          y: last.y + (point.y - last.y) * clamp(distanceBetween(last, point) / 20, 0.72, 0.96),
           time: point.time,
-          pressure: last.pressure * 0.32 + point.pressure * 0.68,
+          pressure: last.pressure * 0.48 + point.pressure * 0.52,
         }
       : point;
 
@@ -786,6 +795,7 @@ function SignatureEditorModal({
       const stroke: SignatureStroke = [point];
       activeStrokeRef.current = stroke;
       liveMidPointRef.current = point;
+      liveStrokeWidthRef.current = null;
       strokesRef.current.push(stroke);
       markHasInk();
       setLocalError('');
@@ -828,6 +838,7 @@ function SignatureEditorModal({
       drawingRef.current = false;
       activeStrokeRef.current = null;
       liveMidPointRef.current = null;
+      liveStrokeWidthRef.current = null;
       try {
         event.currentTarget.releasePointerCapture(event.pointerId);
       } catch {
