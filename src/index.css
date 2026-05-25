@@ -2186,3 +2186,106 @@
     transform: translate3d(0, 0, 0) scale(1);
   }
 }
+
+/* Hard override for the installed app: this panel must never inherit glass/blur/alpha. */
+.class-letter-intro-panel,
+html.memory98-standalone .class-letter-intro-panel {
+  position: relative !important;
+  z-index: 1 !important;
+  isolation: isolate !important;
+  background: #fffaf1 !important;
+  background-color: #fffaf1 !important;
+  background-image: none !important;
+  color: #241b15 !important;
+  opacity: 1 !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  mix-blend-mode: normal !important;
+  transform: none !important;
+  will-change: auto !important;
+  border-color: rgba(122, 86, 57, 0.28) !important;
+  box-shadow: 0 16px 38px rgba(84, 57, 35, 0.18) !important;
+}
+
+.class-letter-intro-panel *,
+html.memory98-standalone .class-letter-intro-panel * {
+  opacity: 1 !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  mix-blend-mode: normal !important;
+  text-shadow: none !important;
+}
+
+.class-letter-intro-kicker,
+html.memory98-standalone .class-letter-intro-kicker {
+  color: #6f4a33 !important;
+}
+
+.class-letter-intro-title,
+html.memory98-standalone .class-letter-intro-title {
+  color: #241b15 !important;
+  -webkit-text-fill-color: #241b15 !important;
+}
+
+.class-letter-intro-copy,
+html.memory98-standalone .class-letter-intro-copy {
+  color: #3e2d22 !important;
+  -webkit-text-fill-color: #3e2d22 !important;
+}
+
+.class-letter-intro-helper,
+html.memory98-standalone .class-letter-intro-helper {
+  background: #fff7ec !important;
+  color: #4b3427 !important;
+  -webkit-text-fill-color: #4b3427 !important;
+  border-color: rgba(122, 86, 57, 0.16) !important;
+}
+
+.class-letter-intro-write,
+html.memory98-standalone .class-letter-intro-write {
+  background: #35291f !important;
+  color: #fffaf1 !important;
+  -webkit-text-fill-color: #fffaf1 !important;
+  box-shadow: 0 14px 28px rgba(53, 41, 31, 0.2) !important;
+}
+
+@media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui), (display-mode: window-controls-overlay) {
+  .class-letter-intro-panel {
+    background: #fffaf1 !important;
+    background-color: #fffaf1 !important;
+    background-image: none !important;
+    color: #241b15 !important;
+    opacity: 1 !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    mix-blend-mode: normal !important;
+    transform: none !important;
+    will-change: auto !important;
+  }
+
+  .class-letter-intro-kicker {
+    color: #6f4a33 !important;
+  }
+
+  .class-letter-intro-title {
+    color: #241b15 !important;
+    -webkit-text-fill-color: #241b15 !important;
+  }
+
+  .class-letter-intro-copy {
+    color: #3e2d22 !important;
+    -webkit-text-fill-color: #3e2d22 !important;
+  }
+
+  .class-letter-intro-helper {
+    background: #fff7ec !important;
+    color: #4b3427 !important;
+    -webkit-text-fill-color: #4b3427 !important;
+  }
+}

@@ -162,23 +162,23 @@ function ClassMessageBoard({
     <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="grid gap-5 lg:grid-cols-[0.78fr_1.22fr]">
         <aside className="class-letter-intro-panel rounded-[1.5rem] border border-[#7a5639]/22 bg-[#fffaf1] p-4 text-ink shadow-[0_18px_46px_rgba(84,57,35,0.16)] sm:p-5">
-          <p className="section-kicker">Bảng thư lớp</p>
-          <h2 className="font-display text-5xl leading-none text-ink">Những mảnh thư trên bảng 9/8</h2>
-          <p className="mt-3 text-sm font-semibold leading-7 text-ink/78">
+          <p className="class-letter-intro-kicker section-kicker">Bảng thư lớp</p>
+          <h2 className="class-letter-intro-title font-display text-5xl leading-none text-ink">Những mảnh thư trên bảng 9/8</h2>
+          <p className="class-letter-intro-copy mt-3 text-sm font-semibold leading-7">
             Gửi một lời nhắn có tên cho cả lớp, hoặc để lại một điều ẩn danh như một mảnh giấy nhỏ dán
             trên bảng học.
           </p>
 
           <button
             type="button"
-            className="primary-button mt-5 w-full justify-center"
+            className="class-letter-intro-write primary-button mt-5 w-full justify-center"
             onClick={() => (profile ? setIsWriterOpen(true) : onJoin())}
           >
             <Send size={17} />
             Viết thư
           </button>
 
-          <div className="mt-4 rounded-[1rem] border border-[#7a5639]/12 bg-[#fff7ec] p-4 text-sm font-semibold leading-6 text-ink/74">
+          <div className="class-letter-intro-helper mt-4 rounded-[1rem] border border-[#7a5639]/12 bg-[#fff7ec] p-4 text-sm font-semibold leading-6">
             Bấm “Viết thư” khi bạn muốn gửi lời nhắn cho lớp hoặc gửi một mảnh thư ẩn danh.
           </div>
 
