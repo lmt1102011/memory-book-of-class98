@@ -19,6 +19,8 @@ const signatureWallRotation = (index: number) => {
   return rotations[index % rotations.length];
 };
 
+const SIGNATURE_STROKE_WIDTH = 4.4;
+
 const exportTightSignature = (canvas: HTMLCanvasElement) => {
   const context = canvas.getContext('2d', { willReadFrequently: true });
   if (!context) return '';
@@ -283,11 +285,11 @@ function SignatureEditorModal({
     context.lineJoin = 'round';
     context.strokeStyle = '#35291f';
     context.fillStyle = '#35291f';
-    context.lineWidth = 6.8;
+    context.lineWidth = SIGNATURE_STROKE_WIDTH;
     context.miterLimit = 2;
-    context.shadowColor = 'rgba(53,41,31,0.12)';
-    context.shadowBlur = 0.4;
-    context.shadowOffsetY = 0.5;
+    context.shadowColor = 'rgba(53,41,31,0.1)';
+    context.shadowBlur = 0.25;
+    context.shadowOffsetY = 0.25;
     return { canvas, context };
   }, []);
 
