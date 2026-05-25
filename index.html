@@ -30,6 +30,79 @@
         if (isInstalledApp) {
           document.documentElement.classList.add('memory98-standalone');
         }
+
+        var recoveryKey = 'memory98-early-asset-reload-at';
+        var recoveryCooldown = 20000;
+        var isRecovering = false;
+
+        var reloadFresh = function () {
+          var url = new URL(window.location.href);
+          url.searchParams.set('assetRefresh', Date.now().toString(36));
+          window.location.replace(url.toString());
+        };
+
+        var clearAppCaches = function () {
+          if (!('caches' in window)) return Promise.resolve();
+
+          return caches.keys().then(function (names) {
+            return Promise.allSettled(
+              names
+                .filter(function (name) {
+                  return name.indexOf('memory98-app-shell') === 0;
+                })
+                .map(function (name) {
+                  return caches.delete(name);
+                }),
+            );
+          });
+        };
+
+        var recoverFromMissingAsset = function () {
+          if (isRecovering) return;
+
+          var lastReload = Number(sessionStorage.getItem(recoveryKey) || 0);
+          var now = Date.now();
+          if (now - lastReload < recoveryCooldown) return;
+
+          isRecovering = true;
+          sessionStorage.setItem(recoveryKey, String(now));
+
+          Promise.race([
+            Promise.allSettled([
+              clearAppCaches(),
+              'serviceWorker' in navigator
+                ? navigator.serviceWorker.getRegistration().then(function (registration) {
+                    return registration && registration.update();
+                  }).catch(function () {})
+                : Promise.resolve(),
+            ]),
+            new Promise(function (resolve) {
+              setTimeout(resolve, 1500);
+            }),
+          ]).finally(reloadFresh);
+        };
+
+        var isMissingAssetTarget = function (target) {
+          var url = '';
+          if (target && target.tagName === 'SCRIPT') url = target.src || '';
+          if (target && target.tagName === 'LINK') url = target.href || '';
+          url = String(url).toLowerCase();
+          return url.indexOf('/assets/') !== -1 && (url.indexOf('.js') !== -1 || url.indexOf('.css') !== -1);
+        };
+
+        window.addEventListener(
+          'error',
+          function (event) {
+            if (isMissingAssetTarget(event.target)) recoverFromMissingAsset();
+          },
+          true,
+        );
+
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.addEventListener('message', function (event) {
+            if (event.data && event.data.type === 'MEMORY98_ASSET_MISSING') recoverFromMissingAsset();
+          });
+        }
       })();
     </script>
     <style>

@@ -10,6 +10,8 @@ const chunkErrorPatterns = [
   'failed to load module script',
   'loading chunk',
   'module script load',
+  'asset missing',
+  'asset 404',
 ];
 
 const getErrorText = (error: unknown) => {
@@ -26,7 +28,13 @@ const getErrorText = (error: unknown) => {
 
 const isChunkLoadError = (error: unknown) => {
   const text = getErrorText(error).toLowerCase();
-  return chunkErrorPatterns.some((pattern) => text.includes(pattern));
+  if (chunkErrorPatterns.some((pattern) => text.includes(pattern))) return true;
+
+  return (
+    text.includes('cannot read properties of undefined')
+    && text.includes('default')
+    && (text.includes('/assets/') || text.includes('motion-') || text.includes('react-') || text.includes('lazy') || text.includes('module'))
+  );
 };
 
 export const showAppUpdateOverlay = (label = 'Đang cập nhật phiên bản mới nhất...') => {
@@ -155,7 +163,7 @@ export const showAppUpdateOverlay = (label = 'Đang cập nhật phiên bản m�
 };
 
 const clearRuntimeCaches = async () => {
-  if (!('caches' in window) || !navigator.onLine) return;
+  if (!('caches' in window)) return;
 
   const cacheNames = await caches.keys();
   await Promise.allSettled(cacheNames.filter((name) => name.startsWith('memory98-app-shell')).map((name) => caches.delete(name)));
@@ -168,8 +176,6 @@ const reloadWithFreshUrl = () => {
 };
 
 const recoverFromChunkError = async () => {
-  if (!isStandaloneMode()) return;
-
   const lastReload = Number(window.sessionStorage.getItem(CHUNK_RELOAD_KEY) || 0);
   const now = Date.now();
   if (now - lastReload < CHUNK_RELOAD_COOLDOWN) return;
@@ -177,11 +183,35 @@ const recoverFromChunkError = async () => {
   window.sessionStorage.setItem(CHUNK_RELOAD_KEY, String(now));
   showAppUpdateOverlay('Đang lấy lại phiên bản mới nhất...');
 
-  window.setTimeout(reloadWithFreshUrl, 650);
-  void Promise.allSettled([
-    clearRuntimeCaches(),
-    navigator.serviceWorker?.getRegistration().then((registration) => registration?.update()).catch(() => undefined),
+  await Promise.race([
+    Promise.allSettled([
+      clearRuntimeCaches(),
+      navigator.serviceWorker?.getRegistration().then((registration) => registration?.update()).catch(() => undefined),
+    ]),
+    new Promise((resolve) => window.setTimeout(resolve, 1_500)),
   ]);
+
+  reloadWithFreshUrl();
+};
+
+export const recoverFromAppLoadError = (error: unknown) => {
+  if (!isChunkLoadError(error)) return false;
+
+  void recoverFromChunkError();
+  return true;
+};
+
+const getAssetUrlFromTarget = (target: EventTarget | null) => {
+  if (!(target instanceof HTMLElement)) return '';
+  if (target instanceof HTMLScriptElement) return target.src || '';
+  if (target instanceof HTMLLinkElement) return target.href || '';
+  return '';
+};
+
+const isAssetLoadError = (target: EventTarget | null) => {
+  const url = getAssetUrlFromTarget(target).toLowerCase();
+  if (!url.includes('/assets/')) return false;
+  return url.endsWith('.js') || url.endsWith('.css') || url.includes('.js?') || url.includes('.css?');
 };
 
 export const installUpdateRecovery = () => {
@@ -200,11 +230,17 @@ export const installUpdateRecovery = () => {
   window.addEventListener(
     'error',
     (event) => {
-      if (!isChunkLoadError(event.error || event.message)) return;
+      if (!isChunkLoadError(event.error || event.message) && !isAssetLoadError(event.target)) return;
 
       event.preventDefault();
       void recoverFromChunkError();
     },
     true,
   );
+
+  navigator.serviceWorker?.addEventListener('message', (event) => {
+    if (event.data?.type !== 'MEMORY98_ASSET_MISSING') return;
+
+    void recoverFromChunkError();
+  });
 };

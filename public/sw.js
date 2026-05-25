@@ -1,4 +1,4 @@
-const CACHE_NAME = 'memory98-app-shell-v25';
+const CACHE_NAME = 'memory98-app-shell-v26';
 const APP_SHELL_PATHS = [
   './',
   './index.html',
@@ -69,20 +69,58 @@ const cacheFirst = async (request) => {
   return response;
 };
 
+const notifyAssetMissing = async (url) => {
+  const clientsList = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
+  clientsList.forEach((client) => {
+    client.postMessage({ type: 'MEMORY98_ASSET_MISSING', url });
+  });
+};
+
 const staleWhileRevalidate = async (request) => {
   const cache = await caches.open(CACHE_NAME);
   const cached = await cache.match(request);
 
   const network = fetch(request)
     .then((response) => {
+      if (response.status === 404 && (request.destination === 'script' || request.destination === 'style')) {
+        void notifyAssetMissing(request.url);
+      }
+
       if (response.ok) {
         void cache.put(request, response.clone());
       }
       return response;
     })
-    .catch(() => cached);
+    .catch((error) => {
+      if (request.destination === 'script' || request.destination === 'style') {
+        void notifyAssetMissing(request.url);
+      }
+      return cached || Promise.reject(error);
+    });
 
   return cached || network.then((response) => response || Response.error());
+};
+
+const networkFirstAsset = async (request) => {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+
+  try {
+    const response = await fetch(request, { cache: 'no-store' });
+    if (response.status === 404) {
+      void notifyAssetMissing(request.url);
+      return cached || response;
+    }
+
+    if (response.ok) {
+      await cache.put(request, response.clone());
+    }
+
+    return response;
+  } catch (error) {
+    void notifyAssetMissing(request.url);
+    return cached || Promise.reject(error);
+  }
 };
 
 self.addEventListener('fetch', (event) => {
@@ -114,7 +152,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (['script', 'style', 'image', 'font', 'manifest'].includes(request.destination)) {
+  if (request.destination === 'script' || request.destination === 'style') {
+    event.respondWith(networkFirstAsset(request));
+    return;
+  }
+
+  if (['image', 'font', 'manifest'].includes(request.destination)) {
     event.respondWith(staleWhileRevalidate(request));
   }
 });
