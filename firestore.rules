@@ -195,7 +195,8 @@ service cloud.firestore {
     function validClassSignaturePayload(signatureId) {
       return request.auth != null
         && signatureId == request.resource.data.nameKey
-        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.uid is string
+        && request.resource.data.uid.size() <= 140
         && request.resource.data.className == '9/8'
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 80

@@ -1760,12 +1760,13 @@ export const saveClassSignature = async (profile: UserProfile, imageDataUrl: str
   if (!safeImage.startsWith('data:image/')) throw new Error('Chữ ký chưa hợp lệ, hãy ký lại nha.');
   if (safeImage.length > 750_000) throw new Error('Chữ ký hơi nặng, hãy xóa bớt nét rồi lưu lại.');
 
+  const uid = auth.currentUser?.uid || profile.uid;
   const signatureRef = doc(db, CLASS_SIGNATURES_COLLECTION, profile.nameKey);
   await withFirebaseRetry(() =>
     setDoc(
       signatureRef,
       {
-        uid: profile.uid,
+        uid,
         name: profile.name,
         nameKey: profile.nameKey,
         className: CLASS_NAME,
@@ -1779,7 +1780,7 @@ export const saveClassSignature = async (profile: UserProfile, imageDataUrl: str
 
   return {
     id: profile.nameKey,
-    uid: profile.uid,
+    uid,
     name: profile.name,
     nameKey: profile.nameKey,
     className: CLASS_NAME,
