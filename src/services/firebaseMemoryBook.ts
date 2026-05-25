@@ -1734,7 +1734,7 @@ export const addTimeCapsuleEntry = async (profile: UserProfile, message: string)
 export const saveClassSignature = async (profile: UserProfile, imageDataUrl: string) => {
   const safeImage = imageDataUrl.trim();
   if (!safeImage.startsWith('data:image/')) throw new Error('Chữ ký chưa hợp lệ, hãy ký lại nha.');
-  if (safeImage.length > 220_000) throw new Error('Chữ ký hơi nặng, hãy xóa bớt nét rồi lưu lại.');
+  if (safeImage.length > 360_000) throw new Error('Chữ ký hơi nặng, hãy xóa bớt nét rồi lưu lại.');
 
   const signatureRef = doc(db, CLASS_SIGNATURES_COLLECTION, profile.nameKey);
   await withFirebaseRetry(() =>
@@ -1855,11 +1855,11 @@ export const markRememberNotesViewed = async (profile: UserProfile, notes: Remem
 
 export const heartRememberNote = async (profile: UserProfile, note: RememberNote) => {
   if (note.toNameKey !== profile.nameKey) {
-    throw new Error('Chá»‰ ngÆ°á»i nháº­n má»›i cÃ³ thá»ƒ tháº£ tim Secret Message nÃ y.');
+    throw new Error('Chỉ người nhận mới có thể thả tim Secret Message này.');
   }
 
   if (note.heartedBy.includes(profile.uid)) {
-    throw new Error('Báº¡n Ä‘Ã£ tháº£ tim Secret Message nÃ y rá»“i.');
+    throw new Error('Bạn đã thả tim Secret Message này rồi.');
   }
 
   await withFirebaseRetry(() =>

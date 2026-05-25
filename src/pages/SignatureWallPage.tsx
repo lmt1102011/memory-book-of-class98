@@ -186,42 +186,91 @@ function SignatureEditorModal({
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef(false);
+  const hasInkRef = useRef(false);
   const lastPointRef = useRef({ x: 0, y: 0 });
   const [hasInk, setHasInk] = useState(false);
   const [localError, setLocalError] = useState('');
 
+  const markHasInk = useCallback(() => {
+    if (hasInkRef.current) return;
+    hasInkRef.current = true;
+    setHasInk(true);
+  }, []);
+
   const prepareCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
-    canvas.width = 760;
-    canvas.height = 340;
+    const rect = canvas.getBoundingClientRect();
+    const pixelRatio = Math.min(Math.max(window.devicePixelRatio || 1, 1), 2.5);
+    const width = Math.max(320, Math.round((rect.width || 920) * pixelRatio));
+    const height = Math.max(220, Math.round((rect.height || 480) * pixelRatio));
+    canvas.width = width;
+    canvas.height = height;
     const context = canvas.getContext('2d');
     if (!context) return null;
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     context.clearRect(0, 0, canvas.width, canvas.height);
     context.lineCap = 'round';
     context.lineJoin = 'round';
     context.strokeStyle = '#35291f';
-    context.lineWidth = 7.5;
+    context.fillStyle = '#35291f';
+    context.lineWidth = 6.8;
+    context.miterLimit = 2;
     context.shadowColor = 'rgba(53,41,31,0.12)';
-    context.shadowBlur = 0.5;
+    context.shadowBlur = 0.4;
     context.shadowOffsetY = 0.5;
     return { canvas, context };
   }, []);
 
   useEffect(() => {
-    prepareCanvas();
-    setHasInk(false);
+    const frame = window.requestAnimationFrame(() => {
+      prepareCanvas();
+      hasInkRef.current = false;
+      setHasInk(false);
+    });
+
+    const handleResize = () => {
+      if (drawingRef.current) return;
+      prepareCanvas();
+      hasInkRef.current = false;
+      setHasInk(false);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('resize', handleResize);
+    };
   }, [prepareCanvas]);
 
-  const pointFromEvent = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
+  const pointFromClient = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
     return {
-      x: ((event.clientX - rect.left) / Math.max(1, rect.width)) * canvas.width,
-      y: ((event.clientY - rect.top) / Math.max(1, rect.height)) * canvas.height,
+      x: clientX - rect.left,
+      y: clientY - rect.top,
     };
   }, []);
+
+  const drawToPoint = useCallback((point: { x: number; y: number }) => {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext('2d');
+    if (!canvas || !context) return;
+    const last = lastPointRef.current;
+    const controlX = (last.x + point.x) / 2;
+    const controlY = (last.y + point.y) / 2;
+    context.beginPath();
+    context.moveTo(last.x, last.y);
+    context.quadraticCurveTo(controlX, controlY, point.x, point.y);
+    context.stroke();
+    lastPointRef.current = point;
+    markHasInk();
+  }, [markHasInk]);
+
+  const pointFromEvent = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
+    return pointFromClient(event.clientX, event.clientY);
+  }, [pointFromClient]);
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
@@ -234,46 +283,43 @@ function SignatureEditorModal({
       drawingRef.current = true;
       lastPointRef.current = point;
       context.beginPath();
-      context.moveTo(point.x, point.y);
-      context.lineTo(point.x + 0.1, point.y + 0.1);
-      context.stroke();
-      setHasInk(true);
+      context.arc(point.x, point.y, context.lineWidth / 2, 0, Math.PI * 2);
+      context.fill();
+      markHasInk();
       setLocalError('');
     },
-    [pointFromEvent],
+    [markHasInk, pointFromEvent],
   );
 
   const handlePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
       if (!drawingRef.current) return;
       event.preventDefault();
-      const canvas = canvasRef.current;
-      const context = canvas?.getContext('2d');
-      if (!canvas || !context) return;
-      const point = pointFromEvent(event);
-      const last = lastPointRef.current;
-      const midX = (last.x + point.x) / 2;
-      const midY = (last.y + point.y) / 2;
-      context.beginPath();
-      context.moveTo(last.x, last.y);
-      context.quadraticCurveTo(last.x, last.y, midX, midY);
-      context.stroke();
-      lastPointRef.current = point;
+      const nativeEvent = event.nativeEvent as PointerEvent & { getCoalescedEvents?: () => PointerEvent[] };
+      const events = nativeEvent.getCoalescedEvents?.() ?? [nativeEvent];
+      events.forEach((item) => drawToPoint(pointFromClient(item.clientX, item.clientY)));
     },
-    [pointFromEvent],
+    [drawToPoint, pointFromClient],
   );
 
-  const stopDrawing = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
-    drawingRef.current = false;
-    try {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    } catch {
-      // Pointer capture can already be released by the browser.
-    }
-  }, []);
+  const stopDrawing = useCallback(
+    (event: ReactPointerEvent<HTMLCanvasElement>) => {
+      if (drawingRef.current) {
+        drawToPoint(pointFromEvent(event));
+      }
+      drawingRef.current = false;
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      } catch {
+        // Pointer capture can already be released by the browser.
+      }
+    },
+    [drawToPoint, pointFromEvent],
+  );
 
   const clearCanvas = useCallback(() => {
     prepareCanvas();
+    hasInkRef.current = false;
     setHasInk(false);
     setLocalError('');
   }, [prepareCanvas]);
@@ -286,7 +332,7 @@ function SignatureEditorModal({
     }
 
     try {
-      await onSave(canvas.toDataURL('image/png'));
+      await onSave(canvas.toDataURL('image/webp', 0.92));
     } catch (caught) {
       setLocalError(caught instanceof Error ? caught.message : 'Không thể lưu chữ ký lúc này.');
     }
@@ -294,17 +340,17 @@ function SignatureEditorModal({
 
   return (
     <div
-      className="fixed inset-0 z-[98] grid place-items-center bg-ink/78 p-3 sm:p-5"
+      className="fixed inset-0 z-[98] grid place-items-center bg-[rgba(18,15,13,0.78)] p-3 sm:p-5"
       role="dialog"
       aria-modal="true"
       aria-label="Ký tên lên tường chữ ký"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl rounded-[1.25rem] border border-white/75 bg-[#fffaf1] p-4 text-ink shadow-[0_26px_80px_rgba(18,15,13,0.34)] sm:p-5"
+        className="w-full max-w-4xl rounded-[1.25rem] border border-white/75 bg-[#fffaf1] p-3 text-ink shadow-[0_26px_80px_rgba(18,15,13,0.34)] sm:p-5"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="mb-3 flex items-center justify-between gap-3 px-1">
           <div className="min-w-0">
             <p className="section-kicker">Ký tay</p>
             <h2 className="font-display text-5xl leading-none">{ownSignature ? 'Ký lại chữ ký' : 'Ký cho lớp'}</h2>
@@ -317,7 +363,7 @@ function SignatureEditorModal({
         <div className="rounded-[1rem] border border-coffee/10 bg-[#fff7ec] p-2 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.62)]">
           <canvas
             ref={canvasRef}
-            className="h-[15rem] w-full touch-none rounded-[0.8rem] bg-[linear-gradient(0deg,rgba(122,86,57,0.055)_1px,transparent_1px),linear-gradient(90deg,rgba(122,86,57,0.055)_1px,transparent_1px)] bg-[length:22px_22px] shadow-inner sm:h-[17rem]"
+            className="h-[min(58svh,30rem)] w-full touch-none rounded-[0.8rem] bg-[linear-gradient(0deg,rgba(122,86,57,0.055)_1px,transparent_1px),linear-gradient(90deg,rgba(122,86,57,0.055)_1px,transparent_1px)] bg-[length:22px_22px] shadow-inner sm:h-[30rem]"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={stopDrawing}
@@ -333,7 +379,7 @@ function SignatureEditorModal({
           </p>
         )}
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+        <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
           <button className="primary-button min-h-12 justify-center" onClick={() => void handleSave()} disabled={isSaving || !hasInk}>
             <BookOpen size={17} />
             {isSaving ? 'Đang lưu...' : ownSignature ? 'Lưu chữ ký mới' : 'Dán lên tường'}
@@ -341,9 +387,6 @@ function SignatureEditorModal({
           <button className="secondary-button min-h-12 justify-center" onClick={clearCanvas} disabled={isSaving}>
             <RotateCcw size={16} />
             Xóa nét
-          </button>
-          <button className="secondary-button min-h-12 justify-center" onClick={onClose} disabled={isSaving}>
-            Đóng
           </button>
         </div>
       </div>

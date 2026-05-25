@@ -167,7 +167,7 @@ service cloud.firestore {
         && request.resource.data.nameKey is string
         && request.resource.data.imageDataUrl is string
         && request.resource.data.imageDataUrl.matches('data:image/(png|webp);base64,.*')
-        && request.resource.data.imageDataUrl.size() <= 220000
+        && request.resource.data.imageDataUrl.size() <= 360000
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
         && isSignedInStudent(signatureId);
