@@ -72,6 +72,7 @@ export default function SignatureWallPage({
   onDeleteSignature,
 }: SignatureWallPageProps) {
   const [editorOpen, setEditorOpen] = useState(false);
+  const [selectedSignature, setSelectedSignature] = useState<ClassSignature | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -81,6 +82,23 @@ export default function SignatureWallPage({
     [profile, signatures],
   );
   const visibleSignatures = signatures.slice(0, 120);
+
+  useEffect(() => {
+    if (!selectedSignature) return undefined;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelectedSignature(null);
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [selectedSignature]);
 
   const handleSave = useCallback(
     async (imageDataUrl: string) => {
@@ -189,10 +207,13 @@ export default function SignatureWallPage({
           {visibleSignatures.length ? (
             <div className="grid auto-rows-fr grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {visibleSignatures.map((signature, index) => (
-                <article
+                <button
+                  type="button"
                   key={signature.id}
-                  className="relative min-h-[7.5rem] rounded-[0.85rem] bg-[#fffaf1] p-2 shadow-[0_12px_24px_rgba(18,15,13,0.2)]"
+                  className="relative min-h-[7.5rem] rounded-[0.85rem] bg-[#fffaf1] p-2 text-left shadow-[0_12px_24px_rgba(18,15,13,0.2)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_28px_rgba(18,15,13,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper"
                   style={{ transform: `rotate(${signatureWallRotation(index)}deg)` }}
+                  onClick={() => setSelectedSignature(signature)}
+                  aria-label={`Xem chữ ký của ${signature.name}`}
                 >
                   <span className="absolute left-1/2 top-1 h-4 w-14 -translate-x-1/2 rotate-1 rounded-sm bg-[#f7d6a4]/82 shadow-sm" />
                   <div className="grid h-[4.9rem] place-items-center overflow-hidden rounded-[0.65rem] bg-white/82 p-1.5">
@@ -205,7 +226,7 @@ export default function SignatureWallPage({
                     />
                   </div>
                   <p className="mt-1 truncate text-center text-[11px] font-black text-coffee">{signature.name}</p>
-                </article>
+                </button>
               ))}
             </div>
           ) : (
@@ -237,7 +258,52 @@ export default function SignatureWallPage({
         />
       )}
 
+      {selectedSignature && (
+        <SignaturePreviewModal
+          signature={selectedSignature}
+          onClose={() => setSelectedSignature(null)}
+        />
+      )}
+
       <FirebaseNotice message={firebaseNotice} />
+    </div>
+  );
+}
+
+function SignaturePreviewModal({ signature, onClose }: { signature: ClassSignature; onClose: () => void }) {
+  return (
+    <div
+      className="app-safe-modal-overlay fixed inset-0 z-[98] grid place-items-center bg-[rgba(18,15,13,0.82)] p-3 sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Xem chữ ký của ${signature.name}`}
+      onClick={onClose}
+    >
+      <div
+        className="app-safe-modal-panel relative w-full max-w-3xl overflow-hidden rounded-[1.25rem] border border-[#7a5639]/24 bg-[#fffaf1] p-4 text-ink shadow-[0_26px_80px_rgba(18,15,13,0.38)] sm:p-6"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button className="icon-button absolute right-3 top-3 bg-ink text-paper" onClick={onClose} aria-label="Đóng chữ ký">
+          <X size={18} />
+        </button>
+
+        <div className="pr-12">
+          <p className="section-kicker">Chữ ký lớp 9/8</p>
+          <h2 className="font-display text-5xl leading-none sm:text-6xl">{signature.name}</h2>
+          <p className="mt-2 text-xs font-black uppercase text-coffee/70">
+            {formatUploadTime(signature.updatedAt || signature.createdAt)}
+          </p>
+        </div>
+
+        <div className="mt-5 grid min-h-[16rem] place-items-center rounded-[1rem] border border-coffee/12 bg-white p-5 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.1)] sm:min-h-[22rem]">
+          <img
+            src={signature.imageDataUrl}
+            alt={`Chữ ký của ${signature.name}`}
+            className="max-h-[52svh] w-full object-contain"
+            decoding="async"
+          />
+        </div>
+      </div>
     </div>
   );
 }

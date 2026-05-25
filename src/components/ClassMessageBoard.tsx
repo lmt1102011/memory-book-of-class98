@@ -272,14 +272,16 @@ function ClassMessageBoard({
         title="Viết thư"
         description="Chọn gửi có tên cho cả lớp hoặc gửi một mảnh thư ẩn danh. Gửi xong popup sẽ tự đóng."
         icon={<MessageCircle size={20} />}
+        overlayClassName="class-letter-writer-overlay"
+        panelClassName="class-letter-writer-panel"
         onClose={() => setIsWriterOpen(false)}
       >
-        <div className="grid gap-4">
+        <div className="class-letter-writer-body grid gap-4">
           <form className="grid gap-3" onSubmit={submitClassMessage}>
             <label className="grid gap-2">
-              <span className="text-xs font-black uppercase text-coffee/70">Tin nhắn cho lớp</span>
+              <span className="class-letter-writer-label text-xs font-black uppercase text-coffee/70">Tin nhắn cho lớp</span>
               <textarea
-                className="input-field min-h-28 resize-none"
+                className="class-letter-writer-field input-field min-h-28 resize-none"
                 value={classMessage}
                 onChange={(event) => setClassMessage(event.target.value)}
                 placeholder="Viết lời nhắn có tên của bạn..."
@@ -287,17 +289,17 @@ function ClassMessageBoard({
               />
             </label>
             <DraftStatus hasDraft={hasClassMessageDraft} restored={restoredClassMessageDraft} />
-            <button className="primary-button justify-center" disabled={isSendingClass || !classMessage.trim()}>
+            <button className="class-letter-writer-button primary-button justify-center" disabled={isSendingClass || !classMessage.trim()}>
               <Send size={17} />
               {isSendingClass ? 'Đang gửi...' : 'Gửi có tên'}
             </button>
           </form>
 
-          <form className="grid gap-3 rounded-[1rem] bg-ink/5 p-3" onSubmit={submitAnonymousMessage}>
+          <form className="class-letter-writer-anonymous grid gap-3 rounded-[1rem] bg-ink/5 p-3" onSubmit={submitAnonymousMessage}>
             <label className="grid gap-2">
-              <span className="text-xs font-black uppercase text-coffee/70">Tin nhắn ẩn danh</span>
+              <span className="class-letter-writer-label text-xs font-black uppercase text-coffee/70">Tin nhắn ẩn danh</span>
               <textarea
-                className="input-field min-h-28 resize-none"
+                className="class-letter-writer-field input-field min-h-28 resize-none"
                 value={anonymousMessage}
                 onChange={(event) => setAnonymousMessage(event.target.value)}
                 placeholder="Viết điều bạn muốn gửi ẩn danh..."
@@ -305,7 +307,7 @@ function ClassMessageBoard({
               />
             </label>
             <DraftStatus hasDraft={hasAnonymousMessageDraft} restored={restoredAnonymousMessageDraft} />
-            <button className="secondary-button justify-center" disabled={isSendingAnonymous || !anonymousMessage.trim()}>
+            <button className="class-letter-writer-button secondary-button justify-center" disabled={isSendingAnonymous || !anonymousMessage.trim()}>
               <MessageCircle size={17} />
               {isSendingAnonymous ? 'Đang gửi...' : 'Gửi ẩn danh'}
             </button>
