@@ -45,22 +45,40 @@ const exportTightSignature = (canvas: HTMLCanvasElement) => {
 
   if (minX > maxX || minY > maxY) return '';
 
-  const padding = Math.max(24, Math.round(Math.max(maxX - minX, maxY - minY) * 0.12));
+  const padding = Math.max(30, Math.round(Math.max(maxX - minX, maxY - minY) * 0.16));
   const sourceX = Math.max(0, minX - padding);
   const sourceY = Math.max(0, minY - padding);
   const sourceWidth = Math.min(width - sourceX, maxX - minX + 1 + padding * 2);
   const sourceHeight = Math.min(height - sourceY, maxY - minY + 1 + padding * 2);
-  const maxExportWidth = 1200;
-  const scale = Math.min(1, maxExportWidth / sourceWidth);
   const output = document.createElement('canvas');
-  output.width = Math.max(1, Math.round(sourceWidth * scale));
-  output.height = Math.max(1, Math.round(sourceHeight * scale));
+  output.width = 1200;
+  output.height = 420;
   const outputContext = output.getContext('2d');
   if (!outputContext) return '';
+
+  outputContext.clearRect(0, 0, output.width, output.height);
   outputContext.imageSmoothingEnabled = true;
   outputContext.imageSmoothingQuality = 'high';
-  outputContext.drawImage(canvas, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, output.width, output.height);
-  return output.toDataURL('image/webp', 0.94);
+
+  const fitScale = Math.min((output.width * 0.9) / sourceWidth, (output.height * 0.72) / sourceHeight);
+  const drawWidth = Math.max(1, Math.round(sourceWidth * fitScale));
+  const drawHeight = Math.max(1, Math.round(sourceHeight * fitScale));
+  const drawX = Math.round((output.width - drawWidth) / 2);
+  const drawY = Math.round((output.height - drawHeight) / 2);
+
+  outputContext.save();
+  outputContext.globalAlpha = 0.2;
+  outputContext.filter = 'blur(0.55px)';
+  outputContext.drawImage(canvas, sourceX, sourceY, sourceWidth, sourceHeight, drawX, drawY, drawWidth, drawHeight);
+  outputContext.restore();
+
+  outputContext.save();
+  outputContext.globalAlpha = 0.98;
+  outputContext.filter = 'contrast(108%)';
+  outputContext.drawImage(canvas, sourceX, sourceY, sourceWidth, sourceHeight, drawX, drawY, drawWidth, drawHeight);
+  outputContext.restore();
+
+  return output.toDataURL('image/webp', 0.93);
 };
 
 export default function SignatureWallPage({

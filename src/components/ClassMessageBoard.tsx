@@ -1,6 +1,5 @@
 import { MessageCircle, Send, Trash2, X } from 'lucide-react';
 import { FormEvent, memo, useEffect, useMemo, useState, type CSSProperties } from 'react';
-import ActionModal from './ActionModal';
 import DraftStatus from './DraftStatus';
 import { useLocalDraft } from '../hooks/useLocalDraft';
 import type { GuestbookEntry, UserProfile } from '../types';
@@ -99,20 +98,22 @@ function ClassMessageBoard({
   }, [guestbook]);
 
   useEffect(() => {
-    if (!selectedNote) return undefined;
+    if (!selectedNote && !isWriterOpen) return undefined;
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setSelectedNote(null);
+      if (event.key === 'Escape') setIsWriterOpen(false);
     };
 
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', onKeyDown);
 
     return () => {
-      document.body.style.overflow = '';
+      document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [selectedNote]);
+  }, [isWriterOpen, selectedNote]);
 
   const submitClassMessage = async (event: FormEvent) => {
     event.preventDefault();
@@ -267,53 +268,81 @@ function ClassMessageBoard({
         </div>
       </div>
 
-      <ActionModal
-        isOpen={Boolean(profile && isWriterOpen)}
-        title="Viết thư"
-        description="Chọn gửi có tên cho cả lớp hoặc gửi một mảnh thư ẩn danh. Gửi xong popup sẽ tự đóng."
-        icon={<MessageCircle size={20} />}
-        overlayClassName="class-letter-writer-overlay"
-        panelClassName="class-letter-writer-panel"
-        onClose={() => setIsWriterOpen(false)}
-      >
-        <div className="class-letter-writer-body grid gap-4">
-          <form className="grid gap-3" onSubmit={submitClassMessage}>
-            <label className="grid gap-2">
-              <span className="class-letter-writer-label text-xs font-black uppercase text-coffee/70">Tin nhắn cho lớp</span>
-              <textarea
-                className="class-letter-writer-field input-field min-h-28 resize-none"
-                value={classMessage}
-                onChange={(event) => setClassMessage(event.target.value)}
-                placeholder="Viết lời nhắn có tên của bạn..."
-                maxLength={160}
-              />
-            </label>
-            <DraftStatus hasDraft={hasClassMessageDraft} restored={restoredClassMessageDraft} />
-            <button className="class-letter-writer-button primary-button justify-center" disabled={isSendingClass || !classMessage.trim()}>
-              <Send size={17} />
-              {isSendingClass ? 'Đang gửi...' : 'Gửi có tên'}
+      {profile && isWriterOpen && (
+        <div
+          className="class-letter-writer-overlay app-safe-modal-overlay fixed inset-0 z-[98] grid place-items-center bg-[#120f0d] p-3 sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Viết thư"
+          onClick={() => setIsWriterOpen(false)}
+          style={{ opacity: 1, filter: 'none', backdropFilter: 'none' }}
+        >
+          <div
+            className="class-letter-writer-panel app-safe-modal-panel relative max-h-[92svh] w-full max-w-2xl overflow-auto rounded-[1.25rem] border border-[#7a5639]/32 bg-[#fffaf1] p-4 text-[#241b15] shadow-[0_26px_80px_rgba(18,15,13,.42)] sm:p-6"
+            onClick={(event) => event.stopPropagation()}
+            style={{ opacity: 1, filter: 'none', backdropFilter: 'none' }}
+          >
+            <button
+              type="button"
+              className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-[#241b15] text-[#fffaf1] shadow-[0_10px_22px_rgba(18,15,13,.24)]"
+              onClick={() => setIsWriterOpen(false)}
+              aria-label="Đóng popup viết thư"
+            >
+              <X size={18} />
             </button>
-          </form>
 
-          <form className="class-letter-writer-anonymous grid gap-3 rounded-[1rem] bg-ink/5 p-3" onSubmit={submitAnonymousMessage}>
-            <label className="grid gap-2">
-              <span className="class-letter-writer-label text-xs font-black uppercase text-coffee/70">Tin nhắn ẩn danh</span>
-              <textarea
-                className="class-letter-writer-field input-field min-h-28 resize-none"
-                value={anonymousMessage}
-                onChange={(event) => setAnonymousMessage(event.target.value)}
-                placeholder="Viết điều bạn muốn gửi ẩn danh..."
-                maxLength={160}
-              />
-            </label>
-            <DraftStatus hasDraft={hasAnonymousMessageDraft} restored={restoredAnonymousMessageDraft} />
-            <button className="class-letter-writer-button secondary-button justify-center" disabled={isSendingAnonymous || !anonymousMessage.trim()}>
-              <MessageCircle size={17} />
-              {isSendingAnonymous ? 'Đang gửi...' : 'Gửi ẩn danh'}
-            </button>
-          </form>
+            <div className="flex min-w-0 items-start gap-3 pr-12">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#241b15] text-[#fffaf1]">
+                <MessageCircle size={20} />
+              </span>
+              <div className="min-w-0">
+                <h2 className="font-display text-4xl leading-none text-[#241b15] sm:text-5xl">Viết thư</h2>
+                <p className="mt-2 text-sm font-bold leading-6 text-[#5b3d28]">
+                  Chọn gửi có tên cho cả lớp hoặc gửi một mảnh thư ẩn danh. Gửi xong popup sẽ tự đóng.
+                </p>
+              </div>
+            </div>
+
+            <div className="class-letter-writer-body mt-5 grid gap-4">
+              <form className="grid gap-3" onSubmit={submitClassMessage}>
+                <label className="grid gap-2">
+                  <span className="class-letter-writer-label text-xs font-black uppercase text-[#5b3d28]">Tin nhắn cho lớp</span>
+                  <textarea
+                    className="class-letter-writer-field input-field min-h-28 resize-none"
+                    value={classMessage}
+                    onChange={(event) => setClassMessage(event.target.value)}
+                    placeholder="Viết lời nhắn có tên của bạn..."
+                    maxLength={160}
+                  />
+                </label>
+                <DraftStatus hasDraft={hasClassMessageDraft} restored={restoredClassMessageDraft} />
+                <button className="class-letter-writer-button primary-button justify-center" disabled={isSendingClass || !classMessage.trim()}>
+                  <Send size={17} />
+                  {isSendingClass ? 'Đang gửi...' : 'Gửi có tên'}
+                </button>
+              </form>
+
+              <form className="class-letter-writer-anonymous grid gap-3 rounded-[1rem] bg-[#fff7ec] p-3" onSubmit={submitAnonymousMessage}>
+                <label className="grid gap-2">
+                  <span className="class-letter-writer-label text-xs font-black uppercase text-[#5b3d28]">Tin nhắn ẩn danh</span>
+                  <textarea
+                    className="class-letter-writer-field input-field min-h-28 resize-none"
+                    value={anonymousMessage}
+                    onChange={(event) => setAnonymousMessage(event.target.value)}
+                    placeholder="Viết điều bạn muốn gửi ẩn danh..."
+                    maxLength={160}
+                  />
+                </label>
+                <DraftStatus hasDraft={hasAnonymousMessageDraft} restored={restoredAnonymousMessageDraft} />
+                <button className="class-letter-writer-button secondary-button justify-center" disabled={isSendingAnonymous || !anonymousMessage.trim()}>
+                  <MessageCircle size={17} />
+                  {isSendingAnonymous ? 'Đang gửi...' : 'Gửi ẩn danh'}
+                </button>
+              </form>
+            </div>
+          </div>
         </div>
-      </ActionModal>
+      )}
 
       {selectedNote && (
         <div
