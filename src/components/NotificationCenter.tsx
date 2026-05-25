@@ -97,7 +97,6 @@ export default function NotificationCenter({
   const unreadMessages = countBy(sortedItems, (item) => item.unread && messageKinds.has(item.kind));
   const unreadMemories = countBy(sortedItems, (item) => item.unread && memoryKinds.has(item.kind));
   const unreadClass = countBy(sortedItems, (item) => item.unread && classKinds.has(item.kind));
-
   return (
     <div
       className="notification-overlay fixed inset-0 z-[95] grid place-items-end bg-ink/72 p-0 sm:place-items-start sm:p-4 sm:pt-[calc(4.8rem+env(safe-area-inset-top))] lg:place-items-end"
@@ -107,7 +106,7 @@ export default function NotificationCenter({
       onClick={onClose}
     >
       <div
-        className="notification-panel flex w-full flex-col overflow-hidden rounded-t-[1.45rem] border border-white/70 bg-[#fffaf1] text-ink shadow-[0_28px_90px_rgba(18,15,13,0.34)] sm:ml-auto sm:max-h-[82svh] sm:max-w-[30rem] sm:rounded-[1.35rem]"
+        className="notification-panel flex w-full flex-col overflow-hidden rounded-t-[1.45rem] border border-white/70 bg-[#fffaf1] text-ink shadow-[0_28px_90px_rgba(18,15,13,0.34)] sm:ml-auto sm:max-h-[86svh] sm:max-w-[36rem] sm:rounded-[1.35rem] xl:max-w-[39rem]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="shrink-0 border-b border-coffee/10 bg-[#fffaf1] p-4 sm:p-5">
@@ -121,7 +120,7 @@ export default function NotificationCenter({
               <div className="min-w-0">
                 <p className="section-kicker">Chuông lớp 9/8</p>
                 <h2 className="font-display text-4xl leading-none sm:text-5xl">Trung tâm thông báo</h2>
-                <p className="mt-2 text-xs leading-5 text-ink/58">
+                <p className="mt-2 max-w-[32rem] text-xs leading-5 text-ink/58">
                   Theo dõi Secret Message, tim, bình luận, cảm xúc, huy hiệu và bình chọn mới ngay trong chiếc chuông này.
                 </p>
               </div>
@@ -131,7 +130,7 @@ export default function NotificationCenter({
             </button>
           </div>
 
-          <div className="mt-4 rounded-[1.1rem] bg-ink p-3 text-paper shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+          <div className="hidden">
             <div className="flex items-center justify-between gap-3">
               <span className="inline-flex min-w-0 items-center gap-2 text-sm font-bold">
                 <Bell size={17} />
@@ -154,7 +153,7 @@ export default function NotificationCenter({
             </div>
           </div>
 
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mt-4 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {(Object.keys(filterLabels) as NotificationFilter[]).map((filter) => {
               const isActive = activeFilter === filter;
               const count = counts[filter];
@@ -179,7 +178,7 @@ export default function NotificationCenter({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
           {showLatestHighlight && latestUnread && (
             <button
               className="mb-3 w-full rounded-[1.1rem] bg-gradient-to-br from-blush/45 via-white to-skySoft/35 p-4 text-left shadow-paper ring-1 ring-white/80 transition hover:-translate-y-0.5 hover:shadow-glass"

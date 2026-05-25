@@ -1556,6 +1556,11 @@ export default function App() {
     previousUnreadNotificationCountRef.current = 0;
   }, [profile]);
 
+  useEffect(() => {
+    if (!notificationsOpen || unreadNotificationCount === 0) return;
+    markNotificationsRead();
+  }, [markNotificationsRead, notificationsOpen, unreadNotificationCount]);
+
   const markNotificationRead = useCallback(
     (item: NotificationItem) => {
       if (!profile) return;
