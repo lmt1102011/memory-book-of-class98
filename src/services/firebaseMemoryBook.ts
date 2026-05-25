@@ -557,7 +557,7 @@ const customBadgesFromData = (data: DocumentData): CustomProfileBadge[] =>
     : [];
 
 const profileFromData = (id: string, data: DocumentData, user?: User | null): UserProfile => ({
-  uid: String(data.uid || user?.uid || ''),
+  uid: String(user?.uid || data.uid || ''),
   name: String(data.name || user?.displayName || id),
   nameKey: String(data.nameKey || id),
   className: CLASS_NAME,
@@ -1754,7 +1754,7 @@ export const addTimeCapsuleEntry = async (profile: UserProfile, message: string)
 export const saveClassSignature = async (profile: UserProfile, imageDataUrl: string) => {
   const safeImage = imageDataUrl.trim();
   if (!safeImage.startsWith('data:image/')) throw new Error('Chữ ký chưa hợp lệ, hãy ký lại nha.');
-  if (safeImage.length > 360_000) throw new Error('Chữ ký hơi nặng, hãy xóa bớt nét rồi lưu lại.');
+  if (safeImage.length > 520_000) throw new Error('Chữ ký hơi nặng, hãy xóa bớt nét rồi lưu lại.');
 
   const signatureRef = doc(db, CLASS_SIGNATURES_COLLECTION, profile.nameKey);
   await withFirebaseRetry(() =>

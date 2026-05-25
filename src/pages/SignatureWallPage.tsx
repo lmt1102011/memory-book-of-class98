@@ -25,6 +25,7 @@ const SIGNATURE_MIN_STROKE_WIDTH = 2.28;
 const SIGNATURE_MAX_STROKE_WIDTH = 2.62;
 const SIGNATURE_EXPORT_WIDTH = 1200;
 const SIGNATURE_EXPORT_HEIGHT = 420;
+const SIGNATURE_MAX_DATA_URL_LENGTH = 520_000;
 
 interface SignaturePoint {
   x: number;
@@ -175,6 +176,28 @@ const renderSignatureStrokes = (
   context.restore();
 };
 
+const signatureCanvasToDataUrl = (canvas: HTMLCanvasElement) => {
+  const webp = canvas.toDataURL('image/webp', 0.92);
+  if (webp.startsWith('data:image/webp') && webp.length <= SIGNATURE_MAX_DATA_URL_LENGTH) return webp;
+
+  const jpegCanvas = document.createElement('canvas');
+  jpegCanvas.width = canvas.width;
+  jpegCanvas.height = canvas.height;
+  const jpegContext = jpegCanvas.getContext('2d');
+  if (!jpegContext) return webp;
+
+  jpegContext.fillStyle = '#fffaf1';
+  jpegContext.fillRect(0, 0, jpegCanvas.width, jpegCanvas.height);
+  jpegContext.drawImage(canvas, 0, 0);
+
+  for (const quality of [0.9, 0.84, 0.78, 0.72]) {
+    const jpeg = jpegCanvas.toDataURL('image/jpeg', quality);
+    if (jpeg.length <= SIGNATURE_MAX_DATA_URL_LENGTH || quality === 0.72) return jpeg;
+  }
+
+  return jpegCanvas.toDataURL('image/jpeg', 0.72);
+};
+
 const getSignatureBounds = (strokes: SignatureStroke[]): SignatureBounds | null => {
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
@@ -256,7 +279,7 @@ const exportPolishedSignature = (strokes: SignatureStroke[], canvasSize: Signatu
     smoothingPasses: 2,
   });
 
-  return output.toDataURL('image/webp', 0.96);
+  return signatureCanvasToDataUrl(output);
 };
 
 export default function SignatureWallPage({

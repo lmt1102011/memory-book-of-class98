@@ -1,4 +1,4 @@
-const CACHE_NAME = 'memory98-app-shell-v33';
+const CACHE_NAME = 'memory98-app-shell-v34';
 const APP_SHELL_PATHS = [
   './',
   './index.html',
