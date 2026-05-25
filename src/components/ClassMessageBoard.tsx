@@ -318,7 +318,7 @@ function ClassMessageBoard({
 
       {selectedNote && (
         <m.div
-          className="app-safe-modal-overlay fixed inset-0 z-[95] grid place-items-center bg-[rgba(18,15,13,0.74)] p-3 sm:p-6"
+          className="class-letter-modal-overlay app-safe-modal-overlay fixed inset-0 z-[95] grid place-items-center bg-[rgba(18,15,13,0.74)] p-3 sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label="Xem thư trên bảng lớp"
@@ -329,14 +329,14 @@ function ClassMessageBoard({
           transition={{ duration: mobilePerformanceMode ? 0 : 0.14, ease: 'easeOut' }}
         >
           <m.div
-            className="app-safe-modal-panel relative max-h-[92svh] w-full max-w-2xl overflow-auto rounded-[1.05rem] border border-[#7a5639]/25 bg-[#fffaf1] p-5 text-[#241b15] shadow-[0_26px_80px_rgba(18,15,13,.34)] sm:p-7"
+            className="class-letter-modal-panel app-safe-modal-panel relative max-h-[92svh] w-full max-w-2xl overflow-auto rounded-[1.05rem] border border-[#7a5639]/25 bg-[#fffaf1] p-5 text-[#241b15] shadow-[0_26px_80px_rgba(18,15,13,.34)] sm:p-7"
             onClick={(event) => event.stopPropagation()}
             initial={mobilePerformanceMode ? false : { y: 14, scale: 0.99 }}
             animate={{ y: 0, scale: 1 }}
             transition={{ duration: mobilePerformanceMode ? 0 : 0.2, ease: 'easeOut' }}
           >
             <button
-              className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-[#241b15] text-[#fffaf1] shadow-[0_10px_22px_rgba(18,15,13,.24)] transition hover:bg-[#120f0d]"
+              className="class-letter-modal-x absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-[#241b15] text-[#fffaf1] shadow-[0_10px_22px_rgba(18,15,13,.24)] transition hover:bg-[#120f0d]"
               onClick={() => setSelectedNote(null)}
               aria-label="Đóng thư"
             >
@@ -344,31 +344,31 @@ function ClassMessageBoard({
             </button>
 
             <div className="pr-12">
-              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#7a5639]">
+              <p className="class-letter-modal-kicker text-[11px] font-black uppercase tracking-[0.16em] text-[#7a5639]">
                 {selectedNote.type === 'anonymous' ? 'Thư ẩn danh' : 'Thư gửi lớp'}
               </p>
-              <h3 className="mt-2 font-hand text-5xl font-bold leading-none text-[#5b3d28]">
+              <h3 className="class-letter-modal-title mt-2 font-hand text-5xl font-bold leading-none text-[#5b3d28]">
                 {selectedNote.type === 'anonymous' ? 'Ẩn danh' : selectedNote.name}
               </h3>
-              <time className="mt-2 block text-xs font-black uppercase text-[#4b3a2e]">
+              <time className="class-letter-modal-time mt-2 block text-xs font-black uppercase text-[#4b3a2e]">
                 {formatMemoryDate(selectedNote.createdAt)}
               </time>
             </div>
 
-            <div className="relative mt-5 rounded-[0.8rem] border border-[#7a5639]/12 bg-[#fffdf8] p-5 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.1)]">
+            <div className="class-letter-modal-paper relative mt-5 rounded-[0.8rem] border border-[#7a5639]/12 bg-[#fffdf8] p-5 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.1)]">
               <span className="absolute -top-2 left-8 h-5 w-24 rotate-[-3deg] rounded-sm bg-[#e6c58e] shadow-sm" />
-              <p className="whitespace-pre-wrap break-words text-base font-bold leading-8 text-[#241b15]">
+              <p className="class-letter-modal-message whitespace-pre-wrap break-words text-base font-bold leading-8 text-[#241b15]">
                 {selectedNote.message}
               </p>
             </div>
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-              <button className="primary-button justify-center shadow-[0_12px_28px_rgba(122,86,57,0.2)]" onClick={() => setSelectedNote(null)}>
+              <button className="class-letter-modal-button primary-button justify-center shadow-[0_12px_28px_rgba(122,86,57,0.2)]" onClick={() => setSelectedNote(null)}>
                 Đóng thư
               </button>
               {profile?.uid === selectedNote.entry.uid && (
                 <button
-                  className="secondary-button justify-center border-[#7a5639]/25 bg-[#fffdf8] text-[#5b3d28]"
+                  className="class-letter-modal-button secondary-button justify-center border-[#7a5639]/25 bg-[#fffdf8] text-[#5b3d28]"
                   onClick={() => {
                     if (!window.confirm('Xóa mảnh thư này?')) return;
                     void onDeleteGuestbook(selectedNote.entry);

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'memory98-app-shell-v18';
+const CACHE_NAME = 'memory98-app-shell-v19';
 const APP_SHELL_PATHS = [
   './',
   './index.html',
@@ -29,7 +29,17 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    (async () => {
+      const cacheNames = await caches.keys();
+      await Promise.allSettled(
+        cacheNames
+          .filter((name) => name.startsWith('memory98-app-shell') && name !== CACHE_NAME)
+          .map((name) => caches.delete(name)),
+      );
+      await self.clients.claim();
+    })(),
+  );
 });
 
 self.addEventListener('message', (event) => {
@@ -61,7 +71,7 @@ const cacheFirst = async (request) => {
 
 const staleWhileRevalidate = async (request) => {
   const cache = await caches.open(CACHE_NAME);
-  const cached = await caches.match(request);
+  const cached = await cache.match(request);
 
   const network = fetch(request)
     .then((response) => {

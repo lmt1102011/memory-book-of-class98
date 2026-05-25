@@ -422,6 +422,112 @@
     touch-action: pan-y;
   }
 
+  .class-letter-modal-overlay,
+  .class-letter-modal-panel,
+  .class-letter-modal-paper,
+  .class-letter-modal-button,
+  .class-letter-modal-x {
+    opacity: 1 !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    text-shadow: none !important;
+  }
+
+  .class-letter-modal-panel {
+    background: #fffaf1 !important;
+    color: #241b15 !important;
+    isolation: isolate;
+  }
+
+  .class-letter-modal-paper {
+    background: #fffdf8 !important;
+    color: #241b15 !important;
+  }
+
+  .class-letter-modal-kicker,
+  .class-letter-modal-title,
+  .class-letter-modal-time,
+  .class-letter-modal-message {
+    opacity: 1 !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+    text-shadow: none !important;
+  }
+
+  html.memory98-standalone .class-letter-modal-overlay {
+    background: rgba(18, 15, 13, 0.82) !important;
+  }
+
+  html.memory98-standalone .class-letter-modal-panel {
+    background: #fffaf1 !important;
+    border-color: rgba(122, 86, 57, 0.34) !important;
+    box-shadow: 0 24px 62px rgba(18, 15, 13, 0.38) !important;
+    transform: translateZ(0);
+  }
+
+  html.memory98-standalone .class-letter-modal-paper {
+    background: #fffdf8 !important;
+    border-color: rgba(122, 86, 57, 0.18) !important;
+    box-shadow: inset 0 0 0 1px rgba(122, 86, 57, 0.12) !important;
+  }
+
+  html.memory98-standalone .class-letter-modal-message {
+    color: #18110d !important;
+    font-weight: 800 !important;
+  }
+
+  html.memory98-standalone .class-letter-modal-kicker,
+  html.memory98-standalone .class-letter-modal-time {
+    color: #4b3427 !important;
+  }
+
+  html.memory98-standalone .class-letter-modal-title {
+    color: #54351f !important;
+  }
+
+  html.memory98-standalone .class-letter-modal-button {
+    opacity: 1 !important;
+  }
+
+  @media (display-mode: standalone) {
+    .class-letter-modal-overlay {
+      background: rgba(18, 15, 13, 0.82) !important;
+    }
+
+    .class-letter-modal-panel {
+      background: #fffaf1 !important;
+      border-color: rgba(122, 86, 57, 0.34) !important;
+      box-shadow: 0 24px 62px rgba(18, 15, 13, 0.38) !important;
+      transform: translateZ(0);
+    }
+
+    .class-letter-modal-paper {
+      background: #fffdf8 !important;
+      border-color: rgba(122, 86, 57, 0.18) !important;
+      box-shadow: inset 0 0 0 1px rgba(122, 86, 57, 0.12) !important;
+    }
+
+    .class-letter-modal-message {
+      color: #18110d !important;
+      font-weight: 800 !important;
+    }
+
+    .class-letter-modal-kicker,
+    .class-letter-modal-time {
+      color: #4b3427 !important;
+    }
+
+    .class-letter-modal-title {
+      color: #54351f !important;
+    }
+
+    .class-letter-modal-button {
+      opacity: 1 !important;
+    }
+  }
+
   .profile-modal-section {
     content-visibility: auto;
     contain: layout paint;
