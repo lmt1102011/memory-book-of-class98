@@ -22,6 +22,7 @@ const iconByKind: Record<NotificationKind, typeof Bell> = {
   like: Heart,
   vote: Trophy,
   badge: Trophy,
+  managerReminder: Bell,
 };
 
 const accentClass = {
@@ -41,7 +42,7 @@ const filterLabels: Record<NotificationFilter, string> = {
 
 const messageKinds = new Set<NotificationKind>(['message', 'reaction']);
 const memoryKinds = new Set<NotificationKind>(['comment', 'commentReaction', 'like']);
-const classKinds = new Set<NotificationKind>(['vote', 'badge']);
+const classKinds = new Set<NotificationKind>(['vote', 'badge', 'managerReminder']);
 
 const countBy = (items: NotificationItem[], predicate: (item: NotificationItem) => boolean) =>
   items.reduce((total, item) => total + (predicate(item) ? 1 : 0), 0);

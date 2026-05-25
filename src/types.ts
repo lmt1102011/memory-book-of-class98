@@ -325,7 +325,22 @@ export interface VoteCategoryDraft {
   icon: string;
 }
 
-export type NotificationKind = 'message' | 'reaction' | 'comment' | 'commentReaction' | 'like' | 'vote' | 'badge';
+export interface ManagerReminder {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: string;
+}
+
+export type NotificationKind =
+  | 'message'
+  | 'reaction'
+  | 'comment'
+  | 'commentReaction'
+  | 'like'
+  | 'vote'
+  | 'badge'
+  | 'managerReminder';
 
 export interface NotificationItem {
   id: string;
@@ -344,4 +359,5 @@ export interface NotificationActivity {
   receivedNotes: RememberNote[];
   sentNotes: RememberNote[];
   voteCategories: VoteCategory[];
+  managerReminders: ManagerReminder[];
 }

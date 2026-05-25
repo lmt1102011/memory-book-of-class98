@@ -40,6 +40,7 @@ import type {
   CustomProfileBadge,
   CustomProfileBadgeTone,
   GuestbookEntry,
+  ManagerReminder,
   MemoryComment,
   MemoryItem,
   MemoryRecapSettings,
@@ -76,6 +77,7 @@ const SECRET_MAILBOX_PRIVATE_COLLECTION = 'secretMailboxPrivate98';
 const REMEMBER_NOTES_COLLECTION = 'rememberNotes98';
 const VOTE_CATEGORIES_COLLECTION = 'voteCategories98';
 const VOTES_SUBCOLLECTION = 'votes';
+const MANAGER_REMINDERS_COLLECTION = 'managerReminders98';
 const SITE_SETTINGS_COLLECTION = 'siteSettings98';
 const MEMORY_RECAP_SETTING_ID = 'memoryRecap';
 const CLASS_LETTERS_SETTING_ID = 'classLetters';
@@ -770,6 +772,13 @@ const voteRecordFromDoc = (categoryId: string, id: string, data: DocumentData): 
   updatedAt: data.updatedAt ? timestampToIso(data.updatedAt) : undefined,
 });
 
+const managerReminderFromDoc = (id: string, data: DocumentData): ManagerReminder => ({
+  id,
+  title: String(data.title || '').trim().slice(0, 90),
+  body: String(data.body || '').trim().slice(0, 420),
+  createdAt: timestampToIso(data.createdAt),
+});
+
 const memoryRecapSettingsFromData = (data?: DocumentData): MemoryRecapSettings => ({
   enabled: Boolean(data?.enabled),
   updatedAt: data?.updatedAt ? timestampToIso(data.updatedAt) : undefined,
@@ -1370,6 +1379,10 @@ export const subscribeNotificationActivity = (
     where: fieldEquals('hidden', restBool(false)),
     limit: 40,
   });
+  const managerRemindersQuery = restCollectionQuery(MANAGER_REMINDERS_COLLECTION, {
+    orderBy: [{ field: { fieldPath: 'createdAt' }, direction: 'DESCENDING' }],
+    limit: 24,
+  });
 
   const sortNewestFirst = <T extends { createdAt: string }>(items: T[]) =>
     items.sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
@@ -1384,6 +1397,7 @@ export const subscribeNotificationActivity = (
         receivedNoteDocs,
         sentNoteDocs,
         voteCategoryDocs,
+        managerReminderDocs,
       ] = await Promise.all([
         runFirestoreRestQuery(profile, ownPublicMemoriesQuery),
         runFirestoreRestQuery(profile, ownPrivateMemoriesQuery),
@@ -1392,6 +1406,7 @@ export const subscribeNotificationActivity = (
         runFirestoreRestQuery(profile, receivedNotesQuery),
         runFirestoreRestQuery(profile, sentNotesQuery),
         runFirestoreRestQuery(profile, voteCategoriesQuery),
+        runFirestoreRestQuery(profile, managerRemindersQuery),
       ]);
 
       const ownMemories = sortNewestFirst([
@@ -1419,6 +1434,11 @@ export const subscribeNotificationActivity = (
           voteCategoryDocs
             .map((item) => voteCategoryFromDoc(item.id, item.data))
             .filter((item) => item.title && !item.hidden),
+        ),
+        managerReminders: sortNewestFirst(
+          managerReminderDocs
+            .map((item) => managerReminderFromDoc(item.id, item.data))
+            .filter((item) => item.title && item.body),
         ),
       });
     } catch (error) {

@@ -227,9 +227,11 @@ export default function App() {
     receivedNotes: [],
     sentNotes: [],
     voteCategories: [],
+    managerReminders: [],
   });
   const [notificationActivityLoading, setNotificationActivityLoading] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [topReminderItem, setTopReminderItem] = useState<NotificationItem | null>(null);
   const [signatureEditorOpenSignal, setSignatureEditorOpenSignal] = useState(0);
   const [notificationsSeenAt, setNotificationsSeenAt] = useState(() => new Date(0).toISOString());
   const [notificationReadIds, setNotificationReadIds] = useState<Set<string>>(() => new Set());
@@ -258,6 +260,7 @@ export default function App() {
   const pendingCommentReactionIdsRef = useRef(new Set<string>());
   const routeFeedbackTimerRef = useRef(0);
   const notificationPopupTimerRef = useRef(0);
+  const topReminderTimerRef = useRef(0);
   const menuHintTimerRef = useRef(0);
   const menuHintDismissTimerRef = useRef(0);
   const previousUnreadNotificationCountRef = useRef(0);
@@ -341,6 +344,7 @@ export default function App() {
   useEffect(
     () => () => {
       if (routeFeedbackTimerRef.current) window.clearTimeout(routeFeedbackTimerRef.current);
+      if (topReminderTimerRef.current) window.clearTimeout(topReminderTimerRef.current);
       if (menuHintTimerRef.current) window.clearTimeout(menuHintTimerRef.current);
       if (menuHintDismissTimerRef.current) window.clearTimeout(menuHintDismissTimerRef.current);
     },
@@ -417,12 +421,14 @@ export default function App() {
       setPendingCommentReactionIds([]);
       setNotificationsSeenAt(new Date(0).toISOString());
       setNotificationReadIds(new Set());
+      setTopReminderItem(null);
       setNotificationActivity({
         ownMemories: [],
         ownMemoryComments: [],
         receivedNotes: [],
         sentNotes: [],
         voteCategories: [],
+        managerReminders: [],
       });
       return;
     }
@@ -1005,7 +1011,9 @@ export default function App() {
       receivedNotes: [],
       sentNotes: [],
       voteCategories: [],
+      managerReminders: [],
     });
+    setTopReminderItem(null);
     setNotificationReadIds(new Set());
   }, []);
 
@@ -1411,6 +1419,22 @@ export default function App() {
         });
       });
 
+    notificationActivity.managerReminders
+      .slice(0, 24)
+      .forEach((reminder) => {
+        const id = `manager-reminder-${reminder.id}`;
+        items.push({
+          id,
+          kind: 'managerReminder',
+          route: 'home',
+          title: reminder.title,
+          body: reminder.body,
+          createdAt: reminder.createdAt,
+          unread: makeUnread(id, reminder.createdAt),
+          accent: 'blue',
+        });
+      });
+
     (profile.customBadges || [])
       .slice(0, 12)
       .forEach((badge) => {
@@ -1476,6 +1500,11 @@ export default function App() {
     if (window.sessionStorage.getItem(popupKey)) return undefined;
     window.sessionStorage.setItem(popupKey, '1');
 
+    if (latestUnread.kind === 'managerReminder') {
+      setTopReminderItem(latestUnread);
+      return undefined;
+    }
+
     notificationPopupTimerRef.current = window.setTimeout(() => {
       setNotificationsOpen(true);
     }, reduceHeavyMotion ? 220 : 520);
@@ -1493,6 +1522,22 @@ export default function App() {
     unreadNotificationCount,
     unreadNotificationItems,
   ]);
+
+  useEffect(() => {
+    if (!topReminderItem) return undefined;
+
+    topReminderTimerRef.current = window.setTimeout(() => {
+      setTopReminderItem(null);
+    }, 9000);
+
+    return () => {
+      window.clearTimeout(topReminderTimerRef.current);
+    };
+  }, [topReminderItem?.id]);
+
+  useEffect(() => {
+    if (notificationsOpen) setTopReminderItem(null);
+  }, [notificationsOpen]);
 
   const markNotificationsRead = useCallback(() => {
     if (!profile) return;
@@ -1518,6 +1563,11 @@ export default function App() {
     },
     [profile],
   );
+
+  const dismissTopReminder = useCallback(() => {
+    if (topReminderItem) markNotificationRead(topReminderItem);
+    setTopReminderItem(null);
+  }, [markNotificationRead, topReminderItem]);
 
   const handleOpenNotification = useCallback(
     (item: NotificationItem) => {
@@ -3004,6 +3054,53 @@ export default function App() {
           </AnimatePresence>
         </main>
         )}
+        <AnimatePresence>
+          {bootSplashDone && topReminderItem && !notificationsOpen && (
+            <m.div
+              className="fixed left-[max(0.8rem,env(safe-area-inset-left))] right-[max(0.8rem,env(safe-area-inset-right))] top-[calc(4.45rem+env(safe-area-inset-top))] z-[94] mx-auto max-w-[31rem] rounded-[1.15rem] border border-white/75 bg-[#fffaf1] p-3 text-ink shadow-[0_18px_55px_rgba(53,41,31,0.24)]"
+              role="status"
+              aria-live="polite"
+              initial={reduceHeavyMotion ? false : { opacity: 0, y: -12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={reduceHeavyMotion ? undefined : { opacity: 0, y: -10, scale: 0.98 }}
+              transition={{ duration: reduceHeavyMotion ? 0 : 0.18, ease: 'easeOut' }}
+            >
+              <div className="flex items-start gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-ink text-paper shadow-paper">
+                  <Bell size={19} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-blush/42 px-2.5 py-1 text-[10px] font-black uppercase text-coffee">
+                    <Sparkles size={13} />
+                    Nhắc hẹn từ manager
+                  </span>
+                  <strong className="mt-2 block line-clamp-2 text-sm leading-5">{topReminderItem.title}</strong>
+                  <p className="mt-1 line-clamp-3 text-xs font-bold leading-5 text-ink/64">{topReminderItem.body}</p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      className="inline-flex min-h-9 items-center rounded-full bg-ink px-3 text-xs font-black text-paper"
+                      onClick={dismissTopReminder}
+                    >
+                      Đã hiểu
+                    </button>
+                    <button
+                      className="inline-flex min-h-9 items-center rounded-full bg-white px-3 text-xs font-black text-coffee ring-1 ring-coffee/10"
+                      onClick={() => {
+                        setTopReminderItem(null);
+                        setNotificationsOpen(true);
+                      }}
+                    >
+                      Mở chuông
+                    </button>
+                  </div>
+                </div>
+                <button className="icon-button h-9 w-9 shrink-0 bg-white/80" onClick={dismissTopReminder} aria-label="Đóng nhắc hẹn">
+                  <X size={16} />
+                </button>
+              </div>
+            </m.div>
+          )}
+        </AnimatePresence>
         {bootSplashDone && (
           <NotificationCenter
             open={notificationsOpen}
