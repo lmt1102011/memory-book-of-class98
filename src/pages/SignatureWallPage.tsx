@@ -21,10 +21,10 @@ const signatureWallRotation = (index: number) => {
   return rotations[index % rotations.length];
 };
 
-const SIGNATURE_MIN_STROKE_WIDTH = 2.28;
-const SIGNATURE_MAX_STROKE_WIDTH = 2.62;
-const SIGNATURE_EXPORT_WIDTH = 1200;
-const SIGNATURE_EXPORT_HEIGHT = 420;
+const SIGNATURE_MIN_STROKE_WIDTH = 1.65;
+const SIGNATURE_MAX_STROKE_WIDTH = 4.05;
+const SIGNATURE_EXPORT_WIDTH = 1400;
+const SIGNATURE_EXPORT_HEIGHT = 500;
 const SIGNATURE_MAX_DATA_URL_LENGTH = 750_000;
 
 interface SignaturePoint {
@@ -74,6 +74,8 @@ const interpolatePoint = (first: SignaturePoint, second: SignaturePoint, amount:
   pressure: first.pressure + (second.pressure - first.pressure) * amount,
 });
 
+const easeOutSine = (value: number) => Math.sin(clamp(value, 0, 1) * Math.PI * 0.5);
+
 const waitForPaint = () =>
   new Promise<void>((resolve) => {
     window.requestAnimationFrame(() => window.setTimeout(resolve, 0));
@@ -85,11 +87,21 @@ const smoothSignatureStroke = (stroke: SignatureStroke, passes = 1): SignatureSt
   let points = stroke;
   for (let pass = 0; pass < passes; pass += 1) {
     const next: SignatureStroke = [points[0]];
-    for (let index = 0; index < points.length - 1; index += 1) {
+    for (let index = 1; index < points.length - 1; index += 1) {
+      const previous = points[index - 1];
       const current = points[index];
       const following = points[index + 1];
-      next.push(interpolatePoint(current, following, 0.26));
-      next.push(interpolatePoint(current, following, 0.74));
+      const previousDistance = distanceBetween(previous, current);
+      const followingDistance = distanceBetween(current, following);
+      const cornerWeight = clamp((previousDistance + followingDistance) / 72, 0.14, 0.34);
+      const neighborAverage = interpolatePoint(previous, following, 0.5);
+
+      next.push({
+        x: current.x * (1 - cornerWeight) + neighborAverage.x * cornerWeight,
+        y: current.y * (1 - cornerWeight) + neighborAverage.y * cornerWeight,
+        time: current.time,
+        pressure: current.pressure * 0.7 + neighborAverage.pressure * 0.3,
+      });
     }
     next.push(points[points.length - 1]);
     points = next;
@@ -98,12 +110,23 @@ const smoothSignatureStroke = (stroke: SignatureStroke, passes = 1): SignatureSt
   return points;
 };
 
-const getSegmentWidth = (from: SignaturePoint, to: SignaturePoint) => {
-  const pressure = clamp((from.pressure + to.pressure) / 2 || 0.52, 0.36, 0.78);
-  const pressureNudge = (pressure - 0.52) * 0.22;
-  const baseWidth = (SIGNATURE_MIN_STROKE_WIDTH + SIGNATURE_MAX_STROKE_WIDTH) / 2;
+const getStrokeTaper = (index: number, totalSegments: number) => {
+  if (totalSegments <= 3) return 0.92;
+  const start = clamp(easeOutSine(index / 5), 0.44, 1);
+  const end = clamp(easeOutSine((totalSegments - index) / 7), 0.34, 1);
+  return Math.min(start, end);
+};
 
-  return clamp(baseWidth + pressureNudge, SIGNATURE_MIN_STROKE_WIDTH, SIGNATURE_MAX_STROKE_WIDTH);
+const getSegmentWidth = (from: SignaturePoint, to: SignaturePoint, index = 0, totalSegments = 2) => {
+  const pressure = clamp((from.pressure + to.pressure) / 2 || 0.52, 0.36, 0.78);
+  const deltaTime = Math.max(8, to.time - from.time);
+  const speed = distanceBetween(from, to) / deltaTime;
+  const speedWeight = 1 - clamp((speed - 0.12) / 1.12, 0, 1);
+  const pressureNudge = (pressure - 0.52) * 1.35;
+  const width = SIGNATURE_MIN_STROKE_WIDTH + speedWeight * (SIGNATURE_MAX_STROKE_WIDTH - SIGNATURE_MIN_STROKE_WIDTH);
+  const taperedWidth = (width + pressureNudge) * getStrokeTaper(index, totalSegments);
+
+  return clamp(taperedWidth, 0.72, SIGNATURE_MAX_STROKE_WIDTH);
 };
 
 const renderSignatureStrokes = (
@@ -149,11 +172,12 @@ const renderSignatureStrokes = (
 
     let previous = points[0];
     let previousMid = previous;
+    const totalSegments = Math.max(1, points.length - 1);
 
     for (let index = 1; index < points.length; index += 1) {
       const current = points[index];
       const mid = interpolatePoint(previous, current, 0.5);
-      const lineWidth = Math.max(0.9, getSegmentWidth(previous, current) * scale * widthMultiplier);
+      const lineWidth = Math.max(0.72, getSegmentWidth(previous, current, index - 1, totalSegments) * scale * widthMultiplier);
 
       context.beginPath();
       context.moveTo(transformX(previousMid.x), transformY(previousMid.y));
@@ -169,7 +193,7 @@ const renderSignatureStrokes = (
     context.beginPath();
     context.moveTo(transformX(previousMid.x), transformY(previousMid.y));
     context.lineTo(transformX(previous.x), transformY(previous.y));
-    context.lineWidth = Math.max(0.9, getSegmentWidth(beforeLast, previous) * scale * widthMultiplier);
+    context.lineWidth = Math.max(0.72, getSegmentWidth(beforeLast, previous, totalSegments - 1, totalSegments) * scale * widthMultiplier);
     context.stroke();
   });
 
@@ -226,7 +250,7 @@ const exportPolishedSignature = (strokes: SignatureStroke[], canvasSize: Signatu
   const signatureHeight = Math.max(1, bounds.maxY - bounds.minY);
   if (signatureWidth < 8 && signatureHeight < 8) return '';
 
-  const padding = clamp(Math.max(signatureWidth, signatureHeight) * 0.075, 14, 44);
+  const padding = clamp(Math.max(signatureWidth, signatureHeight) * 0.055, 10, 34);
   const sourceX = Math.max(0, bounds.minX - padding);
   const sourceY = Math.max(0, bounds.minY - padding);
   const sourceWidth = Math.min(canvasSize.width - sourceX, signatureWidth + padding * 2);
@@ -242,7 +266,7 @@ const exportPolishedSignature = (strokes: SignatureStroke[], canvasSize: Signatu
   outputContext.imageSmoothingEnabled = true;
   outputContext.imageSmoothingQuality = 'high';
 
-  const fitScale = Math.min((output.width * 1.08) / sourceWidth, output.height / sourceHeight);
+  const fitScale = Math.min((output.width * 1.2) / sourceWidth, (output.height * 1.08) / sourceHeight);
   const drawWidth = sourceWidth * fitScale;
   const drawHeight = sourceHeight * fitScale;
   const offsetX = (output.width - drawWidth) / 2 - sourceX * fitScale;
@@ -252,10 +276,10 @@ const exportPolishedSignature = (strokes: SignatureStroke[], canvasSize: Signatu
     scale: fitScale,
     offsetX,
     offsetY,
-    alpha: 0.1,
-    blur: 0.7,
+    alpha: 0.12,
+    blur: 0.62,
     color: '#1f1712',
-    widthMultiplier: 1.18,
+    widthMultiplier: 1.26,
     smoothingPasses: 2,
   });
 
@@ -265,7 +289,7 @@ const exportPolishedSignature = (strokes: SignatureStroke[], canvasSize: Signatu
     offsetY,
     alpha: 1,
     color: '#241913',
-    widthMultiplier: 1.04,
+    widthMultiplier: 1.02,
     smoothingPasses: 2,
   });
 
@@ -273,9 +297,9 @@ const exportPolishedSignature = (strokes: SignatureStroke[], canvasSize: Signatu
     scale: fitScale,
     offsetX,
     offsetY,
-    alpha: 0.06,
-    color: '#7a5639',
-    widthMultiplier: 0.22,
+    alpha: 0.18,
+    color: '#120d0a',
+    widthMultiplier: 0.46,
     smoothingPasses: 2,
   });
 
@@ -455,7 +479,7 @@ export default function SignatureWallPage({
                     <img
                       src={signature.imageDataUrl}
                       alt={`Chữ ký của ${signature.name}`}
-                      className="block h-full w-[150%] max-w-none scale-[1.44] object-contain"
+                      className="block h-full w-[190%] max-w-none scale-[1.74] object-contain"
                       loading="lazy"
                       decoding="async"
                     />
@@ -530,11 +554,11 @@ function SignaturePreviewModal({ signature, onClose }: { signature: ClassSignatu
           </p>
         </div>
 
-        <div className="mt-5 grid min-h-[16rem] place-items-center rounded-[1rem] border border-coffee/12 bg-white p-5 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.1)] sm:min-h-[22rem]">
+        <div className="mt-5 grid min-h-[16rem] place-items-center rounded-[1rem] border border-coffee/12 bg-white p-4 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.1)] sm:min-h-[22rem] sm:p-5">
           <img
             src={signature.imageDataUrl}
             alt={`Chữ ký của ${signature.name}`}
-            className="max-h-[52svh] w-full object-contain"
+            className="max-h-[58svh] w-full scale-[1.08] object-contain"
             decoding="async"
           />
         </div>
@@ -729,11 +753,20 @@ function SignatureEditorModal({
     if (!stroke) return null;
 
     const last = stroke[stroke.length - 1];
-    if (last && distanceBetween(last, point) < 0.85 && point.time - last.time < 18) return null;
+    if (last && distanceBetween(last, point) < 1.05 && point.time - last.time < 18) return null;
 
-    stroke.push(point);
+    const nextPoint = last
+      ? {
+          x: last.x + (point.x - last.x) * clamp(distanceBetween(last, point) / 24, 0.52, 0.88),
+          y: last.y + (point.y - last.y) * clamp(distanceBetween(last, point) / 24, 0.52, 0.88),
+          time: point.time,
+          pressure: last.pressure * 0.32 + point.pressure * 0.68,
+        }
+      : point;
+
+    stroke.push(nextPoint);
     markHasInk();
-    return last ? { from: last, to: point } : null;
+    return last ? { from: last, to: nextPoint } : null;
   }, [markHasInk]);
 
   const pointFromEvent = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
