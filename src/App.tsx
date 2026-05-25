@@ -205,6 +205,7 @@ export default function App() {
   const [remoteComments, setRemoteComments] = useState<MemoryComment[]>([]);
   const [remoteGuestbook, setRemoteGuestbook] = useState<GuestbookEntry[]>([]);
   const [classSignatures, setClassSignatures] = useState<ClassSignature[]>([]);
+  const [classSignaturesLoading, setClassSignaturesLoading] = useState(false);
   const [timeCapsules, setTimeCapsules] = useState<TimeCapsuleEntry[]>([]);
   const [classmates, setClassmates] = useState<ClassmateProfile[]>([]);
   const [classmatesLoading, setClassmatesLoading] = useState(false);
@@ -227,6 +228,7 @@ export default function App() {
   });
   const [notificationActivityLoading, setNotificationActivityLoading] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [signatureEditorOpenSignal, setSignatureEditorOpenSignal] = useState(0);
   const [notificationsSeenAt, setNotificationsSeenAt] = useState(() => new Date(0).toISOString());
   const [notificationReadIds, setNotificationReadIds] = useState<Set<string>>(() => new Set());
   const [futureMessagePopupOpen, setFutureMessagePopupOpen] = useState(false);
@@ -401,6 +403,7 @@ export default function App() {
       setRemoteComments([]);
       setRemoteGuestbook([]);
       setClassSignatures([]);
+      setClassSignaturesLoading(false);
       setTimeCapsules([]);
       setClassmates([]);
       setVoteCategories([]);
@@ -677,6 +680,7 @@ export default function App() {
     if (route === 'landing' || route === 'join') return undefined;
     if (accountBlock) {
       setMemoriesLoading(false);
+      setClassSignaturesLoading(false);
       setClassmatesLoading(false);
       setRememberNotesLoading(false);
       setSentRememberNotesLoading(false);
@@ -751,6 +755,8 @@ export default function App() {
 
     if (route === 'home' || route === 'letters' || route === 'signatures' || route === 'remember' || route === 'people' || route === 'votes' || route === 'photobook') {
       setClassmatesLoading(true);
+      const shouldLoadClassSignaturesForRoute = Boolean(profile && (route === 'home' || route === 'signatures'));
+      setClassSignaturesLoading(shouldLoadClassSignaturesForRoute);
 
       void import('./services/firebaseMemoryBook')
         .then((service) => {
@@ -770,25 +776,29 @@ export default function App() {
             },
           );
 
-          if (route === 'signatures' && profile) {
+          if (shouldLoadClassSignaturesForRoute) {
             unsubscribeClassSignatures = service.subscribeClassSignatures(
               (items) => {
                 if (!isActive) return;
                 setClassSignatures(items);
+                setClassSignaturesLoading(false);
                 setFirebaseNotice('');
               },
               (error) => {
                 if (!isActive) return;
+                setClassSignaturesLoading(false);
                 setFirebaseNotice(error.message);
               },
             );
           } else {
             setClassSignatures([]);
+            setClassSignaturesLoading(false);
           }
         })
         .catch((caught) => {
           if (!isActive) return;
           setClassmatesLoading(false);
+          setClassSignaturesLoading(false);
           setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể mở danh sách lớp lúc này.');
         });
     }
@@ -958,6 +968,7 @@ export default function App() {
     setRemoteComments([]);
     setRemoteGuestbook([]);
     setClassSignatures([]);
+    setClassSignaturesLoading(false);
     setTimeCapsules([]);
     setClassmates([]);
     setVoteCategories([]);
@@ -1149,6 +1160,11 @@ export default function App() {
     setFocusedPersonKey('');
     setPeopleListResetKey((key) => key + 1);
     navigate('people');
+  }, [navigate]);
+
+  const openSignatureWallEditor = useCallback(() => {
+    setSignatureEditorOpenSignal((signal) => signal + 1);
+    navigate('signatures');
   }, [navigate]);
 
   const allMemories = useMemo(() => remoteMemories, [remoteMemories]);
@@ -2457,6 +2473,7 @@ export default function App() {
             signatures={classSignatures}
             firebaseNotice={firebaseNotice}
             profile={profile}
+            openEditorSignal={signatureEditorOpenSignal}
             onJoin={() => navigate('join')}
             onSaveSignature={handleClassSignatureSave}
             onDeleteSignature={handleClassSignatureDelete}
@@ -2599,12 +2616,14 @@ export default function App() {
           classmates={classmates}
           firebaseNotice={firebaseNotice}
           isLoadingMemories={memoriesLoading}
+          isLoadingSignatures={classSignaturesLoading}
           memoryRecapEnabled={memoryRecapEnabled}
           futureMessagesEnabled={classLettersEnabled}
           writingPromptsEnabled={writingPromptsEnabled}
           cinematicSlideshowSettings={cinematicSlideshowSettings}
           profile={profile}
           onlineNameKeys={onlineNameKeys}
+          signatures={classSignatures}
           menuHintCompleted={menuHintCompleted}
           memoryGuideStorageKey={memoryGuideStorageKey}
           pendingReactionIds={pendingReactionIds}
@@ -2614,6 +2633,7 @@ export default function App() {
           onOpenFuture={() => navigate('future')}
           onOpenRemember={() => navigate('remember')}
           onOpenDiary={() => navigate('diary')}
+          onOpenSignatures={openSignatureWallEditor}
           onOpenProfile={openPersonProfile}
           onReact={handleReact}
           onReactComment={handleMemoryCommentReact}

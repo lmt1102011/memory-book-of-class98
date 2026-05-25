@@ -21,6 +21,7 @@ import MemoryCard from '../components/MemoryCard';
 import { useDebounce } from '../hooks/useDebounce';
 import type {
   ClassmateProfile,
+  ClassSignature,
   CinematicSlideshowSettings,
   CommentReactionId,
   MemoryComment,
@@ -125,12 +126,14 @@ interface HomePageProps {
   classmates: ClassmateProfile[];
   firebaseNotice: string;
   isLoadingMemories: boolean;
+  isLoadingSignatures: boolean;
   memoryRecapEnabled: boolean;
   futureMessagesEnabled: boolean;
   writingPromptsEnabled: boolean;
   cinematicSlideshowSettings: CinematicSlideshowSettings;
   profile: UserProfile | null;
   onlineNameKeys: Set<string>;
+  signatures: ClassSignature[];
   menuHintCompleted: boolean;
   memoryGuideStorageKey: string;
   pendingReactionIds: string[];
@@ -140,6 +143,7 @@ interface HomePageProps {
   onOpenFuture: () => void;
   onOpenRemember: () => void;
   onOpenDiary: () => void;
+  onOpenSignatures: () => void;
   onOpenProfile: (nameKey: string) => void;
   onReact: (memory: MemoryItem) => void | Promise<void>;
   onReactComment: (comment: MemoryComment, reactionId: CommentReactionId) => void | Promise<void>;
@@ -155,12 +159,14 @@ export default function HomePage({
   classmates,
   firebaseNotice,
   isLoadingMemories,
+  isLoadingSignatures,
   memoryRecapEnabled,
   futureMessagesEnabled,
   writingPromptsEnabled,
   cinematicSlideshowSettings,
   profile,
   onlineNameKeys,
+  signatures,
   menuHintCompleted,
   memoryGuideStorageKey,
   pendingReactionIds,
@@ -170,6 +176,7 @@ export default function HomePage({
   onOpenFuture,
   onOpenRemember,
   onOpenDiary,
+  onOpenSignatures,
   onOpenProfile,
   onReact,
   onReactComment,
@@ -208,6 +215,7 @@ export default function HomePage({
   const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
   const [memoryGuideStep, setMemoryGuideStep] = useState<MemoryGuideStep>('idle');
+  const [signatureReminderDismissed, setSignatureReminderDismissed] = useState(false);
 
   const debouncedName = useDebounce(nameQuery);
   const debouncedKeyword = useDebounce(keywordQuery);
@@ -220,6 +228,10 @@ export default function HomePage({
 
     setMemoryGuideStep(window.localStorage.getItem(memoryGuideStorageKey) === 'done' ? 'done' : 'feed');
   }, [memoryGuideStorageKey, profile?.uid]);
+
+  useEffect(() => {
+    setSignatureReminderDismissed(false);
+  }, [profile?.uid]);
 
   const syncZoomState = useCallback((immediate = false) => {
     const publish = () => {
@@ -770,6 +782,27 @@ export default function HomePage({
       memoryGuideStep === 'viewer' &&
       !isImageZoomOpen,
   );
+  const hasOwnSignature = Boolean(
+    profile &&
+      signatures.some((signature) => signature.nameKey === profile.nameKey || signature.uid === profile.uid),
+  );
+  const hasGuidePhoto = filteredMemories.some((memory) => memory.mediaType !== 'video');
+  const signatureReminderReady = Boolean(
+    menuHintCompleted &&
+      (memoryGuideStep === 'done' || (!isLoadingMemories && !hasGuidePhoto)),
+  );
+  const canShowSignatureReminder = Boolean(
+    profile &&
+      signatureReminderReady &&
+      !hasOwnSignature &&
+      !isLoadingSignatures &&
+      !signatureReminderDismissed &&
+      !canShowMemoryTapGuide &&
+      !showZoomTapGuide &&
+      !selectedMemory &&
+      !isImageZoomOpen &&
+      !isSlideshowOpen,
+  );
 
   const clearFilters = () => {
     setNameQuery('');
@@ -983,6 +1016,43 @@ export default function HomePage({
                     </span>
                   </button>
                 )}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {canShowSignatureReminder && (
+        <section className="mx-auto max-w-7xl px-4 pb-7 sm:px-6 lg:px-8">
+          <div className="relative overflow-hidden rounded-[1.45rem] border border-[#7a5639]/16 bg-[#fffaf1] p-4 shadow-[0_20px_58px_rgba(84,57,35,0.16)] sm:p-5">
+            <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-coffee via-blush to-skySoft" aria-hidden="true" />
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-ink text-paper shadow-paper">
+                  <BookOpen size={21} />
+                </span>
+                <div className="min-w-0">
+                  <p className="section-kicker mb-1">Còn thiếu một nét ký</p>
+                  <h2 className="font-display text-5xl leading-none text-ink sm:text-6xl">
+                    Ký tên lên bảng lớp 9/8 nha
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-ink/62">
+                    Bạn đã xem xong hướng dẫn ảnh rồi, giờ để lại một chữ ký tay trên tường chữ ký để sau này lớp mở lại vẫn thấy dấu ấn của bạn.
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:w-[21rem]">
+                <button type="button" className="primary-button min-h-12 justify-center" onClick={onOpenSignatures}>
+                  <BookOpen size={17} />
+                  Ký tên ngay
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button min-h-12 justify-center"
+                  onClick={() => setSignatureReminderDismissed(true)}
+                >
+                  Để sau
+                </button>
               </div>
             </div>
           </div>

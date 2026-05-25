@@ -10,6 +10,7 @@ interface SignatureWallPageProps {
   signatures: ClassSignature[];
   firebaseNotice: string;
   profile: UserProfile | null;
+  openEditorSignal?: number;
   onJoin: () => void;
   onSaveSignature: (imageDataUrl: string) => void | Promise<void>;
   onDeleteSignature: () => void | Promise<void>;
@@ -262,10 +263,12 @@ export default function SignatureWallPage({
   signatures,
   firebaseNotice,
   profile,
+  openEditorSignal = 0,
   onJoin,
   onSaveSignature,
   onDeleteSignature,
 }: SignatureWallPageProps) {
+  const lastOpenEditorSignalRef = useRef(0);
   const [editorOpen, setEditorOpen] = useState(false);
   const [selectedSignature, setSelectedSignature] = useState<ClassSignature | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -278,6 +281,13 @@ export default function SignatureWallPage({
     [profile, signatures],
   );
   const visibleSignatures = signatures.slice(0, 120);
+
+  useEffect(() => {
+    if (!profile) return;
+    if (openEditorSignal === lastOpenEditorSignalRef.current) return;
+    lastOpenEditorSignalRef.current = openEditorSignal;
+    setEditorOpen(true);
+  }, [openEditorSignal, profile]);
 
   useEffect(() => {
     if (!selectedSignature) return undefined;
