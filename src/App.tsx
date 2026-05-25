@@ -2494,6 +2494,7 @@ export default function App() {
           <MyMemoriesPage
             memories={notificationActivity.ownMemories}
             commentsByMemory={ownCommentsByMemory}
+            classmates={classmates}
             firebaseNotice={firebaseNotice}
             isLoading={notificationActivityLoading}
             profile={profile}
@@ -2518,6 +2519,7 @@ export default function App() {
         <HomePage
           memories={allMemories}
           commentsByMemory={commentsByMemory}
+          classmates={classmates}
           firebaseNotice={firebaseNotice}
           isLoadingMemories={memoriesLoading}
           memoryRecapEnabled={memoryRecapEnabled}

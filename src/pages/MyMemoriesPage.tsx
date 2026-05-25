@@ -3,8 +3,9 @@ import type { LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import FirebaseNotice from '../components/FirebaseNotice';
 import MemoryCard from '../components/MemoryCard';
-import type { CommentReactionId, MemoryComment, MemoryItem, UserProfile } from '../types';
+import type { ClassmateProfile, CommentReactionId, MemoryComment, MemoryItem, UserProfile } from '../types';
 import { formatUploadTime } from '../utils/date';
+import { cacheMemoryVideo, getCachedMemoryVideo, isImageCached, markImageCached, warmImageCache } from '../utils/mediaCache';
 
 const EMPTY_COMMENTS: MemoryComment[] = [];
 
@@ -13,6 +14,7 @@ type FilterId = 'all' | 'image' | 'video' | 'private';
 interface MyMemoriesPageProps {
   memories: MemoryItem[];
   commentsByMemory: Record<string, MemoryComment[]>;
+  classmates: ClassmateProfile[];
   firebaseNotice: string;
   isLoading: boolean;
   profile: UserProfile | null;
@@ -53,6 +55,7 @@ const getMemoryDownloadName = (memory: MemoryItem) => {
 export default function MyMemoriesPage({
   memories,
   commentsByMemory,
+  classmates,
   firebaseNotice,
   isLoading,
   profile,
@@ -81,10 +84,20 @@ export default function MyMemoriesPage({
     setSelectedVideoLoading(Boolean(selectedMemory?.mediaType === 'video'));
 
     if (selectedMemory?.mediaType === 'video') {
+      const cachedVideo = getCachedMemoryVideo(selectedMemory);
+      if (cachedVideo) {
+        setSelectedVideoUrl(cachedVideo);
+        setSelectedVideoLoading(false);
+        return () => {
+          alive = false;
+        };
+      }
+
       void import('../services/firebaseMemoryBook')
         .then((service) => service.loadMemoryVideoDataUrl(selectedMemory))
         .then((url) => {
           if (!alive) return;
+          cacheMemoryVideo(selectedMemory, url);
           setSelectedVideoUrl(url);
           setSelectedVideoLoading(false);
         })
@@ -114,6 +127,29 @@ export default function MyMemoriesPage({
     if (filter === 'private') return memories.filter((item) => item.visibility && item.visibility !== 'public');
     return memories;
   }, [filter, memories]);
+
+  useEffect(() => {
+    if (!filteredMemories.length) return;
+    warmImageCache(
+      filteredMemories
+        .filter((memory) => memory.mediaType !== 'video')
+        .map((memory) => memory.imageUrl),
+      8,
+    );
+  }, [filteredMemories]);
+
+  const profileByKey = useMemo(() => {
+    const map: Record<string, ClassmateProfile | UserProfile> = {};
+    classmates.forEach((person) => {
+      map[person.nameKey] = person;
+      if (person.uid) map[person.uid] = person;
+    });
+    if (profile) {
+      map[profile.nameKey] = profile;
+      map[profile.uid] = profile;
+    }
+    return map;
+  }, [classmates, profile]);
 
   if (!profile) {
     return (
@@ -222,6 +258,7 @@ export default function MyMemoriesPage({
                 key={`${memory.storageCollection || 'memories98'}-${memory.id}`}
                 memory={memory}
                 comments={memory.visibility === 'public' ? commentsByMemory[memory.id] || EMPTY_COMMENTS : EMPTY_COMMENTS}
+                profileByKey={profileByKey}
                 profile={profile}
                 isReacting={pendingReactionIds.includes(memory.id)}
                 pendingCommentReactionIds={pendingCommentReactionIds}
@@ -288,6 +325,8 @@ export default function MyMemoriesPage({
                   alt={`Kỷ niệm của ${selectedMemory.name}`}
                   className="max-h-[76svh] w-auto max-w-full rounded-xl object-contain shadow-paper"
                   decoding="async"
+                  loading={isImageCached(selectedMemory.imageUrl) ? 'eager' : 'lazy'}
+                  onLoad={() => markImageCached(selectedMemory.imageUrl)}
                 />
               )}
             </div>

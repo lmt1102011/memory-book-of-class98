@@ -7,6 +7,7 @@ import {
   Filter,
   Heart,
   Lock,
+  MessageCircle,
   RotateCcw,
   Search,
   Sparkles,
@@ -19,12 +20,14 @@ import FirebaseNotice from '../components/FirebaseNotice';
 import MemoryCard from '../components/MemoryCard';
 import { useDebounce } from '../hooks/useDebounce';
 import type {
+  ClassmateProfile,
   CinematicSlideshowSettings,
   CommentReactionId,
   MemoryComment,
   MemoryItem,
   UserProfile,
 } from '../types';
+import { cacheMemoryVideo, getCachedMemoryVideo, isImageCached, markImageCached, warmImageCache } from '../utils/mediaCache';
 
 const EMPTY_COMMENTS: MemoryComment[] = [];
 type MemoryGuideStep = 'idle' | 'feed' | 'viewer' | 'done';
@@ -119,6 +122,7 @@ const slideshowMoodConfig: Record<
 interface HomePageProps {
   memories: MemoryItem[];
   commentsByMemory: Record<string, MemoryComment[]>;
+  classmates: ClassmateProfile[];
   firebaseNotice: string;
   isLoadingMemories: boolean;
   memoryRecapEnabled: boolean;
@@ -148,6 +152,7 @@ interface HomePageProps {
 export default function HomePage({
   memories,
   commentsByMemory,
+  classmates,
   firebaseNotice,
   isLoadingMemories,
   memoryRecapEnabled,
@@ -188,6 +193,8 @@ export default function HomePage({
   const [activePersonKey, setActivePersonKey] = useState<string | null>(null);
   const [activeSmartFilter, setActiveSmartFilter] = useState<SmartMemoryFilter>('all');
   const [selectedMemory, setSelectedMemory] = useState<MemoryItem | null>(null);
+  const [profilePreviewKey, setProfilePreviewKey] = useState('');
+  const [quickComment, setQuickComment] = useState('');
   const [selectedImageLoaded, setSelectedImageLoaded] = useState(false);
   const [selectedImageFailed, setSelectedImageFailed] = useState(false);
   const [isImageZoomOpen, setIsImageZoomOpen] = useState(false);
@@ -367,7 +374,7 @@ export default function HomePage({
 
   useEffect(() => {
     let alive = true;
-    setSelectedImageLoaded(false);
+    setSelectedImageLoaded(Boolean(selectedMemory?.imageUrl && isImageCached(selectedMemory.imageUrl)));
     setSelectedImageFailed(false);
     setIsImageZoomOpen(false);
     resetImageZoom();
@@ -377,10 +384,20 @@ export default function HomePage({
     setSelectedVideoLoading(Boolean(selectedMemory?.mediaType === 'video'));
 
     if (selectedMemory?.mediaType === 'video') {
+      const cachedVideo = getCachedMemoryVideo(selectedMemory);
+      if (cachedVideo) {
+        setSelectedVideoUrl(cachedVideo);
+        setSelectedVideoLoading(false);
+        return () => {
+          alive = false;
+        };
+      }
+
       void import('../services/firebaseMemoryBook')
         .then((service) => service.loadMemoryVideoDataUrl(selectedMemory))
         .then((url) => {
           if (!alive) return;
+          cacheMemoryVideo(selectedMemory, url);
           setSelectedVideoUrl(url);
           setSelectedVideoLoading(false);
         })
@@ -556,6 +573,19 @@ export default function HomePage({
     return Array.from(unique.values()).sort((left, right) => right.count - left.count).slice(0, 16);
   }, [memories]);
 
+  const profileByKey = useMemo(() => {
+    const map: Record<string, ClassmateProfile | UserProfile> = {};
+    classmates.forEach((person) => {
+      map[person.nameKey] = person;
+      if (person.uid) map[person.uid] = person;
+    });
+    if (profile) {
+      map[profile.nameKey] = profile;
+      map[profile.uid] = profile;
+    }
+    return map;
+  }, [classmates, profile]);
+
   const smartFilters = useMemo(
     () => [
       { id: 'all' as const, label: 'Tất cả', count: memories.length },
@@ -701,6 +731,29 @@ export default function HomePage({
     return filtered;
   }, [activePersonKey, activeSmartFilter, activeTag, commentsByMemory, memories, profile, debouncedKeyword, debouncedName]);
 
+  useEffect(() => {
+    if (!filteredMemories.length) return;
+    warmImageCache(
+      filteredMemories
+        .filter((memory) => memory.mediaType !== 'video')
+        .map((memory) => memory.imageUrl),
+      10,
+    );
+  }, [filteredMemories]);
+
+  const previewProfile = profilePreviewKey ? profileByKey[profilePreviewKey] : undefined;
+  const previewStats = useMemo(() => {
+    if (!previewProfile) return { memories: 0, likes: 0, comments: 0 };
+    const profileMemories = memories.filter(
+      (memory) => memory.nameKey === previewProfile.nameKey || memory.uid === previewProfile.uid,
+    );
+    return {
+      memories: profileMemories.length,
+      likes: profileMemories.reduce((total, memory) => total + (memory.reactions || 0), 0),
+      comments: profileMemories.reduce((total, memory) => total + (commentsByMemory[memory.id]?.length || 0), 0),
+    };
+  }, [commentsByMemory, memories, previewProfile]);
+
   const hasActiveFilter = Boolean(nameQuery.trim() || keywordQuery.trim() || activeTag || activePersonKey || activeSmartFilter !== 'all');
   const canShowMemoryTapGuide = Boolean(
     profile &&
@@ -729,6 +782,7 @@ export default function HomePage({
   const openMemoryPreview = useCallback(
     (memory: MemoryItem) => {
       setSelectedMemory(memory);
+      setQuickComment('');
       if (menuHintCompleted && memoryGuideStep === 'feed' && memory.mediaType !== 'video') {
         setMemoryGuideStep('viewer');
       }
@@ -753,6 +807,47 @@ export default function HomePage({
       : selectedMemory?.visibility === 'tagged'
         ? 'Riêng tư'
         : '';
+  const selectedComments = selectedMemory ? commentsByMemory[selectedMemory.id] || EMPTY_COMMENTS : EMPTY_COMMENTS;
+  const selectedCommentsEnabled = Boolean(selectedMemory && selectedMemory.visibility !== 'private' && selectedMemory.visibility !== 'tagged');
+  const selectedHasLiked = Boolean(profile?.uid && selectedMemory?.likedBy.includes(profile.uid));
+  const selectedHasCommented = Boolean(profile?.uid && selectedComments.some((comment) => comment.uid === profile.uid));
+  const canSuggestInteraction = Boolean(
+    profile &&
+      selectedMemory &&
+      selectedCommentsEnabled &&
+      (!selectedHasLiked || !selectedHasCommented),
+  );
+  const openProfilePreview = useCallback(
+    (nameKey: string) => {
+      const safeKey = nameKey.trim();
+      if (!safeKey) return;
+      if (profileByKey[safeKey]) {
+        setProfilePreviewKey(safeKey);
+        return;
+      }
+      onOpenProfile(safeKey);
+    },
+    [onOpenProfile, profileByKey],
+  );
+  const handleSelectedReact = useCallback(() => {
+    if (!selectedMemory || selectedHasLiked) return;
+    setSelectedMemory((current) => {
+      if (!current || current.id !== selectedMemory.id) return current;
+      return {
+        ...current,
+        likedBy: profile?.uid ? [...current.likedBy, profile.uid] : current.likedBy,
+        reactions: current.reactions + 1,
+      };
+    });
+    void onReact(selectedMemory);
+  }, [onReact, profile?.uid, selectedHasLiked, selectedMemory]);
+  const handleQuickCommentSubmit = useCallback(() => {
+    if (!selectedMemory) return;
+    const message = quickComment.trim();
+    if (!message) return;
+    setQuickComment('');
+    void onAddComment(selectedMemory, message);
+  }, [onAddComment, quickComment, selectedMemory]);
 
   if (!profile) {
     return (
@@ -1144,13 +1239,14 @@ export default function HomePage({
                 key={memory.id}
                 memory={memory}
                 comments={memory.visibility === 'public' ? commentsByMemory[memory.id] || EMPTY_COMMENTS : EMPTY_COMMENTS}
+                profileByKey={profileByKey}
                 profile={profile}
                 isReacting={pendingReactionIds.includes(memory.id)}
                 isOwnerOnline={Boolean(memory.nameKey && onlineNameKeys.has(memory.nameKey))}
                 pendingCommentReactionIds={pendingCommentReactionIds}
                 onJoin={onJoin}
                 onOpenImage={openMemoryPreview}
-                onOpenProfile={onOpenProfile}
+                onOpenProfile={openProfilePreview}
                 onReact={onReact}
                 onReactComment={onReactComment}
                 onAddComment={onAddComment}
@@ -1385,7 +1481,10 @@ export default function HomePage({
                     className="max-h-[calc(100svh-13rem)] w-auto max-w-full object-contain sm:max-h-[86svh]"
                     decoding="async"
                     draggable={false}
-                    onLoad={() => setSelectedImageLoaded(true)}
+                    onLoad={() => {
+                      markImageCached(selectedMemory.imageUrl);
+                      setSelectedImageLoaded(true);
+                    }}
                     onError={() => setSelectedImageFailed(true)}
                   />
                 </button>
@@ -1463,11 +1562,62 @@ export default function HomePage({
               {(selectedMemory.nameKey || selectedMemory.uid) && (
                 <button
                   className="secondary-button mt-3 w-full"
-                  onClick={() => onOpenProfile(selectedMemory.nameKey || selectedMemory.uid || '')}
+                  onClick={() => openProfilePreview(selectedMemory.nameKey || selectedMemory.uid || '')}
                 >
                   <UserRound size={17} />
                   Xem hồ sơ và album
                 </button>
+              )}
+              {canSuggestInteraction && (
+                <div className="mt-4 rounded-[1.1rem] border border-blush/28 bg-gradient-to-br from-blush/22 via-white to-skySoft/18 p-3 shadow-paper">
+                  <div className="flex items-start gap-2.5">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink text-paper">
+                      <Sparkles size={16} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-ink">Gửi lại chút cảm xúc cho kỷ niệm này</p>
+                      <p className="mt-1 text-xs font-bold leading-5 text-coffee/68">
+                        Một tim hoặc một câu ngắn cũng đủ làm khoảnh khắc này ấm hơn.
+                      </p>
+                    </div>
+                  </div>
+
+                  {!selectedHasLiked && (
+                    <button
+                      className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full bg-roseDust px-3 text-xs font-black text-white shadow-sm transition active:scale-[0.98]"
+                      onClick={handleSelectedReact}
+                      disabled={Boolean(selectedMemory && pendingReactionIds.includes(selectedMemory.id))}
+                    >
+                      <Heart size={15} fill="currentColor" />
+                      Thả tim kỷ niệm
+                    </button>
+                  )}
+
+                  {!selectedHasCommented && (
+                    <form
+                      className="mt-2 flex items-center gap-2"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        handleQuickCommentSubmit();
+                      }}
+                    >
+                      <input
+                        className="input-field min-h-10 py-2 text-xs"
+                        value={quickComment}
+                        onChange={(event) => setQuickComment(event.target.value.slice(0, 240))}
+                        placeholder="Viết một câu cho kỷ niệm này..."
+                        maxLength={240}
+                      />
+                      <button
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink text-paper disabled:opacity-45"
+                        disabled={!quickComment.trim()}
+                        aria-label="Gửi bình luận nhanh"
+                      >
+                        <MessageCircle size={15} />
+                      </button>
+                    </form>
+                  )}
+                </div>
               )}
               <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-blush/35 px-3 py-2 text-xs font-bold text-coffee">
                 <Heart size={14} fill="currentColor" />
@@ -1529,7 +1679,134 @@ export default function HomePage({
         </div>
       )}
 
+      {previewProfile && (
+        <MiniProfilePreview
+          person={previewProfile}
+          stats={previewStats}
+          isOnline={Boolean(onlineNameKeys.has(previewProfile.nameKey))}
+          onClose={() => setProfilePreviewKey('')}
+          onOpenFull={() => {
+            setProfilePreviewKey('');
+            onOpenProfile(previewProfile.nameKey);
+          }}
+          onFilterAlbum={() => {
+            setActivePersonKey(previewProfile.nameKey);
+            setProfilePreviewKey('');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
+      )}
+
       <FirebaseNotice message={firebaseNotice} />
     </div>
+  );
+}
+
+function MiniProfilePreview({
+  person,
+  stats,
+  isOnline,
+  onClose,
+  onOpenFull,
+  onFilterAlbum,
+}: {
+  person: ClassmateProfile | UserProfile;
+  stats: { memories: number; likes: number; comments: number };
+  isOnline: boolean;
+  onClose: () => void;
+  onOpenFull: () => void;
+  onFilterAlbum: () => void;
+}) {
+  const tags = person.personalityTags?.filter(Boolean).slice(0, 3) || [];
+  const badges = person.customBadges?.slice(0, 2) || [];
+
+  return (
+    <div
+      className="fixed inset-0 z-[98] grid place-items-end bg-ink/58 p-0 backdrop-blur-[2px] sm:place-items-center sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Hồ sơ nhanh của ${person.name}`}
+      onClick={onClose}
+    >
+      <div
+        className="w-full overflow-hidden rounded-t-[1.45rem] border border-white/75 bg-[#fffaf1] text-ink shadow-[0_24px_80px_rgba(18,15,13,0.34)] sm:max-w-[24rem] sm:rounded-[1.35rem]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="relative bg-gradient-to-br from-blush/32 via-white to-skySoft/28 p-4">
+          <span className="mx-auto mb-3 block h-1.5 w-12 rounded-full bg-coffee/18 sm:hidden" aria-hidden="true" />
+          <button className="icon-button absolute right-3 top-3 bg-white/82" onClick={onClose} aria-label="Đóng hồ sơ nhanh">
+            <X size={17} />
+          </button>
+
+          <div className="flex items-center gap-3 pr-11">
+            <span className="relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-[1.15rem] bg-white text-2xl font-black uppercase text-coffee shadow-paper ring-1 ring-coffee/10">
+              {person.avatarDataUrl ? (
+                <img src={person.avatarDataUrl} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
+              ) : (
+                <span>{person.name.trim().charAt(0) || '9'}</span>
+              )}
+              {isOnline && <span className="absolute bottom-1.5 right-1.5 h-3 w-3 rounded-full bg-[#24c86a] ring-2 ring-white" />}
+            </span>
+            <div className="min-w-0">
+              <p className="section-kicker">Hồ sơ nhanh</p>
+              <h2 className="truncate font-display text-5xl leading-none">{person.name}</h2>
+              <p className="mt-1 truncate text-xs font-bold text-coffee/68">
+                {person.nickname || 'Bạn lớp 9/8'} · Lớp {person.className}
+              </p>
+            </div>
+          </div>
+
+          {person.quote && (
+            <p className="mt-4 rounded-[1rem] bg-white/72 px-3 py-3 font-hand text-2xl leading-7 text-coffee shadow-sm">
+              “{person.quote}”
+            </p>
+          )}
+        </div>
+
+        <div className="p-4">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <MiniProfileMetric icon={Camera} value={stats.memories} label="kỷ niệm" />
+            <MiniProfileMetric icon={Heart} value={stats.likes} label="tim" />
+            <MiniProfileMetric icon={MessageCircle} value={stats.comments} label="bình luận" />
+          </div>
+
+          {(tags.length > 0 || badges.length > 0) && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {badges.map((badge) => (
+                <span key={badge.id} className="rounded-full bg-[#f4dfbf]/78 px-2.5 py-1 text-[11px] font-black text-coffee">
+                  {badge.label}
+                </span>
+              ))}
+              {tags.map((tag) => (
+                <span key={tag} className="rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-coffee/68 shadow-sm">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <button className="primary-button min-h-11 justify-center" onClick={onOpenFull}>
+              <UserRound size={16} />
+              Xem hồ sơ
+            </button>
+            <button className="secondary-button min-h-11 justify-center" onClick={onFilterAlbum}>
+              <Camera size={16} />
+              Lọc album
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MiniProfileMetric({ icon: Icon, value, label }: { icon: typeof Camera; value: number; label: string }) {
+  return (
+    <span className="rounded-[0.95rem] bg-white/70 p-2.5 shadow-paper">
+      <Icon className="mx-auto text-coffee" size={16} />
+      <strong className="mt-1 block text-base leading-none">{value}</strong>
+      <span className="mt-1 block text-[10px] font-black uppercase text-coffee/55">{label}</span>
+    </span>
   );
 }

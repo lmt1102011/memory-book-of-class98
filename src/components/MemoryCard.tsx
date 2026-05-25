@@ -1,11 +1,13 @@
 import { Heart, Lock, MessageCircle, Send, Trash2, Video } from 'lucide-react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import type { CommentReactionId, MemoryComment, MemoryItem, UserProfile } from '../types';
+import type { ClassmateProfile, CommentReactionId, MemoryComment, MemoryItem, UserProfile } from '../types';
 import { formatUploadTime } from '../utils/date';
+import { isImageCached, markImageCached } from '../utils/mediaCache';
 
 interface MemoryCardProps {
   memory: MemoryItem;
   comments: MemoryComment[];
+  profileByKey?: Record<string, ClassmateProfile | UserProfile>;
   profile: UserProfile | null;
   isReacting: boolean;
   isOwnerOnline?: boolean;
@@ -64,6 +66,7 @@ function OnlineDot() {
 function MemoryCard({
   memory,
   comments,
+  profileByKey = {},
   profile,
   isReacting,
   isOwnerOnline = false,
@@ -81,7 +84,7 @@ function MemoryCard({
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [openReactionMenuId, setOpenReactionMenuId] = useState('');
-  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(() => isImageCached(memory.imageUrl));
   const [imageFailed, setImageFailed] = useState(false);
   const reactionMenuRef = useRef<HTMLDivElement | null>(null);
   const hasLiked = Boolean(profile?.uid && memory.likedBy.includes(profile.uid));
@@ -89,7 +92,7 @@ function MemoryCard({
   const visibleComments = useMemo(() => (commentsOpen ? comments : comments.slice(0, 2)), [comments, commentsOpen]);
 
   useEffect(() => {
-    setImageLoaded(false);
+    setImageLoaded(isImageCached(memory.imageUrl));
     setImageFailed(false);
   }, [memory.imageUrl]);
 
@@ -153,7 +156,10 @@ function MemoryCard({
             alt={`Kỷ niệm học trò của ${memory.name}`}
             loading="lazy"
             decoding="async"
-            onLoad={() => setImageLoaded(true)}
+            onLoad={() => {
+              markImageCached(memory.imageUrl);
+              setImageLoaded(true);
+            }}
             onError={() => setImageFailed(true)}
             className="relative z-[1] h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.025]"
           />
@@ -247,6 +253,8 @@ function MemoryCard({
               {visibleComments.map((comment) => {
                 const canDeleteComment = profile?.uid === comment.uid && !comment.pending;
                 const ownReaction = profile?.uid ? comment.reactionByUid?.[profile.uid] : undefined;
+                const commenterProfile = comment.nameKey ? profileByKey[comment.nameKey] : undefined;
+                const commentAvatar = commenterProfile?.avatarDataUrl;
                 const isCommentReactionPending = pendingCommentReactionIds.includes(comment.id);
                 const reactionTotal = commentReactionOptions.reduce(
                   (total, option) => total + (comment.reactionCounts?.[option.id] || 0),
@@ -257,12 +265,39 @@ function MemoryCard({
                 return (
                   <div key={comment.id} className="rounded-[0.65rem] bg-paper/78 px-3 py-2">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-xs font-bold text-coffee">
-                          {comment.name}
-                          {comment.pending ? ' · đang gửi' : ''}
-                        </p>
-                        <p className="mt-1 break-words text-xs leading-5 text-ink/72">{comment.message}</p>
+                      <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                        <button
+                          type="button"
+                          className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-white text-[11px] font-black uppercase text-coffee shadow-sm ring-1 ring-coffee/10"
+                          onClick={() => (comment.nameKey || comment.uid) && onOpenProfile(comment.nameKey || comment.uid || '')}
+                          disabled={!comment.nameKey && !comment.uid}
+                          aria-label={`Mở hồ sơ của ${comment.name}`}
+                          title={`Mở hồ sơ của ${comment.name}`}
+                        >
+                          {commentAvatar ? (
+                            <img
+                              src={commentAvatar}
+                              alt=""
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            <span>{comment.name.trim().charAt(0) || '9'}</span>
+                          )}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <button
+                            type="button"
+                            className="block max-w-full truncate text-left text-xs font-bold text-coffee underline-offset-4 transition hover:underline disabled:hover:no-underline"
+                            onClick={() => (comment.nameKey || comment.uid) && onOpenProfile(comment.nameKey || comment.uid || '')}
+                            disabled={!comment.nameKey && !comment.uid}
+                          >
+                            {comment.name}
+                            {comment.pending ? ' · đang gửi' : ''}
+                          </button>
+                          <p className="mt-1 break-words text-xs leading-5 text-ink/72">{comment.message}</p>
+                        </div>
                       </div>
                       {canDeleteComment && (
                         <button
