@@ -27,9 +27,9 @@ type BoardNote = {
 };
 
 const notePalette = [
-  'bg-paper text-ink',
-  'bg-blush/90 text-ink',
-  'bg-skySoft/90 text-ink',
+  'bg-[#fffaf1] text-ink',
+  'bg-[#ffdce7] text-ink',
+  'bg-[#dff2ff] text-ink',
   'bg-[#f4dfbf] text-ink',
   'bg-white text-ink',
 ];
@@ -215,7 +215,7 @@ function ClassMessageBoard({
                 return (
                   <article
                     key={note.id}
-                    className={`board-note board-note-clickable rounded-sm p-4 shadow-[0_16px_24px_rgba(18,15,13,.2)] outline-none focus-visible:ring-2 focus-visible:ring-paper/80 ${notePalette[index % notePalette.length]}`}
+                    className={`board-note board-note-clickable rounded-sm p-4 shadow-[0_16px_24px_rgba(18,15,13,.22)] outline-none ring-1 ring-black/5 focus-visible:ring-2 focus-visible:ring-paper/80 ${notePalette[index % notePalette.length]}`}
                     style={noteStyle}
                     role="button"
                     tabIndex={0}
@@ -233,7 +233,7 @@ function ClassMessageBoard({
                         <p className="font-hand text-2xl font-bold text-coffee">
                           {note.type === 'anonymous' ? 'Ẩn danh' : note.name}
                         </p>
-                        <time className="text-[10px] font-bold uppercase text-ink/42">
+                        <time className="text-[10px] font-black uppercase text-ink/58">
                           {formatMemoryDate(note.createdAt)}
                         </time>
                       </div>
@@ -250,8 +250,8 @@ function ClassMessageBoard({
                         </button>
                       )}
                     </div>
-                    <p className="mt-2 line-clamp-5 whitespace-pre-wrap text-sm leading-6 text-ink/76">{note.message}</p>
-                    <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-coffee/8 px-2 py-1 text-[10px] font-black uppercase text-coffee/60">
+                    <p className="mt-2 line-clamp-5 whitespace-pre-wrap text-sm font-semibold leading-6 text-ink/88">{note.message}</p>
+                    <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-coffee/10 px-2 py-1 text-[10px] font-black uppercase text-coffee/78">
                       <MessageCircle size={12} />
                       Xem thư
                     </span>
@@ -318,7 +318,7 @@ function ClassMessageBoard({
 
       {selectedNote && (
         <m.div
-          className="app-safe-modal-overlay fixed inset-0 z-[95] grid place-items-center bg-ink/62 p-3 sm:p-6"
+          className="app-safe-modal-overlay fixed inset-0 z-[95] grid place-items-center bg-ink/48 p-3 sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label="Xem thư trên bảng lớp"
@@ -329,10 +329,10 @@ function ClassMessageBoard({
           transition={{ duration: mobilePerformanceMode ? 0 : 0.16, ease: 'easeOut' }}
         >
           <m.div
-            className="app-safe-modal-panel relative max-h-[92svh] w-full max-w-2xl overflow-auto rounded-[0.85rem] border border-white/70 bg-[#fffaf1] p-5 text-ink shadow-[0_24px_70px_rgba(18,15,13,.28)] sm:p-7"
+            className="app-safe-modal-panel relative max-h-[92svh] w-full max-w-2xl overflow-auto rounded-[0.95rem] border border-white/80 bg-[#fffaf1] p-5 text-ink shadow-[0_24px_70px_rgba(18,15,13,.24)] sm:p-7"
             onClick={(event) => event.stopPropagation()}
-            initial={mobilePerformanceMode ? false : { opacity: 0, y: 18, scale: 0.985, rotate: -0.35 }}
-            animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
+            initial={mobilePerformanceMode ? false : { opacity: 0, y: 18, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: mobilePerformanceMode ? 0 : 0.2, ease: 'easeOut' }}
           >
             <button
@@ -348,14 +348,14 @@ function ClassMessageBoard({
               <h3 className="font-hand text-5xl font-bold leading-none text-coffee">
                 {selectedNote.type === 'anonymous' ? 'Ẩn danh' : selectedNote.name}
               </h3>
-              <time className="mt-2 block text-xs font-bold uppercase text-ink/45">
+              <time className="mt-2 block text-xs font-black uppercase text-ink/58">
                 {formatMemoryDate(selectedNote.createdAt)}
               </time>
             </div>
 
-            <div className="relative mt-5 rounded-[0.65rem] bg-white/62 p-5 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.08)]">
+            <div className="relative mt-5 rounded-[0.75rem] bg-white p-5 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.1)]">
               <span className="absolute -top-2 left-8 h-5 w-24 rotate-[-3deg] rounded-sm bg-[#f4dfbf]/80 shadow-sm" />
-              <p className="whitespace-pre-wrap break-words text-base leading-8 text-ink/78">
+              <p className="whitespace-pre-wrap break-words text-base font-semibold leading-8 text-ink/90">
                 {selectedNote.message}
               </p>
             </div>

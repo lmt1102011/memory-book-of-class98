@@ -2,6 +2,7 @@ import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion';
 import {
   BadgeCheck,
   Bell,
+  BookOpen,
   Heart,
   Home,
   Image as ImageIcon,
@@ -55,6 +56,7 @@ import { isRecentlyOnline } from './utils/presence';
 const JoinPage = lazy(() => import('./pages/JoinPage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
 const ClassMessageBoard = lazy(() => import('./components/ClassMessageBoard'));
+const SignatureWallPage = lazy(() => import('./pages/SignatureWallPage'));
 const FutureMessagesPage = lazy(() => import('./pages/FutureMessagesPage'));
 const RememberPage = lazy(() => import('./pages/RememberPage'));
 const DiaryPage = lazy(() => import('./pages/DiaryPage'));
@@ -63,7 +65,7 @@ const PeoplePage = lazy(() => import('./pages/PeoplePage'));
 const VotesPage = lazy(() => import('./pages/VotesPage'));
 const MyMemoriesPage = lazy(() => import('./pages/MyMemoriesPage'));
 
-const appRoutes: AppRoute[] = ['landing', 'join', 'home', 'letters', 'future', 'remember', 'diary', 'photobook', 'people', 'votes', 'mine'];
+const appRoutes: AppRoute[] = ['landing', 'join', 'home', 'letters', 'signatures', 'future', 'remember', 'diary', 'photobook', 'people', 'votes', 'mine'];
 const MENU_HINT_STORAGE_VERSION = 'v4';
 const MEMORY_VIEW_GUIDE_STORAGE_VERSION = 'v1';
 const PROFILE_REMINDER_STORAGE_VERSION = 'v1';
@@ -747,7 +749,7 @@ export default function App() {
         });
     }
 
-    if (route === 'home' || route === 'remember' || route === 'people' || route === 'votes' || route === 'photobook') {
+    if (route === 'home' || route === 'letters' || route === 'signatures' || route === 'remember' || route === 'people' || route === 'votes' || route === 'photobook') {
       setClassmatesLoading(true);
 
       void import('./services/firebaseMemoryBook')
@@ -768,7 +770,7 @@ export default function App() {
             },
           );
 
-          if (route === 'home' && profile) {
+          if (route === 'signatures' && profile) {
             unsubscribeClassSignatures = service.subscribeClassSignatures(
               (items) => {
                 if (!isActive) return;
@@ -1582,7 +1584,7 @@ export default function App() {
         label: 'Lời nhắn',
         description: 'Secret Message, nhật ký và lời nhắn tương lai',
         icon: MessageCircle,
-        isActive: route === 'letters' || route === 'future' || route === 'remember' || route === 'diary',
+        isActive: route === 'letters' || route === 'signatures' || route === 'future' || route === 'remember' || route === 'diary',
         badgeCount: messageCount,
         items: [
           {
@@ -1592,6 +1594,14 @@ export default function App() {
             icon: MessageCircle,
             isActive: route === 'letters',
             onSelect: () => navigate('letters'),
+          },
+          {
+            id: 'signatures',
+            label: 'Tường chữ ký',
+            description: 'Ký tay và xem bức tường lưu niệm của lớp.',
+            icon: BookOpen,
+            isActive: route === 'signatures',
+            onSelect: () => navigate('signatures'),
           },
           ...(classLettersEnabled
             ? [
@@ -2090,7 +2100,7 @@ export default function App() {
           ...activity,
           ownMemoryComments: activity.ownMemoryComments.map(rollbackReaction),
         }));
-        setFirebaseNotice(caught instanceof Error ? caught.message : 'KhÃ´ng thá»ƒ reaction bÃ¬nh luáº­n lÃºc nÃ y.');
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể reaction bình luận lúc này.');
       } finally {
         pendingCommentReactionIdsRef.current.delete(comment.id);
         setPendingCommentReactionIds(Array.from(pendingCommentReactionIdsRef.current));
@@ -2292,7 +2302,7 @@ export default function App() {
         await service.markRememberNotesViewed(profile, notes);
         setFirebaseNotice('');
       } catch (caught) {
-        setFirebaseNotice(caught instanceof Error ? caught.message : 'KhÃ´ng thá»ƒ cáº­p nháº­t tráº¡ng thÃ¡i Ä‘Ã£ xem.');
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể cập nhật trạng thái đã xem.');
       }
     },
     [profile],
@@ -2326,7 +2336,7 @@ export default function App() {
       } catch (caught) {
         setRememberNotes((items) => items.map(removeHeart));
         setSentRememberNotes((items) => items.map(removeHeart));
-        setFirebaseNotice(caught instanceof Error ? caught.message : 'KhÃ´ng thá»ƒ tháº£ tim Secret Message lÃºc nÃ y.');
+        setFirebaseNotice(caught instanceof Error ? caught.message : 'Không thể thả tim Secret Message lúc này.');
       }
     },
     [maybeShowProfileCompletionReminder, navigate, profile],
@@ -2426,6 +2436,20 @@ export default function App() {
             />
           </Suspense>
         </section>
+      );
+    }
+
+    if (route === 'signatures') {
+      return (
+        <Suspense fallback={<LoadingScreen label="Đang mở tường chữ ký" />}>
+          <SignatureWallPage
+            signatures={classSignatures}
+            firebaseNotice={firebaseNotice}
+            profile={profile}
+            onJoin={() => navigate('join')}
+            onSaveSignature={handleClassSignatureSave}
+          />
+        </Suspense>
       );
     }
 
@@ -2561,7 +2585,6 @@ export default function App() {
           memories={allMemories}
           commentsByMemory={commentsByMemory}
           classmates={classmates}
-          classSignatures={classSignatures}
           firebaseNotice={firebaseNotice}
           isLoadingMemories={memoriesLoading}
           memoryRecapEnabled={memoryRecapEnabled}
@@ -2586,7 +2609,6 @@ export default function App() {
           onDeleteComment={handleMemoryCommentDelete}
           onDeleteMemory={handleMemoryDelete}
           onDownloadMemory={handleMemoryDownload}
-          onSaveClassSignature={handleClassSignatureSave}
         />
       </Suspense>
     );
