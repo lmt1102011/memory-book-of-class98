@@ -70,6 +70,7 @@ const MENU_HINT_STORAGE_VERSION = 'v4';
 const MEMORY_VIEW_GUIDE_STORAGE_VERSION = 'v1';
 const PROFILE_REMINDER_STORAGE_VERSION = 'v1';
 const MENU_HINT_DISMISS_DELAY_MS = 4800;
+const SESSION_NOTICE_TIMEOUT_MS = 9000;
 const PROFILE_REMINDER_INTERACTION_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const PROFILE_REMINDER_PASSIVE_INTERVAL_MS = 36 * 60 * 60 * 1000;
 const PROFILE_REMINDER_INTERACTION_THRESHOLD = 3;
@@ -564,7 +565,7 @@ export default function App() {
 
   useEffect(() => {
     if (!sessionNotice) return undefined;
-    const timer = window.setTimeout(() => setSessionNotice(''), 5200);
+    const timer = window.setTimeout(() => setSessionNotice(''), SESSION_NOTICE_TIMEOUT_MS);
     return () => window.clearTimeout(timer);
   }, [sessionNotice]);
 
