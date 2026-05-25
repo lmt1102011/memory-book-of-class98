@@ -69,6 +69,7 @@ const appRoutes: AppRoute[] = ['landing', 'join', 'home', 'letters', 'signatures
 const MENU_HINT_STORAGE_VERSION = 'v4';
 const MEMORY_VIEW_GUIDE_STORAGE_VERSION = 'v1';
 const PROFILE_REMINDER_STORAGE_VERSION = 'v1';
+const MENU_HINT_DISMISS_DELAY_MS = 4800;
 const PROFILE_REMINDER_INTERACTION_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const PROFILE_REMINDER_PASSIVE_INTERVAL_MS = 36 * 60 * 60 * 1000;
 const PROFILE_REMINDER_INTERACTION_THRESHOLD = 3;
@@ -437,33 +438,54 @@ export default function App() {
     setNotificationReadIds(readStoredNotificationIds(profile.uid));
   }, [profile]);
 
+  const markMenuHintSeen = useCallback(() => {
+    if (profile?.uid) {
+      window.localStorage.setItem(menuHintStorageKey(profile.uid), '1');
+    }
+  }, [profile?.uid]);
+
   const dismissMenuHint = useCallback(() => {
     if (menuHintDismissTimerRef.current) {
       window.clearTimeout(menuHintDismissTimerRef.current);
       menuHintDismissTimerRef.current = 0;
     }
     setMenuHintVisible(false);
-    if (profile) {
-      window.localStorage.setItem(menuHintStorageKey(profile.uid), '1');
-    }
-  }, [profile]);
+    markMenuHintSeen();
+  }, [markMenuHintSeen]);
 
   const scheduleMenuHintDismiss = useCallback(() => {
     if (menuHintDismissTimerRef.current) return;
+    markMenuHintSeen();
     menuHintDismissTimerRef.current = window.setTimeout(() => {
       menuHintDismissTimerRef.current = 0;
       dismissMenuHint();
-    }, 2600);
-  }, [dismissMenuHint]);
+    }, MENU_HINT_DISMISS_DELAY_MS);
+  }, [dismissMenuHint, markMenuHintSeen]);
 
   useEffect(() => {
     window.clearTimeout(menuHintTimerRef.current);
-    window.clearTimeout(menuHintDismissTimerRef.current);
-    menuHintDismissTimerRef.current = 0;
+
+    const shouldHideHint =
+      !profile?.uid ||
+      Boolean(accountBlock) ||
+      !bootSplashDone ||
+      route === 'landing' ||
+      route === 'join' ||
+      menuOpen ||
+      notificationsOpen ||
+      futureMessagePopupOpen;
+
+    if (shouldHideHint) {
+      window.clearTimeout(menuHintDismissTimerRef.current);
+      menuHintDismissTimerRef.current = 0;
+      setMenuHintVisible(false);
+      return undefined;
+    }
+
+    if (menuHintDismissTimerRef.current) return undefined;
+
     setMenuHintVisible(false);
 
-    if (!profile || accountBlock || !bootSplashDone || route === 'landing' || route === 'join') return undefined;
-    if (menuOpen || notificationsOpen || futureMessagePopupOpen) return undefined;
     if (!window.matchMedia('(max-width: 1023px)').matches) return undefined;
     if (window.localStorage.getItem(menuHintStorageKey(profile.uid))) return undefined;
 
@@ -480,7 +502,7 @@ export default function App() {
     futureMessagePopupOpen,
     menuOpen,
     notificationsOpen,
-    profile,
+    profile?.uid,
     reduceHeavyMotion,
     route,
   ]);
@@ -1175,6 +1197,7 @@ export default function App() {
   );
   const menuHintCompleted = useMemo(() => {
     if (!profile?.uid || typeof window === 'undefined') return false;
+    if (menuHintVisible) return false;
     const isCompactNav = window.matchMedia('(max-width: 1023px)').matches;
     return !isCompactNav || window.localStorage.getItem(menuHintStorageKey(profile.uid)) === '1';
   }, [bootSplashDone, menuHintVisible, profile?.uid]);
@@ -2959,7 +2982,7 @@ export default function App() {
                 </span>
                 <p>Mở menu để thấy đủ tính năng của Memory98</p>
                 <small>Chạm nút 3 gạch ở góc trên bên phải. Trong đó có Hồ sơ lớp, Secret Message, Photobook và nhiều mục khác.</small>
-                <span className="menu-hint-dismiss">Chạm vào đây hoặc màn hình, hint sẽ tự tắt sau vài giây</span>
+                <span className="menu-hint-dismiss">Chạm màn hình, gợi ý sẽ ở lại thêm vài giây rồi tự tắt</span>
               </div>
             </m.button>
           )}

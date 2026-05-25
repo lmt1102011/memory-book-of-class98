@@ -32,6 +32,8 @@ import { cacheMemoryVideo, getCachedMemoryVideo, isImageCached, markImageCached,
 
 const EMPTY_COMMENTS: MemoryComment[] = [];
 type MemoryGuideStep = 'idle' | 'feed' | 'viewer' | 'done';
+const MEMORY_GUIDE_DELAY_MS = 7200;
+const ZOOM_GUIDE_DELAY_MS = 2600;
 
 type SmartMemoryFilter = 'all' | 'mine' | 'photos' | 'videos' | 'popular' | 'commented';
 
@@ -190,6 +192,8 @@ export default function HomePage({
   const zoomFrameRef = useRef<number | null>(null);
   const zoomStateSyncTimerRef = useRef<number | null>(null);
   const zoomInteractionTimerRef = useRef<number | null>(null);
+  const memoryGuideDelayTimerRef = useRef<number | null>(null);
+  const zoomGuideDelayTimerRef = useRef<number | null>(null);
   const zoomStateRef = useRef({ zoom: 1, x: 0, y: 0 });
   const activePointersRef = useRef(new Map<number, { x: number; y: number }>());
   const panGestureRef = useRef({ startX: 0, startY: 0, panX: 0, panY: 0, lastTapAt: 0 });
@@ -215,6 +219,8 @@ export default function HomePage({
   const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
   const [memoryGuideStep, setMemoryGuideStep] = useState<MemoryGuideStep>('idle');
+  const [memoryGuideReady, setMemoryGuideReady] = useState(false);
+  const [zoomGuideReady, setZoomGuideReady] = useState(false);
   const [signatureReminderDismissed, setSignatureReminderDismissed] = useState(false);
 
   const debouncedName = useDebounce(nameQuery);
@@ -223,11 +229,47 @@ export default function HomePage({
   useEffect(() => {
     if (!profile || !memoryGuideStorageKey) {
       setMemoryGuideStep('idle');
+      setMemoryGuideReady(false);
+      setZoomGuideReady(false);
       return;
     }
 
+    setMemoryGuideReady(false);
+    setZoomGuideReady(false);
     setMemoryGuideStep(window.localStorage.getItem(memoryGuideStorageKey) === 'done' ? 'done' : 'feed');
   }, [memoryGuideStorageKey, profile?.uid]);
+
+  useEffect(
+    () => () => {
+      if (memoryGuideDelayTimerRef.current !== null) window.clearTimeout(memoryGuideDelayTimerRef.current);
+      if (zoomGuideDelayTimerRef.current !== null) window.clearTimeout(zoomGuideDelayTimerRef.current);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (zoomGuideDelayTimerRef.current !== null) {
+      window.clearTimeout(zoomGuideDelayTimerRef.current);
+      zoomGuideDelayTimerRef.current = null;
+    }
+    setZoomGuideReady(false);
+
+    if (!selectedMemory || selectedMemory.mediaType === 'video' || !menuHintCompleted || memoryGuideStep !== 'viewer' || isImageZoomOpen) {
+      return undefined;
+    }
+
+    zoomGuideDelayTimerRef.current = window.setTimeout(() => {
+      zoomGuideDelayTimerRef.current = null;
+      setZoomGuideReady(true);
+    }, ZOOM_GUIDE_DELAY_MS);
+
+    return () => {
+      if (zoomGuideDelayTimerRef.current !== null) {
+        window.clearTimeout(zoomGuideDelayTimerRef.current);
+        zoomGuideDelayTimerRef.current = null;
+      }
+    };
+  }, [isImageZoomOpen, memoryGuideStep, menuHintCompleted, selectedMemory]);
 
   useEffect(() => {
     setSignatureReminderDismissed(false);
@@ -328,15 +370,21 @@ export default function HomePage({
 
   const markMemoryGuideDone = useCallback(() => {
     if (memoryGuideStorageKey) window.localStorage.setItem(memoryGuideStorageKey, 'done');
+    setMemoryGuideReady(false);
+    setZoomGuideReady(false);
     setMemoryGuideStep('done');
   }, [memoryGuideStorageKey]);
 
   const closeSelectedMemory = useCallback(() => {
-    if (memoryGuideStep === 'viewer') markMemoryGuideDone();
+    if (memoryGuideStep === 'viewer' && zoomGuideReady) {
+      markMemoryGuideDone();
+    } else {
+      setZoomGuideReady(false);
+    }
     setSelectedMemory(null);
     setIsImageZoomOpen(false);
     resetImageZoom();
-  }, [markMemoryGuideDone, memoryGuideStep, resetImageZoom]);
+  }, [markMemoryGuideDone, memoryGuideStep, resetImageZoom, zoomGuideReady]);
 
   const openImageZoomViewer = useCallback(() => {
     if (selectedMemory?.mediaType === 'video') return;
@@ -744,6 +792,30 @@ export default function HomePage({
   }, [activePersonKey, activeSmartFilter, activeTag, commentsByMemory, memories, profile, debouncedKeyword, debouncedName]);
 
   useEffect(() => {
+    if (memoryGuideDelayTimerRef.current !== null) {
+      window.clearTimeout(memoryGuideDelayTimerRef.current);
+      memoryGuideDelayTimerRef.current = null;
+    }
+    setMemoryGuideReady(false);
+
+    if (!profile || !menuHintCompleted || memoryGuideStep !== 'feed' || isLoadingMemories || !filteredMemories.length || selectedMemory) {
+      return undefined;
+    }
+
+    memoryGuideDelayTimerRef.current = window.setTimeout(() => {
+      memoryGuideDelayTimerRef.current = null;
+      setMemoryGuideReady(true);
+    }, MEMORY_GUIDE_DELAY_MS);
+
+    return () => {
+      if (memoryGuideDelayTimerRef.current !== null) {
+        window.clearTimeout(memoryGuideDelayTimerRef.current);
+        memoryGuideDelayTimerRef.current = null;
+      }
+    };
+  }, [filteredMemories.length, isLoadingMemories, memoryGuideStep, menuHintCompleted, profile?.uid, selectedMemory]);
+
+  useEffect(() => {
     if (!filteredMemories.length) return;
     warmImageCache(
       filteredMemories
@@ -770,6 +842,7 @@ export default function HomePage({
   const canShowMemoryTapGuide = Boolean(
     profile &&
       menuHintCompleted &&
+      memoryGuideReady &&
       memoryGuideStep === 'feed' &&
       !isLoadingMemories &&
       filteredMemories.length &&
@@ -779,6 +852,7 @@ export default function HomePage({
     selectedMemory &&
       selectedMemory.mediaType !== 'video' &&
       menuHintCompleted &&
+      zoomGuideReady &&
       memoryGuideStep === 'viewer' &&
       !isImageZoomOpen,
   );
@@ -814,6 +888,8 @@ export default function HomePage({
 
   const openMemoryPreview = useCallback(
     (memory: MemoryItem) => {
+      setMemoryGuideReady(false);
+      setZoomGuideReady(false);
       setSelectedMemory(memory);
       setQuickComment('');
       if (menuHintCompleted && memoryGuideStep === 'feed' && memory.mediaType !== 'video') {
@@ -826,6 +902,8 @@ export default function HomePage({
   const openFirstGuidedMemory = useCallback(() => {
     const firstPhoto = filteredMemories.find((memory) => memory.mediaType !== 'video') || filteredMemories[0];
     if (!firstPhoto) return;
+    setMemoryGuideReady(false);
+    setZoomGuideReady(false);
     setSelectedMemory(firstPhoto);
     setMemoryGuideStep(firstPhoto.mediaType === 'video' ? 'done' : 'viewer');
     if (firstPhoto.mediaType === 'video') markMemoryGuideDone();
@@ -1353,32 +1431,29 @@ export default function HomePage({
 
       {canShowMemoryTapGuide && (
         <div
-          className="fixed inset-0 z-[92] grid place-items-center bg-ink/42 px-4 py-6 backdrop-blur-[2px]"
-          role="dialog"
-          aria-modal="true"
+          className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[92] w-[min(92vw,28rem)] -translate-x-1/2 px-1"
+          role="status"
           aria-label="Hướng dẫn xem ảnh"
         >
-          <div className="w-full max-w-[27rem] rounded-[1.6rem] border border-white/75 bg-[#fffaf1] p-5 text-ink shadow-[0_24px_70px_rgba(18,15,13,0.32)] sm:p-6">
+          <div className="rounded-[1.35rem] border border-white/80 bg-[#fffaf1] p-4 text-ink shadow-[0_18px_52px_rgba(18,15,13,0.26)]">
             <div className="flex items-start gap-3">
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-ink text-paper shadow-sm">
-                <Camera size={22} />
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink text-paper shadow-sm">
+                <Camera size={19} />
               </span>
               <div className="min-w-0">
-                <p className="section-kicker mb-1">Mẹo xem ký ức</p>
-                <h2 className="font-display text-5xl leading-none">Bấm vào ảnh để xem rõ hơn</h2>
+                <p className="section-kicker mb-1">Mẹo nhỏ</p>
+                <h2 className="font-display text-4xl leading-none">Chạm ảnh để xem rõ hơn</h2>
+                <p className="mt-1 text-xs font-bold leading-5 text-coffee/70">
+                  Khi rảnh, thử mở một tấm ảnh trong feed. Sau đó bạn vẫn có thể zoom nếu muốn nhìn kỹ hơn.
+                </p>
               </div>
             </div>
-            <div className="mt-4 grid gap-2 rounded-[1rem] bg-paper/74 p-3 text-sm font-bold leading-6 text-coffee">
-              <p>1. Chạm vào một ảnh bất kỳ trong feed để mở popup xem rõ.</p>
-              <p>2. Khi popup ảnh hiện lên, chạm vào ảnh thêm một lần nữa để zoom bằng tay.</p>
-              <p className="text-xs text-ink/58">Hướng dẫn này chỉ hiện sau khi gợi ý dấu 3 gạch đã tắt và ảnh đã tải xong.</p>
-            </div>
-            <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              <button className="primary-button min-h-12 justify-center" onClick={openFirstGuidedMemory}>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <button className="primary-button min-h-11 justify-center" onClick={openFirstGuidedMemory}>
                 <Camera size={17} />
                 Mở thử một ảnh
               </button>
-              <button className="secondary-button min-h-12 justify-center" onClick={markMemoryGuideDone}>
+              <button className="secondary-button min-h-11 justify-center" onClick={markMemoryGuideDone}>
                 Đã hiểu
               </button>
             </div>
