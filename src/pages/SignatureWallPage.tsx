@@ -19,8 +19,8 @@ const signatureWallRotation = (index: number) => {
   return rotations[index % rotations.length];
 };
 
-const SIGNATURE_MIN_STROKE_WIDTH = 1.95;
-const SIGNATURE_MAX_STROKE_WIDTH = 3.75;
+const SIGNATURE_MIN_STROKE_WIDTH = 2.28;
+const SIGNATURE_MAX_STROKE_WIDTH = 2.62;
 const SIGNATURE_EXPORT_WIDTH = 1200;
 const SIGNATURE_EXPORT_HEIGHT = 420;
 
@@ -71,6 +71,11 @@ const interpolatePoint = (first: SignaturePoint, second: SignaturePoint, amount:
   pressure: first.pressure + (second.pressure - first.pressure) * amount,
 });
 
+const waitForPaint = () =>
+  new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => window.setTimeout(resolve, 0));
+  });
+
 const smoothSignatureStroke = (stroke: SignatureStroke, passes = 1): SignatureStroke => {
   if (stroke.length < 3) return stroke;
 
@@ -91,14 +96,11 @@ const smoothSignatureStroke = (stroke: SignatureStroke, passes = 1): SignatureSt
 };
 
 const getSegmentWidth = (from: SignaturePoint, to: SignaturePoint) => {
-  const elapsed = Math.max(10, to.time - from.time);
-  const speed = distanceBetween(from, to) / elapsed;
-  const speedAmount = clamp(speed / 0.95, 0, 1);
-  const pressure = clamp((from.pressure + to.pressure) / 2 || 0.52, 0.28, 0.92);
-  const pressureAmount = 0.78 + pressure * 0.3;
-  const baseWidth = SIGNATURE_MAX_STROKE_WIDTH - (SIGNATURE_MAX_STROKE_WIDTH - SIGNATURE_MIN_STROKE_WIDTH) * speedAmount;
+  const pressure = clamp((from.pressure + to.pressure) / 2 || 0.52, 0.36, 0.78);
+  const pressureNudge = (pressure - 0.52) * 0.22;
+  const baseWidth = (SIGNATURE_MIN_STROKE_WIDTH + SIGNATURE_MAX_STROKE_WIDTH) / 2;
 
-  return clamp(baseWidth * pressureAmount, SIGNATURE_MIN_STROKE_WIDTH, SIGNATURE_MAX_STROKE_WIDTH);
+  return clamp(baseWidth + pressureNudge, SIGNATURE_MIN_STROKE_WIDTH, SIGNATURE_MAX_STROKE_WIDTH);
 };
 
 const renderSignatureStrokes = (
@@ -199,7 +201,7 @@ const exportPolishedSignature = (strokes: SignatureStroke[], canvasSize: Signatu
   const signatureHeight = Math.max(1, bounds.maxY - bounds.minY);
   if (signatureWidth < 8 && signatureHeight < 8) return '';
 
-  const padding = clamp(Math.max(signatureWidth, signatureHeight) * 0.1, 18, 56);
+  const padding = clamp(Math.max(signatureWidth, signatureHeight) * 0.075, 14, 44);
   const sourceX = Math.max(0, bounds.minX - padding);
   const sourceY = Math.max(0, bounds.minY - padding);
   const sourceWidth = Math.min(canvasSize.width - sourceX, signatureWidth + padding * 2);
@@ -215,7 +217,7 @@ const exportPolishedSignature = (strokes: SignatureStroke[], canvasSize: Signatu
   outputContext.imageSmoothingEnabled = true;
   outputContext.imageSmoothingQuality = 'high';
 
-  const fitScale = Math.min((output.width * 0.98) / sourceWidth, (output.height * 0.9) / sourceHeight);
+  const fitScale = Math.min((output.width * 1.08) / sourceWidth, output.height / sourceHeight);
   const drawWidth = sourceWidth * fitScale;
   const drawHeight = sourceHeight * fitScale;
   const offsetX = (output.width - drawWidth) / 2 - sourceX * fitScale;
@@ -225,11 +227,11 @@ const exportPolishedSignature = (strokes: SignatureStroke[], canvasSize: Signatu
     scale: fitScale,
     offsetX,
     offsetY,
-    alpha: 0.12,
-    blur: 1.45,
+    alpha: 0.1,
+    blur: 0.7,
     color: '#1f1712',
-    widthMultiplier: 1.7,
-    smoothingPasses: 3,
+    widthMultiplier: 1.18,
+    smoothingPasses: 2,
   });
 
   renderSignatureStrokes(outputContext, strokes, {
@@ -238,18 +240,18 @@ const exportPolishedSignature = (strokes: SignatureStroke[], canvasSize: Signatu
     offsetY,
     alpha: 1,
     color: '#241913',
-    widthMultiplier: 1.12,
-    smoothingPasses: 3,
+    widthMultiplier: 1.04,
+    smoothingPasses: 2,
   });
 
   renderSignatureStrokes(outputContext, strokes, {
     scale: fitScale,
     offsetX,
     offsetY,
-    alpha: 0.1,
-    color: '#9a7158',
-    widthMultiplier: 0.36,
-    smoothingPasses: 3,
+    alpha: 0.06,
+    color: '#7a5639',
+    widthMultiplier: 0.22,
+    smoothingPasses: 2,
   });
 
   return output.toDataURL('image/webp', 0.96);
@@ -402,17 +404,17 @@ export default function SignatureWallPage({
                 <button
                   type="button"
                   key={signature.id}
-                  className="relative min-h-[9.35rem] rounded-[0.85rem] bg-[#fffaf1] p-2 text-left shadow-[0_12px_24px_rgba(18,15,13,0.2)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_28px_rgba(18,15,13,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper sm:min-h-[9.9rem]"
+                  className="relative min-h-[10.85rem] rounded-[0.85rem] bg-[#fffaf1] p-2 text-left shadow-[0_12px_24px_rgba(18,15,13,0.2)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_28px_rgba(18,15,13,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper sm:min-h-[11.3rem]"
                   style={{ transform: `rotate(${signatureWallRotation(index)}deg)` }}
                   onClick={() => setSelectedSignature(signature)}
                   aria-label={`Xem chữ ký của ${signature.name}`}
                 >
                   <span className="absolute left-1/2 top-1 h-4 w-14 -translate-x-1/2 rotate-1 rounded-sm bg-[#f7d6a4]/82 shadow-sm" />
-                  <div className="grid h-[6.75rem] place-items-center overflow-hidden rounded-[0.65rem] bg-white/86 p-1 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.08)] sm:h-[7.15rem]">
+                  <div className="grid h-[8.35rem] place-items-center overflow-hidden rounded-[0.65rem] bg-white/86 p-0.5 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.08)] sm:h-[8.75rem]">
                     <img
                       src={signature.imageDataUrl}
                       alt={`Chữ ký của ${signature.name}`}
-                      className="block h-full w-[118%] max-w-none scale-[1.18] object-contain"
+                      className="block h-full w-[150%] max-w-none scale-[1.44] object-contain"
                       loading="lazy"
                       decoding="async"
                     />
@@ -522,6 +524,7 @@ function SignatureEditorModal({
   const redrawFrameRef = useRef<number | null>(null);
   const liveMidPointRef = useRef<SignaturePoint | null>(null);
   const [hasInk, setHasInk] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [localError, setLocalError] = useState('');
 
   const markHasInk = useCallback(() => {
@@ -761,6 +764,7 @@ function SignatureEditorModal({
   );
 
   const clearCanvas = useCallback(() => {
+    if (isSaving || isExporting) return;
     strokesRef.current = [];
     activeStrokeRef.current = null;
     liveMidPointRef.current = null;
@@ -768,16 +772,21 @@ function SignatureEditorModal({
     hasInkRef.current = false;
     setHasInk(false);
     setLocalError('');
-  }, [redrawCanvas]);
+  }, [isExporting, isSaving, redrawCanvas]);
 
   const handleSave = useCallback(async () => {
+    if (isSaving || isExporting) return;
     const canvas = canvasRef.current;
     if (!canvas || !hasInk) {
       setLocalError('Hãy vẽ chữ ký lên bảng trước khi lưu nha.');
       return;
     }
 
+    setIsExporting(true);
+    setLocalError('');
+
     try {
+      await waitForPaint();
       const rect = canvas.getBoundingClientRect();
       const canvasSize = canvasSizeRef.current.width > 0
         ? canvasSizeRef.current
@@ -787,11 +796,14 @@ function SignatureEditorModal({
         setLocalError('Chữ ký hơi mờ, hãy ký rõ hơn một chút nha.');
         return;
       }
+      await waitForPaint();
       await onSave(signatureImage);
     } catch (caught) {
       setLocalError(caught instanceof Error ? caught.message : 'Không thể lưu chữ ký lúc này.');
+    } finally {
+      setIsExporting(false);
     }
-  }, [hasInk, onSave]);
+  }, [hasInk, isExporting, isSaving, onSave]);
 
   return (
     <div
@@ -835,11 +847,11 @@ function SignatureEditorModal({
         )}
 
         <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
-          <button className="primary-button min-h-12 justify-center" onClick={() => void handleSave()} disabled={isSaving || !hasInk}>
+          <button className="primary-button min-h-12 justify-center" onClick={() => void handleSave()} disabled={isSaving || isExporting || !hasInk}>
             <BookOpen size={17} />
-            {isSaving ? 'Đang lưu...' : ownSignature ? 'Lưu chữ ký mới' : 'Dán lên tường'}
+            {isExporting ? 'Đang làm nét...' : isSaving ? 'Đang lưu...' : ownSignature ? 'Lưu chữ ký mới' : 'Dán lên tường'}
           </button>
-          <button className="secondary-button min-h-12 justify-center" onClick={clearCanvas} disabled={isSaving}>
+          <button className="secondary-button min-h-12 justify-center" onClick={clearCanvas} disabled={isSaving || isExporting}>
             <RotateCcw size={16} />
             Xóa nét
           </button>
