@@ -2870,7 +2870,7 @@ export default function App() {
         {bootSplashDone && (
           <NotificationCenter
             open={notificationsOpen}
-            items={unreadNotificationItems}
+            items={notificationItems}
             unreadCount={unreadNotificationCount}
             onClose={() => setNotificationsOpen(false)}
             onMarkAllRead={markNotificationsRead}

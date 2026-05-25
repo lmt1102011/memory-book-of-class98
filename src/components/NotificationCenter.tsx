@@ -1,5 +1,6 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Bell, CheckCheck, Heart, MessageCircle, Sparkles, Trophy, X } from 'lucide-react';
-import type { NotificationItem } from '../types';
+import type { NotificationItem, NotificationKind } from '../types';
 import { formatUploadTime } from '../utils/date';
 
 interface NotificationCenterProps {
@@ -11,7 +12,9 @@ interface NotificationCenterProps {
   onOpenItem: (item: NotificationItem) => void;
 }
 
-const iconByKind = {
+type NotificationFilter = 'unread' | 'all' | 'messages' | 'memories' | 'class';
+
+const iconByKind: Record<NotificationKind, typeof Bell> = {
   message: MessageCircle,
   reaction: Heart,
   comment: MessageCircle,
@@ -22,10 +25,33 @@ const iconByKind = {
 };
 
 const accentClass = {
-  pink: 'bg-blush/35 text-coffee',
-  blue: 'bg-skySoft/35 text-chalk',
-  cream: 'bg-[#f4dfbf]/55 text-coffee',
-  chalk: 'bg-chalk/15 text-chalk',
+  pink: 'bg-blush/35 text-coffee ring-blush/35',
+  blue: 'bg-skySoft/38 text-chalk ring-skySoft/45',
+  cream: 'bg-[#f4dfbf]/60 text-coffee ring-[#dfbf91]/30',
+  chalk: 'bg-chalk/15 text-chalk ring-chalk/20',
+};
+
+const filterLabels: Record<NotificationFilter, string> = {
+  unread: 'Chưa xem',
+  all: 'Tất cả',
+  messages: 'Tin nhắn',
+  memories: 'Kỷ niệm',
+  class: 'Lớp',
+};
+
+const messageKinds = new Set<NotificationKind>(['message', 'reaction']);
+const memoryKinds = new Set<NotificationKind>(['comment', 'commentReaction', 'like']);
+const classKinds = new Set<NotificationKind>(['vote', 'badge']);
+
+const countBy = (items: NotificationItem[], predicate: (item: NotificationItem) => boolean) =>
+  items.reduce((total, item) => total + (predicate(item) ? 1 : 0), 0);
+
+const matchesFilter = (item: NotificationItem, filter: NotificationFilter) => {
+  if (filter === 'unread') return item.unread;
+  if (filter === 'messages') return messageKinds.has(item.kind);
+  if (filter === 'memories') return memoryKinds.has(item.kind);
+  if (filter === 'class') return classKinds.has(item.kind);
+  return true;
 };
 
 export default function NotificationCenter({
@@ -36,14 +62,40 @@ export default function NotificationCenter({
   onMarkAllRead,
   onOpenItem,
 }: NotificationCenterProps) {
+  const [activeFilter, setActiveFilter] = useState<NotificationFilter>('unread');
+
+  useEffect(() => {
+    if (!open) return;
+    setActiveFilter(unreadCount > 0 ? 'unread' : 'all');
+  }, [open, unreadCount]);
+
+  const sortedItems = useMemo(
+    () => [...items].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()),
+    [items],
+  );
+  const latestUnread = sortedItems.find((item) => item.unread);
+  const filteredItems = useMemo(
+    () => sortedItems.filter((item) => matchesFilter(item, activeFilter)),
+    [activeFilter, sortedItems],
+  );
+  const showLatestHighlight = Boolean(latestUnread && (activeFilter === 'unread' || matchesFilter(latestUnread, activeFilter)));
+  const displayItems =
+    showLatestHighlight && latestUnread
+      ? filteredItems.filter((item) => item.id !== latestUnread.id)
+      : filteredItems;
+
   if (!open) return null;
 
-  const latestItem = items[0];
-  const listItems = latestItem ? items.filter((item) => item.id !== latestItem.id) : items;
-  const messageCount = items.filter((item) => item.kind === 'message' || item.kind === 'reaction').length;
-  const memoryCount = items.filter((item) => item.kind === 'comment' || item.kind === 'commentReaction' || item.kind === 'like').length;
-  const badgeCount = items.filter((item) => item.kind === 'badge').length;
-  const voteCount = items.filter((item) => item.kind === 'vote').length;
+  const counts = {
+    unread: unreadCount,
+    all: sortedItems.length,
+    messages: countBy(sortedItems, (item) => messageKinds.has(item.kind)),
+    memories: countBy(sortedItems, (item) => memoryKinds.has(item.kind)),
+    class: countBy(sortedItems, (item) => classKinds.has(item.kind)),
+  };
+  const unreadMessages = countBy(sortedItems, (item) => item.unread && messageKinds.has(item.kind));
+  const unreadMemories = countBy(sortedItems, (item) => item.unread && memoryKinds.has(item.kind));
+  const unreadClass = countBy(sortedItems, (item) => item.unread && classKinds.has(item.kind));
 
   return (
     <div
@@ -54,21 +106,22 @@ export default function NotificationCenter({
       onClick={onClose}
     >
       <div
-        className="notification-panel w-full overflow-hidden rounded-t-[1.45rem] border border-white/70 bg-[#fffaf1] text-ink shadow-[0_28px_90px_rgba(18,15,13,0.34)] sm:ml-auto sm:max-h-[82svh] sm:max-w-[27rem] sm:rounded-[1.35rem]"
+        className="notification-panel w-full overflow-hidden rounded-t-[1.45rem] border border-white/70 bg-[#fffaf1] text-ink shadow-[0_28px_90px_rgba(18,15,13,0.34)] sm:ml-auto sm:max-h-[82svh] sm:max-w-[30rem] sm:rounded-[1.35rem]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="border-b border-coffee/10 bg-[#fffaf1] p-4 sm:p-5">
           <span className="mx-auto mb-3 block h-1.5 w-12 rounded-full bg-coffee/18 sm:hidden" aria-hidden="true" />
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-start gap-3">
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-ink text-paper shadow-paper">
+              <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-full bg-ink text-paper shadow-paper">
                 <Bell size={21} />
+                {unreadCount > 0 && <span className="absolute right-0 top-0 h-3.5 w-3.5 rounded-full bg-roseDust ring-2 ring-[#fffaf1]" />}
               </span>
               <div className="min-w-0">
-                <p className="section-kicker">Thông báo</p>
-                <h2 className="font-display text-5xl leading-none">Thông báo mới</h2>
+                <p className="section-kicker">Chuông lớp 9/8</p>
+                <h2 className="font-display text-4xl leading-none sm:text-5xl">Trung tâm thông báo</h2>
                 <p className="mt-2 text-xs leading-5 text-ink/58">
-                  Chỉ hiện những thông báo bạn chưa xem. Bấm vào một thông báo để mở, xem rồi thông báo đó sẽ biến mất.
+                  Theo dõi Secret Message, tim, bình luận, cảm xúc, huy hiệu và bình chọn mới ngay trong chiếc chuông này.
                 </p>
               </div>
             </div>
@@ -81,92 +134,138 @@ export default function NotificationCenter({
             <div className="flex items-center justify-between gap-3">
               <span className="inline-flex min-w-0 items-center gap-2 text-sm font-bold">
                 <Bell size={17} />
-                {unreadCount ? `${unreadCount} thông báo chưa xem` : 'Bạn đã xem hết thông báo'}
+                {unreadCount ? `${unreadCount} thông báo chưa xem` : 'Bạn đã xem hết thông báo mới'}
               </span>
               <button
                 className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full bg-paper px-3 text-xs font-black text-ink transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-55"
                 onClick={onMarkAllRead}
-                disabled={!items.length || unreadCount === 0}
+                disabled={unreadCount === 0}
               >
                 <CheckCheck size={14} />
                 Đã xem hết
               </button>
             </div>
 
-            <div className="mt-3 grid grid-cols-4 gap-2 text-center">
-              <NotificationMetric value={messageCount} label="tin nhắn" />
-              <NotificationMetric value={memoryCount} label="kỷ niệm" />
-              <NotificationMetric value={badgeCount} label="danh hiệu" />
-              <NotificationMetric value={voteCount} label="vote" />
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+              <NotificationMetric value={unreadMessages} label="tin nhắn" />
+              <NotificationMetric value={unreadMemories} label="kỷ niệm" />
+              <NotificationMetric value={unreadClass} label="lớp" />
             </div>
+          </div>
+
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {(Object.keys(filterLabels) as NotificationFilter[]).map((filter) => {
+              const isActive = activeFilter === filter;
+              const count = counts[filter];
+
+              return (
+                <button
+                  key={filter}
+                  className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-black transition ${
+                    isActive ? 'bg-ink text-paper shadow-paper' : 'bg-white/78 text-coffee ring-1 ring-coffee/10 hover:bg-white'
+                  }`}
+                  onClick={() => setActiveFilter(filter)}
+                >
+                  {filterLabels[filter]}
+                  {count > 0 && (
+                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${isActive ? 'bg-paper text-ink' : 'bg-roseDust text-white'}`}>
+                      {count > 99 ? '99+' : count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div className="max-h-[calc(100svh-16rem)] overflow-y-auto p-3 sm:max-h-[calc(82svh-15rem)] sm:p-4">
-          {latestItem && (
+        <div className="max-h-[calc(100svh-19rem)] overflow-y-auto p-3 sm:max-h-[calc(82svh-18rem)] sm:p-4">
+          {showLatestHighlight && latestUnread && (
             <button
               className="mb-3 w-full rounded-[1.1rem] bg-gradient-to-br from-blush/45 via-white to-skySoft/35 p-4 text-left shadow-paper ring-1 ring-white/80 transition hover:-translate-y-0.5 hover:shadow-glass"
-              onClick={() => onOpenItem(latestItem)}
+              onClick={() => onOpenItem(latestUnread)}
             >
               <span className="inline-flex items-center gap-2 rounded-full bg-ink px-3 py-1.5 text-[11px] font-black uppercase text-paper">
                 <Bell size={17} />
                 Mới nhất
               </span>
-              <strong className="mt-3 block line-clamp-2 text-base leading-6 text-ink">{latestItem.title}</strong>
-              <span className="mt-1 block line-clamp-2 text-sm leading-6 text-ink/64">{latestItem.body}</span>
+              <strong className="mt-3 block line-clamp-2 text-base leading-6 text-ink">{latestUnread.title}</strong>
+              <span className="mt-1 block line-clamp-2 text-sm leading-6 text-ink/64">{latestUnread.body}</span>
               <span className="mt-3 inline-flex items-center gap-1.5 text-xs font-black uppercase text-coffee">
                 Mở ngay <Sparkles size={14} />
               </span>
             </button>
           )}
 
-          {items.length ? (
+          {displayItems.length ? (
             <div className="grid gap-2">
-              {listItems.map((item) => {
-                const Icon = iconByKind[item.kind] || Sparkles;
-
-                return (
-                  <button
-                    key={item.id}
-                    className="grid grid-cols-[2.65rem_minmax(0,1fr)] gap-3 rounded-[1rem] bg-white p-3 text-left shadow-paper ring-1 ring-blush/28 transition hover:bg-white/80"
-                    onClick={() => onOpenItem(item)}
-                  >
-                    <span className={`grid h-10 w-10 place-items-center rounded-full ${accentClass[item.accent]}`}>
-                      <Icon
-                        size={17}
-                        fill={item.kind === 'like' || item.kind === 'reaction' || item.kind === 'commentReaction' || item.kind === 'badge' ? 'currentColor' : 'none'}
-                      />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="flex items-center justify-between gap-2">
-                        <strong className="line-clamp-1 text-sm">{item.title}</strong>
-                        <span className="shrink-0 rounded-full bg-roseDust px-2 py-0.5 text-[10px] font-black uppercase text-white">
-                          Chưa xem
-                        </span>
-                      </span>
-                      <span className="mt-1 line-clamp-2 text-xs leading-5 text-ink/62">{item.body}</span>
-                      <span className="mt-2 block text-[11px] font-bold uppercase text-coffee/60">
-                        {formatUploadTime(item.createdAt)}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
+              {displayItems.map((item) => (
+                <NotificationRow key={item.id} item={item} onOpenItem={onOpenItem} />
+              ))}
             </div>
-          ) : (
-            <div className="grid min-h-56 place-items-center rounded-[1.1rem] bg-white/58 p-6 text-center ring-1 ring-coffee/6">
-              <div>
-                <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-paper text-coffee shadow-paper">
-                  <MessageCircle size={27} />
-                </span>
-                <h3 className="mt-3 font-display text-4xl leading-none">Đã xem hết</h3>
-                <p className="mt-2 text-sm leading-6 text-ink/58">
-                  Khi có Secret Message, tim, bình luận, danh hiệu hoặc bình chọn mới, popup này sẽ hiện rõ để bạn mở xem.
-                </p>
-              </div>
-            </div>
+          ) : showLatestHighlight ? null : (
+            <EmptyNotificationState filter={activeFilter} hasAnyItems={sortedItems.length > 0} />
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function NotificationRow({ item, onOpenItem }: { item: NotificationItem; onOpenItem: (item: NotificationItem) => void }) {
+  const Icon = iconByKind[item.kind] || Sparkles;
+
+  return (
+    <button
+      className={`grid w-full grid-cols-[2.65rem_minmax(0,1fr)] gap-3 rounded-[1rem] p-3 text-left shadow-paper ring-1 transition hover:bg-white ${
+        item.unread ? 'bg-white ring-blush/38' : 'bg-white/62 ring-coffee/7'
+      }`}
+      onClick={() => onOpenItem(item)}
+    >
+      <span className={`relative grid h-10 w-10 place-items-center rounded-full ring-1 ${accentClass[item.accent]}`}>
+        <Icon
+          size={17}
+          fill={item.kind === 'like' || item.kind === 'reaction' || item.kind === 'commentReaction' || item.kind === 'badge' ? 'currentColor' : 'none'}
+        />
+        {item.unread && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-roseDust ring-2 ring-white" />}
+      </span>
+      <span className="min-w-0">
+        <span className="flex items-start justify-between gap-2">
+          <strong className="line-clamp-2 text-sm leading-5">{item.title}</strong>
+          <span
+            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
+              item.unread ? 'bg-roseDust text-white' : 'bg-coffee/8 text-coffee/58'
+            }`}
+          >
+            {item.unread ? 'Chưa xem' : 'Đã xem'}
+          </span>
+        </span>
+        <span className="mt-1 line-clamp-2 text-xs leading-5 text-ink/62">{item.body}</span>
+        <span className="mt-2 block text-[11px] font-bold uppercase text-coffee/60">{formatUploadTime(item.createdAt)}</span>
+      </span>
+    </button>
+  );
+}
+
+function EmptyNotificationState({ filter, hasAnyItems }: { filter: NotificationFilter; hasAnyItems: boolean }) {
+  const title = !hasAnyItems
+    ? 'Chưa có thông báo'
+    : filter === 'unread'
+      ? 'Đã xem hết'
+      : 'Không có mục nào';
+  const body = !hasAnyItems
+    ? 'Khi có Secret Message, tim, bình luận, huy hiệu hoặc bình chọn mới, chuông này sẽ báo cho bạn.'
+    : filter === 'unread'
+      ? 'Những thông báo đã xem vẫn nằm ở tab Tất cả để bạn mở lại khi cần.'
+      : 'Thử chuyển sang tab khác để xem thêm hoạt động của lớp.';
+
+  return (
+    <div className="grid min-h-56 place-items-center rounded-[1.1rem] bg-white/58 p-6 text-center ring-1 ring-coffee/6">
+      <div>
+        <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-paper text-coffee shadow-paper">
+          <MessageCircle size={27} />
+        </span>
+        <h3 className="mt-3 font-display text-4xl leading-none">{title}</h3>
+        <p className="mt-2 text-sm leading-6 text-ink/58">{body}</p>
       </div>
     </div>
   );
