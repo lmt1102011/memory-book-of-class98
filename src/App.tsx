@@ -2187,6 +2187,17 @@ export default function App() {
     [maybeShowProfileCompletionReminder, navigate, profile],
   );
 
+  const handleClassSignatureDelete = useCallback(async () => {
+    if (!profile) {
+      navigate('join');
+      return;
+    }
+
+    const service = await import('./services/firebaseMemoryBook');
+    await service.deleteClassSignature(profile);
+    setClassSignatures((items) => items.filter((item) => item.nameKey !== profile.nameKey && item.uid !== profile.uid));
+  }, [navigate, profile]);
+
   const handleSecretDiaryAdd = useCallback(
     async (message: string) => {
       if (!profile) {
@@ -2448,6 +2459,7 @@ export default function App() {
             profile={profile}
             onJoin={() => navigate('join')}
             onSaveSignature={handleClassSignatureSave}
+            onDeleteSignature={handleClassSignatureDelete}
           />
         </Suspense>
       );

@@ -1,9 +1,7 @@
-import { m } from 'framer-motion';
 import { MessageCircle, Send, Trash2, X } from 'lucide-react';
 import { FormEvent, memo, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import ActionModal from './ActionModal';
 import DraftStatus from './DraftStatus';
-import { useMobilePerformanceMode } from '../hooks/useMobilePerformanceMode';
 import { useLocalDraft } from '../hooks/useLocalDraft';
 import type { GuestbookEntry, UserProfile } from '../types';
 import { formatMemoryDate } from '../utils/date';
@@ -68,7 +66,6 @@ function ClassMessageBoard({
   const [selectedNote, setSelectedNote] = useState<BoardNote | null>(null);
   const [error, setError] = useState('');
   const [isWriterOpen, setIsWriterOpen] = useState(false);
-  const mobilePerformanceMode = useMobilePerformanceMode();
   const {
     value: classMessage,
     setValue: setClassMessage,
@@ -317,23 +314,16 @@ function ClassMessageBoard({
       </ActionModal>
 
       {selectedNote && (
-        <m.div
+        <div
           className="class-letter-modal-overlay app-safe-modal-overlay fixed inset-0 z-[95] grid place-items-center bg-[rgba(18,15,13,0.74)] p-3 sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label="Xem thư trên bảng lớp"
           onClick={() => setSelectedNote(null)}
-          initial={mobilePerformanceMode ? false : { y: 10 }}
-          animate={{ y: 0 }}
-          exit={mobilePerformanceMode ? undefined : { y: 10 }}
-          transition={{ duration: mobilePerformanceMode ? 0 : 0.14, ease: 'easeOut' }}
         >
-          <m.div
+          <div
             className="class-letter-modal-panel app-safe-modal-panel relative max-h-[92svh] w-full max-w-2xl overflow-auto rounded-[1.05rem] border border-[#7a5639]/25 bg-[#fffaf1] p-5 text-[#241b15] shadow-[0_26px_80px_rgba(18,15,13,.34)] sm:p-7"
             onClick={(event) => event.stopPropagation()}
-            initial={mobilePerformanceMode ? false : { y: 14, scale: 0.99 }}
-            animate={{ y: 0, scale: 1 }}
-            transition={{ duration: mobilePerformanceMode ? 0 : 0.2, ease: 'easeOut' }}
           >
             <button
               className="class-letter-modal-x absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-[#241b15] text-[#fffaf1] shadow-[0_10px_22px_rgba(18,15,13,.24)] transition hover:bg-[#120f0d]"
@@ -380,8 +370,8 @@ function ClassMessageBoard({
                 </button>
               )}
             </div>
-          </m.div>
-        </m.div>
+          </div>
+        </div>
       )}
     </section>
   );

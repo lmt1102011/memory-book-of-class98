@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { BookOpen, RotateCcw, Sparkles, UserRound, X } from 'lucide-react';
+import { BookOpen, RotateCcw, Sparkles, Trash2, UserRound, X } from 'lucide-react';
 import FirebaseNotice from '../components/FirebaseNotice';
 import type { ClassSignature, UserProfile } from '../types';
 import { formatUploadTime } from '../utils/date';
@@ -11,11 +11,54 @@ interface SignatureWallPageProps {
   profile: UserProfile | null;
   onJoin: () => void;
   onSaveSignature: (imageDataUrl: string) => void | Promise<void>;
+  onDeleteSignature: () => void | Promise<void>;
 }
 
 const signatureWallRotation = (index: number) => {
   const rotations = [-1.8, 1.2, -0.7, 1.7, -1.1, 0.8, -1.4, 1.4];
   return rotations[index % rotations.length];
+};
+
+const exportTightSignature = (canvas: HTMLCanvasElement) => {
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) return '';
+
+  const { width, height } = canvas;
+  const pixels = context.getImageData(0, 0, width, height).data;
+  let minX = width;
+  let minY = height;
+  let maxX = 0;
+  let maxY = 0;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const alpha = pixels[(y * width + x) * 4 + 3];
+      if (alpha <= 8) continue;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+  }
+
+  if (minX > maxX || minY > maxY) return '';
+
+  const padding = Math.max(24, Math.round(Math.max(maxX - minX, maxY - minY) * 0.12));
+  const sourceX = Math.max(0, minX - padding);
+  const sourceY = Math.max(0, minY - padding);
+  const sourceWidth = Math.min(width - sourceX, maxX - minX + 1 + padding * 2);
+  const sourceHeight = Math.min(height - sourceY, maxY - minY + 1 + padding * 2);
+  const maxExportWidth = 1200;
+  const scale = Math.min(1, maxExportWidth / sourceWidth);
+  const output = document.createElement('canvas');
+  output.width = Math.max(1, Math.round(sourceWidth * scale));
+  output.height = Math.max(1, Math.round(sourceHeight * scale));
+  const outputContext = output.getContext('2d');
+  if (!outputContext) return '';
+  outputContext.imageSmoothingEnabled = true;
+  outputContext.imageSmoothingQuality = 'high';
+  outputContext.drawImage(canvas, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, output.width, output.height);
+  return output.toDataURL('image/webp', 0.94);
 };
 
 export default function SignatureWallPage({
@@ -24,9 +67,11 @@ export default function SignatureWallPage({
   profile,
   onJoin,
   onSaveSignature,
+  onDeleteSignature,
 }: SignatureWallPageProps) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [saveError, setSaveError] = useState('');
 
   const ownSignature = useMemo(
@@ -51,6 +96,21 @@ export default function SignatureWallPage({
     },
     [onSaveSignature],
   );
+
+  const handleDelete = useCallback(async () => {
+    if (!ownSignature) return;
+    if (!window.confirm('Xóa chữ ký của bạn khỏi bảng lớp?')) return;
+
+    setIsDeleting(true);
+    setSaveError('');
+    try {
+      await onDeleteSignature();
+    } catch (caught) {
+      setSaveError(caught instanceof Error ? caught.message : 'Không thể xóa chữ ký lúc này.');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [onDeleteSignature, ownSignature]);
 
   if (!profile) {
     return (
@@ -90,15 +150,24 @@ export default function SignatureWallPage({
           </div>
 
           <div className="rounded-[1.45rem] border border-white/65 bg-white/58 p-4 shadow-paper">
-            <button className="primary-button min-h-12 w-full justify-center" onClick={() => setEditorOpen(true)}>
-              <BookOpen size={18} />
-              {ownSignature ? 'Ký lại cho đẹp hơn' : 'Ký cho lớp ngay'}
-            </button>
+            <div className="grid gap-2">
+              <button className="primary-button min-h-12 w-full justify-center" onClick={() => setEditorOpen(true)} disabled={isDeleting}>
+                <BookOpen size={18} />
+                {ownSignature ? 'Ký lại cho đẹp hơn' : 'Ký cho lớp ngay'}
+              </button>
+              {ownSignature && (
+                <button className="secondary-button min-h-11 w-full justify-center text-coffee" onClick={() => void handleDelete()} disabled={isDeleting || isSaving}>
+                  <Trash2 size={16} />
+                  {isDeleting ? 'Đang xóa chữ ký...' : 'Xóa chữ ký của tôi'}
+                </button>
+              )}
+            </div>
             <p className="mt-3 text-xs font-bold leading-5 text-coffee/62">
               {ownSignature
                 ? `Bạn đã ký ${formatUploadTime(ownSignature.updatedAt || ownSignature.createdAt)}.`
                 : 'Bạn chưa có chữ ký trên tường lớp.'}
             </p>
+            {saveError && <p className="mt-3 rounded-[0.9rem] bg-blush/24 px-3 py-2 text-xs font-bold leading-5 text-coffee">{saveError}</p>}
           </div>
         </div>
       </section>
@@ -124,11 +193,11 @@ export default function SignatureWallPage({
                   style={{ transform: `rotate(${signatureWallRotation(index)}deg)` }}
                 >
                   <span className="absolute left-1/2 top-1 h-4 w-14 -translate-x-1/2 rotate-1 rounded-sm bg-[#f7d6a4]/82 shadow-sm" />
-                  <div className="grid h-[4.9rem] place-items-center rounded-[0.65rem] bg-white/82">
+                  <div className="grid h-[4.9rem] place-items-center overflow-hidden rounded-[0.65rem] bg-white/82 p-1.5">
                     <img
                       src={signature.imageDataUrl}
                       alt={`Chữ ký của ${signature.name}`}
-                      className="max-h-full max-w-full object-contain"
+                      className="block h-full w-full object-contain"
                       loading="lazy"
                       decoding="async"
                     />
@@ -332,7 +401,12 @@ function SignatureEditorModal({
     }
 
     try {
-      await onSave(canvas.toDataURL('image/webp', 0.92));
+      const signatureImage = exportTightSignature(canvas);
+      if (!signatureImage) {
+        setLocalError('Chữ ký hơi mờ, hãy ký rõ hơn một chút nha.');
+        return;
+      }
+      await onSave(signatureImage);
     } catch (caught) {
       setLocalError(caught instanceof Error ? caught.message : 'Không thể lưu chữ ký lúc này.');
     }

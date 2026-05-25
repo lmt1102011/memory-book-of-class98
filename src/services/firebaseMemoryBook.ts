@@ -1765,6 +1765,10 @@ export const saveClassSignature = async (profile: UserProfile, imageDataUrl: str
   } satisfies ClassSignature;
 };
 
+export const deleteClassSignature = async (profile: UserProfile) => {
+  await withFirebaseRetry(() => deleteDoc(doc(db, CLASS_SIGNATURES_COLLECTION, profile.nameKey)));
+};
+
 export const addSecretDiary = async (profile: UserProfile, message: string) => {
   const id = makeId('diary');
   const createdAt = new Date().toISOString();
