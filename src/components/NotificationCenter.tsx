@@ -88,10 +88,10 @@ export default function NotificationCenter({
 
   const counts = {
     unread: unreadCount,
-    all: sortedItems.length,
-    messages: countBy(sortedItems, (item) => messageKinds.has(item.kind)),
-    memories: countBy(sortedItems, (item) => memoryKinds.has(item.kind)),
-    class: countBy(sortedItems, (item) => classKinds.has(item.kind)),
+    all: unreadCount,
+    messages: countBy(sortedItems, (item) => item.unread && messageKinds.has(item.kind)),
+    memories: countBy(sortedItems, (item) => item.unread && memoryKinds.has(item.kind)),
+    class: countBy(sortedItems, (item) => item.unread && classKinds.has(item.kind)),
   };
   const unreadMessages = countBy(sortedItems, (item) => item.unread && messageKinds.has(item.kind));
   const unreadMemories = countBy(sortedItems, (item) => item.unread && memoryKinds.has(item.kind));
@@ -106,10 +106,10 @@ export default function NotificationCenter({
       onClick={onClose}
     >
       <div
-        className="notification-panel w-full overflow-hidden rounded-t-[1.45rem] border border-white/70 bg-[#fffaf1] text-ink shadow-[0_28px_90px_rgba(18,15,13,0.34)] sm:ml-auto sm:max-h-[82svh] sm:max-w-[30rem] sm:rounded-[1.35rem]"
+        className="notification-panel flex w-full flex-col overflow-hidden rounded-t-[1.45rem] border border-white/70 bg-[#fffaf1] text-ink shadow-[0_28px_90px_rgba(18,15,13,0.34)] sm:ml-auto sm:max-h-[82svh] sm:max-w-[30rem] sm:rounded-[1.35rem]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="border-b border-coffee/10 bg-[#fffaf1] p-4 sm:p-5">
+        <div className="shrink-0 border-b border-coffee/10 bg-[#fffaf1] p-4 sm:p-5">
           <span className="mx-auto mb-3 block h-1.5 w-12 rounded-full bg-coffee/18 sm:hidden" aria-hidden="true" />
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-start gap-3">
@@ -178,7 +178,7 @@ export default function NotificationCenter({
           </div>
         </div>
 
-        <div className="max-h-[calc(100svh-19rem)] overflow-y-auto p-3 sm:max-h-[calc(82svh-18rem)] sm:p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4">
           {showLatestHighlight && latestUnread && (
             <button
               className="mb-3 w-full rounded-[1.1rem] bg-gradient-to-br from-blush/45 via-white to-skySoft/35 p-4 text-left shadow-paper ring-1 ring-white/80 transition hover:-translate-y-0.5 hover:shadow-glass"

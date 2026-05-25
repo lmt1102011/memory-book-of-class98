@@ -196,6 +196,7 @@ const makeDefaultTimeCapsuleSettings = (): TimeCapsuleSettings => ({ unlockAt: '
 export default function App() {
   const [route, setRoute] = useState<AppRoute>(() => routeFromHash());
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
   const [remoteMemories, setRemoteMemories] = useState<MemoryItem[]>([]);
   const [memoriesLoading, setMemoriesLoading] = useState(false);
   const [remoteComments, setRemoteComments] = useState<MemoryComment[]>([]);
@@ -370,7 +371,14 @@ export default function App() {
     void import('./services/firebaseMemoryBook').then((service) => {
       if (!isActive) return;
       stopKeepOnline = service.keepFirebaseOnline();
-      unsubscribe = service.observeStudentSession(setProfile);
+      unsubscribe = service.observeStudentSession((nextProfile) => {
+        if (!isActive) return;
+        setProfile(nextProfile);
+        setSessionChecked(true);
+      });
+    }).catch(() => {
+      if (!isActive) return;
+      setSessionChecked(true);
     });
 
     return () => {
@@ -952,6 +960,7 @@ export default function App() {
       resetAuthenticatedState();
       setSessionNotice(notice || '');
       setProfile(null);
+      setSessionChecked(true);
       navigate('join');
 
       void import('./services/firebaseMemoryBook')
@@ -1097,6 +1106,7 @@ export default function App() {
   const handleJoin = useCallback(
     (nextProfile: UserProfile) => {
       setProfile(nextProfile);
+      setSessionChecked(true);
       navigate('home');
     },
     [navigate],
@@ -2332,6 +2342,10 @@ export default function App() {
   );
 
   const renderRoute = () => {
+    if (!sessionChecked && route !== 'landing') {
+      return <LoadingScreen label="Đang tải dữ liệu người dùng" />;
+    }
+
     if (route === 'landing') {
       return <LandingPage onJoin={() => navigate(profile ? 'home' : 'join')} onExplore={() => navigate('home')} />;
     }
