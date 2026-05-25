@@ -1,6 +1,7 @@
 import { FormEvent, memo, useState } from 'react';
 import { Lock, Send, Sparkles, Trash2 } from 'lucide-react';
 import ActionModal from './ActionModal';
+import { useConfirmDialog } from './ConfirmDialogProvider';
 import DraftStatus from './DraftStatus';
 import { useLocalDraft } from '../hooks/useLocalDraft';
 import type { SecretDiaryEntry, UserProfile } from '../types';
@@ -19,6 +20,7 @@ function SecretMailbox({ diaries, profile, writingPromptsEnabled = false, onJoin
   const [isSending, setIsSending] = useState(false);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [error, setError] = useState('');
+  const confirmDialog = useConfirmDialog();
   const {
     value: message,
     setValue: setMessage,
@@ -116,7 +118,15 @@ function SecretMailbox({ diaries, profile, writingPromptsEnabled = false, onJoin
                         <button
                           className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-coffee/10 text-coffee transition hover:bg-coffee/18"
                           onClick={() => {
-                            if (window.confirm('Xóa trang nhật ký bí mật này?')) void onDeleteDiary(diary);
+                            void (async () => {
+                              const confirmed = await confirmDialog({
+                                title: 'Xóa nhật ký?',
+                                description: 'Trang nhật ký bí mật này sẽ bị xóa khỏi góc riêng của bạn.',
+                                confirmLabel: 'Xóa nhật ký',
+                                tone: 'danger',
+                              });
+                              if (confirmed) void onDeleteDiary(diary);
+                            })();
                           }}
                           aria-label="Xóa nhật ký"
                           title="Xóa nhật ký"

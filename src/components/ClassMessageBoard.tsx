@@ -1,6 +1,7 @@
 import { MessageCircle, Send, Trash2, X } from 'lucide-react';
 import { FormEvent, memo, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import ActionModal from './ActionModal';
+import { useConfirmDialog } from './ConfirmDialogProvider';
 import DraftStatus from './DraftStatus';
 import { useLocalDraft } from '../hooks/useLocalDraft';
 import type { GuestbookEntry, UserProfile } from '../types';
@@ -66,6 +67,7 @@ function ClassMessageBoard({
   const [selectedNote, setSelectedNote] = useState<BoardNote | null>(null);
   const [error, setError] = useState('');
   const [isWriterOpen, setIsWriterOpen] = useState(false);
+  const confirmDialog = useConfirmDialog();
   const {
     value: classMessage,
     setValue: setClassMessage,
@@ -239,7 +241,15 @@ function ClassMessageBoard({
                           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-coffee/10 text-coffee transition hover:bg-coffee/18"
                           onClick={(event) => {
                             event.stopPropagation();
-                            if (window.confirm('Xóa mảnh thư này?')) void onDeleteGuestbook(note.entry);
+                            void (async () => {
+                              const confirmed = await confirmDialog({
+                                title: 'Xóa mảnh thư?',
+                                description: 'Mảnh thư này sẽ được gỡ khỏi bảng thư lớp.',
+                                confirmLabel: 'Xóa thư',
+                                tone: 'danger',
+                              });
+                              if (confirmed) void onDeleteGuestbook(note.entry);
+                            })();
                           }}
                           aria-label="Xóa tin nhắn"
                         >
@@ -360,9 +370,17 @@ function ClassMessageBoard({
                 <button
                   className="class-letter-modal-button secondary-button justify-center border-[#7a5639]/25 bg-[#fffdf8] text-[#5b3d28]"
                   onClick={() => {
-                    if (!window.confirm('Xóa mảnh thư này?')) return;
-                    void onDeleteGuestbook(selectedNote.entry);
-                    setSelectedNote(null);
+                    void (async () => {
+                      const confirmed = await confirmDialog({
+                        title: 'Xóa mảnh thư?',
+                        description: 'Mảnh thư này sẽ được gỡ khỏi bảng thư lớp.',
+                        confirmLabel: 'Xóa thư',
+                        tone: 'danger',
+                      });
+                      if (!confirmed) return;
+                      void onDeleteGuestbook(selectedNote.entry);
+                      setSelectedNote(null);
+                    })();
                   }}
                 >
                   <Trash2 size={16} />

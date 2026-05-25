@@ -1,6 +1,7 @@
 import { CheckCheck, Eye, Heart, Lock, Search, Send, Trash2, UserRound } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import ActionModal from '../components/ActionModal';
+import { useConfirmDialog } from '../components/ConfirmDialogProvider';
 import DraftStatus from '../components/DraftStatus';
 import FirebaseNotice from '../components/FirebaseNotice';
 import { useLocalDraft } from '../hooks/useLocalDraft';
@@ -67,6 +68,7 @@ export default function RememberPage({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const markedViewedRef = useRef(new Set<string>());
+  const confirmDialog = useConfirmDialog();
   const {
     value: selectedNameKey,
     setValue: setSelectedNameKey,
@@ -153,12 +155,16 @@ export default function RememberPage({
   };
 
   const handleDelete = async (note: RememberNote, mode: MailboxTab) => {
-    const confirmText =
-      mode === 'sent'
-        ? `Xóa Secret Message đã gửi cho ${note.toName}? Người nhận cũng sẽ không còn thấy tin này.`
-        : 'Xóa Secret Message này khỏi hộp thư của bạn?';
-
-    if (!window.confirm(confirmText)) return;
+    const confirmed = await confirmDialog({
+      title: 'Xóa Secret Message?',
+      description:
+        mode === 'sent'
+          ? `Tin đã gửi cho ${note.toName} sẽ bị xóa, người nhận cũng không còn thấy tin này.`
+          : 'Tin này sẽ biến mất khỏi hộp thư Secret Message của bạn.',
+      confirmLabel: 'Xóa tin',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
 
     try {
       await onDeleteNote(note);

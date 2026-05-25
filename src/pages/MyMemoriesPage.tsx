@@ -1,6 +1,7 @@
 import { Camera, Download, Heart, Image, Lock, MessageCircle, Trash2, UserRound, Video, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useConfirmDialog } from '../components/ConfirmDialogProvider';
 import FirebaseNotice from '../components/FirebaseNotice';
 import MemoryCard from '../components/MemoryCard';
 import type { ClassmateProfile, CommentReactionId, MemoryComment, MemoryItem, UserProfile } from '../types';
@@ -76,6 +77,7 @@ export default function MyMemoriesPage({
   const [selectedVideoUrl, setSelectedVideoUrl] = useState('');
   const [selectedVideoLoading, setSelectedVideoLoading] = useState(false);
   const [selectedVideoError, setSelectedVideoError] = useState('');
+  const confirmDialog = useConfirmDialog();
 
   useEffect(() => {
     let alive = true;
@@ -384,9 +386,17 @@ export default function MyMemoriesPage({
               <button
                 className="secondary-button mt-3 w-full border-blush/60 bg-blush/25 text-coffee"
                 onClick={() => {
-                  if (!window.confirm('Xóa kỷ niệm này khỏi Memory98?')) return;
-                  void onDeleteMemory(selectedMemory);
-                  setSelectedMemory(null);
+                  void (async () => {
+                    const confirmed = await confirmDialog({
+                      title: 'Xóa kỷ niệm?',
+                      description: 'Kỷ niệm này sẽ bị xóa khỏi Memory98.',
+                      confirmLabel: 'Xóa kỷ niệm',
+                      tone: 'danger',
+                    });
+                    if (!confirmed) return;
+                    void onDeleteMemory(selectedMemory);
+                    setSelectedMemory(null);
+                  })();
                 }}
               >
                 <Trash2 size={17} />

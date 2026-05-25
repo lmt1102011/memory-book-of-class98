@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { BookOpen, RotateCcw, Sparkles, Trash2, UserRound, X } from 'lucide-react';
+import { useConfirmDialog } from '../components/ConfirmDialogProvider';
 import FirebaseNotice from '../components/FirebaseNotice';
 import type { ClassSignature, UserProfile } from '../types';
 import { formatUploadTime } from '../utils/date';
@@ -270,6 +271,7 @@ export default function SignatureWallPage({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const confirmDialog = useConfirmDialog();
 
   const ownSignature = useMemo(
     () => (profile ? signatures.find((signature) => signature.nameKey === profile.nameKey || signature.uid === profile.uid) : undefined),
@@ -313,7 +315,13 @@ export default function SignatureWallPage({
 
   const handleDelete = useCallback(async () => {
     if (!ownSignature) return;
-    if (!window.confirm('Xóa chữ ký của bạn khỏi bảng lớp?')) return;
+    const confirmed = await confirmDialog({
+      title: 'Xóa chữ ký?',
+      description: 'Chữ ký của bạn sẽ biến mất khỏi bảng chữ ký lớp 9/8.',
+      confirmLabel: 'Xóa chữ ký',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
 
     setIsDeleting(true);
     setSaveError('');
@@ -324,7 +332,7 @@ export default function SignatureWallPage({
     } finally {
       setIsDeleting(false);
     }
-  }, [onDeleteSignature, ownSignature]);
+  }, [confirmDialog, onDeleteSignature, ownSignature]);
 
   if (!profile) {
     return (

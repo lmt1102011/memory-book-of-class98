@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import ActionModal from '../components/ActionModal';
+import { useConfirmDialog } from '../components/ConfirmDialogProvider';
 import FirebaseNotice from '../components/FirebaseNotice';
 import type { ClassmateProfile, UserProfile, VoteCategory, VoteCategoryDraft, VoteCategoryTone, VoteRecord } from '../types';
 import { formatMemoryDate } from '../utils/date';
@@ -159,6 +160,7 @@ export default function VotesPage({
   const [isCreatorOpen, setIsCreatorOpen] = useState(false);
   const [busyVote, setBusyVote] = useState('');
   const [localError, setLocalError] = useState('');
+  const confirmDialog = useConfirmDialog();
 
   const sortedClassmates = useMemo(
     () => [...classmates].filter((person) => person.uid && person.nameKey).sort((left, right) => left.name.localeCompare(right.name, 'vi')),
@@ -226,7 +228,13 @@ export default function VotesPage({
   };
 
   const handleHide = async (category: VoteCategory) => {
-    if (!window.confirm(`Ẩn hạng mục "${category.title}" khỏi bảng bình chọn?`)) return;
+    const confirmed = await confirmDialog({
+      title: 'Ẩn hạng mục?',
+      description: `Hạng mục "${category.title}" sẽ không còn hiện trong bảng bình chọn của lớp.`,
+      confirmLabel: 'Ẩn hạng mục',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     try {
       await onHideCategory(category);
     } catch (caught) {

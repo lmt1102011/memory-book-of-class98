@@ -1,5 +1,6 @@
 import { Send, Trash2 } from 'lucide-react';
 import { FormEvent, useState } from 'react';
+import { useConfirmDialog } from './ConfirmDialogProvider';
 import type { GuestbookEntry, UserProfile } from '../types';
 import { formatMemoryDate } from '../utils/date';
 
@@ -14,6 +15,7 @@ export default function Guestbook({ entries, onAddEntry, onDeleteEntry, profile 
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
+  const confirmDialog = useConfirmDialog();
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -72,7 +74,15 @@ export default function Guestbook({ entries, onAddEntry, onDeleteEntry, profile 
                       <button
                         className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-coffee/10 text-coffee transition hover:bg-coffee/18"
                         onClick={() => {
-                          if (window.confirm('Xóa tin nhắn này khỏi guestbook của lớp?')) void onDeleteEntry(entry);
+                          void (async () => {
+                            const confirmed = await confirmDialog({
+                              title: 'Xóa tin nhắn?',
+                              description: 'Tin nhắn này sẽ bị xóa khỏi guestbook của lớp.',
+                              confirmLabel: 'Xóa tin',
+                              tone: 'danger',
+                            });
+                            if (confirmed) void onDeleteEntry(entry);
+                          })();
                         }}
                         aria-label="Xóa tin nhắn"
                         title="Xóa tin nhắn"

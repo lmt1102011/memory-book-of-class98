@@ -1,6 +1,7 @@
 import { BadgeCheck, Camera, Download, Heart, Images, Lock, MessageCircle, Search, Send, Trash2, Upload, UserRound, Video } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import ActionModal from '../components/ActionModal';
+import { useConfirmDialog } from '../components/ConfirmDialogProvider';
 import FirebaseNotice from '../components/FirebaseNotice';
 import type { ClassmateProfile, CustomProfileBadge, MemoryComment, MemoryItem, UserProfile, YouthProfileDraft } from '../types';
 import { formatUploadTime } from '../utils/date';
@@ -1365,6 +1366,7 @@ function PersonDetail({
 }) {
   const [showBadgeGoals, setShowBadgeGoals] = useState(false);
   const [canRenderAlbum, setCanRenderAlbum] = useState(isSelf);
+  const confirmDialog = useConfirmDialog();
 
   const personKey = person ? getPersonKey(person) : '';
 
@@ -1587,8 +1589,15 @@ function PersonDetail({
                     <button
                       className="secondary-button min-h-9 justify-center border-blush/60 bg-blush/25 px-2 text-xs text-coffee"
                       onClick={() => {
-                        if (!window.confirm('Xóa kỷ niệm này khỏi Memory98?')) return;
-                        void onDeleteMemory(memory);
+                        void (async () => {
+                          const confirmed = await confirmDialog({
+                            title: 'Xóa kỷ niệm?',
+                            description: 'Kỷ niệm này sẽ bị xóa khỏi Memory98.',
+                            confirmLabel: 'Xóa kỷ niệm',
+                            tone: 'danger',
+                          });
+                          if (confirmed) void onDeleteMemory(memory);
+                        })();
                       }}
                     >
                       <Trash2 size={14} />

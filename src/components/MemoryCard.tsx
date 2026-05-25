@@ -1,5 +1,6 @@
 import { Heart, Lock, MessageCircle, Send, Trash2, Video } from 'lucide-react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useConfirmDialog } from './ConfirmDialogProvider';
 import type { ClassmateProfile, CommentReactionId, MemoryComment, MemoryItem, UserProfile } from '../types';
 import { formatUploadTime } from '../utils/date';
 import { isImageCached, markImageCached } from '../utils/mediaCache';
@@ -87,6 +88,7 @@ function MemoryCard({
   const [imageLoaded, setImageLoaded] = useState(() => isImageCached(memory.imageUrl));
   const [imageFailed, setImageFailed] = useState(false);
   const reactionMenuRef = useRef<HTMLDivElement | null>(null);
+  const confirmDialog = useConfirmDialog();
   const hasLiked = Boolean(profile?.uid && memory.likedBy.includes(profile.uid));
   const commentsEnabled = memory.visibility !== 'private' && memory.visibility !== 'tagged';
   const visibleComments = useMemo(() => (commentsOpen ? comments : comments.slice(0, 2)), [comments, commentsOpen]);
@@ -124,10 +126,17 @@ function MemoryCard({
     [draft, memory, onAddComment],
   );
 
-  const handleDelete = useCallback(() => {
-    if (!window.confirm(`Xóa ${memory.mediaType === 'video' ? 'video' : 'ảnh'} kỷ niệm này khỏi feed lớp?`)) return;
+  const handleDelete = useCallback(async () => {
+    const mediaLabel = memory.mediaType === 'video' ? 'video' : 'ảnh';
+    const confirmed = await confirmDialog({
+      title: `Xóa ${mediaLabel}?`,
+      description: `${mediaLabel === 'video' ? 'Video' : 'Ảnh'} kỷ niệm này sẽ bị xóa khỏi feed lớp.`,
+      confirmLabel: 'Xóa',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     void onDelete?.(memory);
-  }, [memory, onDelete]);
+  }, [confirmDialog, memory, onDelete]);
 
   return (
     <article
