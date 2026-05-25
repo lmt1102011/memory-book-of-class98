@@ -1420,6 +1420,13 @@ export default function App() {
       });
 
     notificationActivity.managerReminders
+      .filter(
+        (reminder) =>
+          !reminder.targetType ||
+          reminder.targetType === 'all' ||
+          reminder.targetUid === profile.uid ||
+          reminder.targetNameKey === profile.nameKey,
+      )
       .slice(0, 24)
       .forEach((reminder) => {
         const id = `manager-reminder-${reminder.id}`;

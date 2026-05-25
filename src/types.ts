@@ -330,6 +330,10 @@ export interface ManagerReminder {
   title: string;
   body: string;
   createdAt: string;
+  targetType?: 'all' | 'student';
+  targetUid?: string;
+  targetNameKey?: string;
+  targetName?: string;
 }
 
 export type NotificationKind =

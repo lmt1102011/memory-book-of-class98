@@ -307,12 +307,13 @@
 
       .manager-reminder-form {
         display: grid;
-        grid-template-columns: minmax(160px, 0.7fr) minmax(220px, 1fr) auto;
+        grid-template-columns: minmax(160px, 0.52fr) minmax(180px, 0.68fr) minmax(220px, 1fr) auto;
         gap: 10px;
         align-items: start;
       }
 
       .manager-reminder-form input,
+      .manager-reminder-form select,
       .manager-reminder-form textarea {
         background: rgba(255, 250, 241, 0.94);
       }
@@ -875,6 +876,9 @@
                 </p>
               </div>
               <form id="managerReminderForm" class="manager-reminder-form">
+                <select id="managerReminderTarget" aria-label="Chọn người nhận nhắc hẹn">
+                  <option value="all">Cả lớp 9/8</option>
+                </select>
                 <input id="managerReminderTitle" maxlength="90" placeholder="Tiêu đề, ví dụ: Nhớ ký tên bảng lớp" />
                 <textarea id="managerReminderBody" maxlength="420" rows="3" placeholder="Nội dung nhắc hẹn gửi cho lớp 9/8..."></textarea>
                 <button id="managerReminderButton">Gửi nhắc hẹn</button>
@@ -1764,12 +1768,33 @@
           : assignableAccounts[0]?.id || '';
       };
 
+      const renderManagerReminderTargets = () => {
+        const select = $('managerReminderTarget');
+        if (!select) return;
+        const previousValue = select.value || 'all';
+        const targetAccounts = accounts
+          .filter((account) => !account.deleted && !account.disabled && account.id !== MANAGER_NAME_KEY)
+          .sort((left, right) => String(left.name || left.id).localeCompare(String(right.name || right.id), 'vi'));
+
+        select.innerHTML = [
+          '<option value="all">Cả lớp 9/8</option>',
+          ...targetAccounts.map(
+            (account) =>
+              `<option value="${escapeHtml(account.id)}">${escapeHtml(account.name || account.id)}</option>`,
+          ),
+        ].join('');
+        select.value = previousValue === 'all' || targetAccounts.some((account) => account.id === previousValue)
+          ? previousValue
+          : 'all';
+      };
+
       const renderAccounts = () => {
         const items = accounts
           .filter((account) => matchesSearch(account, ['name', 'id', 'uid']) && matchesActiveFilter(account, 'accounts'))
           .sort((left, right) => Number(Boolean(left.deleted)) - Number(Boolean(right.deleted)) || String(left.name || '').localeCompare(String(right.name || ''), 'vi'));
 
         renderBadgeAssignerOptions();
+        renderManagerReminderTargets();
         $('accounts').innerHTML =
           items
             .map((account) => {
@@ -2019,6 +2044,7 @@
       const renderCurrentTab = () => {
         updateStats();
         renderSystemHealth();
+        renderManagerReminderTargets();
         if (!managerLoadedTabs.has(activeTab)) {
           renderTabLoading(activeTab);
           renderSettings();
@@ -2709,8 +2735,16 @@
       });
       $('managerReminderForm').addEventListener('submit', async (event) => {
         event.preventDefault();
+        const targetValue = String($('managerReminderTarget').value || 'all');
+        const targetAccount = targetValue === 'all' ? null : accounts.find((account) => account.id === targetValue);
         const title = String($('managerReminderTitle').value || '').trim().replace(/\s+/g, ' ').slice(0, 90);
         const body = String($('managerReminderBody').value || '').trim().replace(/\s+/g, ' ').slice(0, 420);
+
+        if (targetValue !== 'all' && !targetAccount) {
+          managerReminderStatus.textContent = 'Hãy chọn người nhận nhắc hẹn hợp lệ.';
+          $('managerReminderTarget').focus();
+          return;
+        }
 
         if (!title) {
           managerReminderStatus.textContent = 'Hãy nhập tiêu đề nhắc hẹn.';
@@ -2734,13 +2768,20 @@
             title,
             body,
             kind: 'manager-reminder',
+            targetType: targetAccount ? 'student' : 'all',
+            targetUid: targetAccount?.uid ? String(targetAccount.uid) : '',
+            targetNameKey: targetAccount?.id ? String(targetAccount.id) : '',
+            targetName: targetAccount?.name ? String(targetAccount.name) : '',
             managerKey: MANAGER_PASSWORD,
             createdBy: MANAGER_NAME_KEY,
             createdAt: serverTimestamp(),
           });
           $('managerReminderTitle').value = '';
           $('managerReminderBody').value = '';
-          managerReminderStatus.textContent = 'Đã gửi nhắc hẹn. Học sinh sẽ thấy popup ở phía trên khi chuông cập nhật.';
+          $('managerReminderTarget').value = targetAccount ? String(targetAccount.id) : 'all';
+          managerReminderStatus.textContent = targetAccount
+            ? `Đã gửi nhắc hẹn riêng cho ${targetAccount.name || targetAccount.id}.`
+            : 'Đã gửi nhắc hẹn cho cả lớp. Học sinh sẽ thấy popup ở phía trên khi chuông cập nhật.';
         } catch (error) {
           managerReminderStatus.textContent =
             error.message || 'Không thể gửi nhắc hẹn. Hãy deploy Firestore Rules mới nhất rồi thử lại.';

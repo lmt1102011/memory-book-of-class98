@@ -777,6 +777,10 @@ const managerReminderFromDoc = (id: string, data: DocumentData): ManagerReminder
   title: String(data.title || '').trim().slice(0, 90),
   body: String(data.body || '').trim().slice(0, 420),
   createdAt: timestampToIso(data.createdAt),
+  targetType: data.targetType === 'student' ? 'student' : 'all',
+  targetUid: data.targetUid ? String(data.targetUid) : undefined,
+  targetNameKey: data.targetNameKey ? String(data.targetNameKey) : undefined,
+  targetName: data.targetName ? String(data.targetName) : undefined,
 });
 
 const memoryRecapSettingsFromData = (data?: DocumentData): MemoryRecapSettings => ({
@@ -1754,7 +1758,7 @@ export const addTimeCapsuleEntry = async (profile: UserProfile, message: string)
 export const saveClassSignature = async (profile: UserProfile, imageDataUrl: string) => {
   const safeImage = imageDataUrl.trim();
   if (!safeImage.startsWith('data:image/')) throw new Error('Chữ ký chưa hợp lệ, hãy ký lại nha.');
-  if (safeImage.length > 520_000) throw new Error('Chữ ký hơi nặng, hãy xóa bớt nét rồi lưu lại.');
+  if (safeImage.length > 750_000) throw new Error('Chữ ký hơi nặng, hãy xóa bớt nét rồi lưu lại.');
 
   const signatureRef = doc(db, CLASS_SIGNATURES_COLLECTION, profile.nameKey);
   await withFirebaseRetry(() =>
