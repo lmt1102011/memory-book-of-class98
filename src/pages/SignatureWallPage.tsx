@@ -19,8 +19,8 @@ const signatureWallRotation = (index: number) => {
   return rotations[index % rotations.length];
 };
 
-const SIGNATURE_MIN_STROKE_WIDTH = 1.8;
-const SIGNATURE_MAX_STROKE_WIDTH = 3.35;
+const SIGNATURE_MIN_STROKE_WIDTH = 1.95;
+const SIGNATURE_MAX_STROKE_WIDTH = 3.75;
 const SIGNATURE_EXPORT_WIDTH = 1200;
 const SIGNATURE_EXPORT_HEIGHT = 420;
 
@@ -199,7 +199,7 @@ const exportPolishedSignature = (strokes: SignatureStroke[], canvasSize: Signatu
   const signatureHeight = Math.max(1, bounds.maxY - bounds.minY);
   if (signatureWidth < 8 && signatureHeight < 8) return '';
 
-  const padding = clamp(Math.max(signatureWidth, signatureHeight) * 0.18, 28, 92);
+  const padding = clamp(Math.max(signatureWidth, signatureHeight) * 0.1, 18, 56);
   const sourceX = Math.max(0, bounds.minX - padding);
   const sourceY = Math.max(0, bounds.minY - padding);
   const sourceWidth = Math.min(canvasSize.width - sourceX, signatureWidth + padding * 2);
@@ -215,7 +215,7 @@ const exportPolishedSignature = (strokes: SignatureStroke[], canvasSize: Signatu
   outputContext.imageSmoothingEnabled = true;
   outputContext.imageSmoothingQuality = 'high';
 
-  const fitScale = Math.min((output.width * 0.88) / sourceWidth, (output.height * 0.72) / sourceHeight);
+  const fitScale = Math.min((output.width * 0.98) / sourceWidth, (output.height * 0.9) / sourceHeight);
   const drawWidth = sourceWidth * fitScale;
   const drawHeight = sourceHeight * fitScale;
   const offsetX = (output.width - drawWidth) / 2 - sourceX * fitScale;
@@ -225,31 +225,31 @@ const exportPolishedSignature = (strokes: SignatureStroke[], canvasSize: Signatu
     scale: fitScale,
     offsetX,
     offsetY,
-    alpha: 0.16,
-    blur: 1.2,
+    alpha: 0.12,
+    blur: 1.45,
     color: '#1f1712',
-    widthMultiplier: 1.5,
-    smoothingPasses: 2,
+    widthMultiplier: 1.7,
+    smoothingPasses: 3,
   });
 
   renderSignatureStrokes(outputContext, strokes, {
     scale: fitScale,
     offsetX,
     offsetY,
-    alpha: 0.98,
-    color: '#2f241c',
-    widthMultiplier: 1.02,
-    smoothingPasses: 2,
+    alpha: 1,
+    color: '#241913',
+    widthMultiplier: 1.12,
+    smoothingPasses: 3,
   });
 
   renderSignatureStrokes(outputContext, strokes, {
     scale: fitScale,
     offsetX,
     offsetY,
-    alpha: 0.16,
-    color: '#8b6651',
-    widthMultiplier: 0.42,
-    smoothingPasses: 2,
+    alpha: 0.1,
+    color: '#9a7158',
+    widthMultiplier: 0.36,
+    smoothingPasses: 3,
   });
 
   return output.toDataURL('image/webp', 0.96);
@@ -402,17 +402,17 @@ export default function SignatureWallPage({
                 <button
                   type="button"
                   key={signature.id}
-                  className="relative min-h-[7.5rem] rounded-[0.85rem] bg-[#fffaf1] p-2 text-left shadow-[0_12px_24px_rgba(18,15,13,0.2)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_28px_rgba(18,15,13,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper"
+                  className="relative min-h-[9.35rem] rounded-[0.85rem] bg-[#fffaf1] p-2 text-left shadow-[0_12px_24px_rgba(18,15,13,0.2)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_28px_rgba(18,15,13,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper sm:min-h-[9.9rem]"
                   style={{ transform: `rotate(${signatureWallRotation(index)}deg)` }}
                   onClick={() => setSelectedSignature(signature)}
                   aria-label={`Xem chữ ký của ${signature.name}`}
                 >
                   <span className="absolute left-1/2 top-1 h-4 w-14 -translate-x-1/2 rotate-1 rounded-sm bg-[#f7d6a4]/82 shadow-sm" />
-                  <div className="grid h-[4.9rem] place-items-center overflow-hidden rounded-[0.65rem] bg-white/82 p-1.5">
+                  <div className="grid h-[6.75rem] place-items-center overflow-hidden rounded-[0.65rem] bg-white/86 p-1 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.08)] sm:h-[7.15rem]">
                     <img
                       src={signature.imageDataUrl}
                       alt={`Chữ ký của ${signature.name}`}
-                      className="block h-full w-full object-contain"
+                      className="block h-full w-[118%] max-w-none scale-[1.18] object-contain"
                       loading="lazy"
                       decoding="async"
                     />
