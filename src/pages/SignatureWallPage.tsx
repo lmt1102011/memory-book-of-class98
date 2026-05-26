@@ -663,7 +663,7 @@ function SignaturePreviewModal({ signature, onClose }: { signature: ClassSignatu
         </div>
 
         <div
-          className={`memory-zoom-stage memory-media-stage-image ${zoom > 1 ? 'memory-media-stage-zoomed' : ''}`}
+          className={`memory-zoom-stage memory-media-stage-image bg-white ${zoom > 1 ? 'memory-media-stage-zoomed' : ''}`}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerEnd}
@@ -672,14 +672,18 @@ function SignaturePreviewModal({ signature, onClose }: { signature: ClassSignatu
           onWheel={handleWheel}
           onDoubleClick={handleDoubleClick}
         >
+          <div
+            className="grid max-h-[92svh] w-[min(92vw,64rem)] max-w-full place-items-center rounded-[1rem] bg-white p-6 shadow-[0_18px_50px_rgba(18,15,13,0.12)] sm:p-10"
+            style={{ transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})` }}
+          >
           <img
             src={signature.imageDataUrl}
             alt={`Chữ ký của ${signature.name}`}
-            className="zoomable-memory-image max-h-[92svh] w-auto max-w-full select-none object-contain"
+            className="zoomable-memory-image max-h-[76svh] w-full select-none object-contain"
             decoding="async"
             draggable={false}
-            style={{ transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})` }}
           />
+          </div>
         </div>
         <div className="hidden">
           <span className="text-xs font-bold text-coffee/62">
