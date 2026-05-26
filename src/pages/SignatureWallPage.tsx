@@ -21,10 +21,10 @@ const signatureWallRotation = (index: number) => {
   return rotations[index % rotations.length];
 };
 
-const SIGNATURE_MIN_STROKE_WIDTH = 2.05;
-const SIGNATURE_MAX_STROKE_WIDTH = 3.18;
-const SIGNATURE_EXPORT_WIDTH = 1400;
-const SIGNATURE_EXPORT_HEIGHT = 500;
+const SIGNATURE_MIN_STROKE_WIDTH = 2.18;
+const SIGNATURE_MAX_STROKE_WIDTH = 3.34;
+const SIGNATURE_EXPORT_WIDTH = 1600;
+const SIGNATURE_EXPORT_HEIGHT = 560;
 const SIGNATURE_MAX_DATA_URL_LENGTH = 750_000;
 
 interface SignaturePoint {
@@ -122,10 +122,10 @@ const getSegmentWidth = (from: SignaturePoint, to: SignaturePoint, index = 0, to
   const deltaTime = Math.max(8, to.time - from.time);
   const speed = distanceBetween(from, to) / deltaTime;
   const speedWeight = 1 - clamp((speed - 0.16) / 1.85, 0, 1);
-  const pressureNudge = (pressure - 0.52) * 0.42;
+  const pressureNudge = (pressure - 0.52) * 0.34;
   const baseWidth = (SIGNATURE_MIN_STROKE_WIDTH + SIGNATURE_MAX_STROKE_WIDTH) / 2;
-  const width = baseWidth + speedWeight * 0.34 + pressureNudge;
-  const taperedWidth = (width + pressureNudge) * getStrokeTaper(index, totalSegments);
+  const width = baseWidth + speedWeight * 0.24 + pressureNudge;
+  const taperedWidth = width * getStrokeTaper(index, totalSegments);
 
   return clamp(taperedWidth, SIGNATURE_MIN_STROKE_WIDTH * 0.72, SIGNATURE_MAX_STROKE_WIDTH);
 };
@@ -255,7 +255,7 @@ const exportPolishedSignature = (strokes: SignatureStroke[], canvasSize: Signatu
   const signatureHeight = Math.max(1, bounds.maxY - bounds.minY);
   if (signatureWidth < 8 && signatureHeight < 8) return '';
 
-  const padding = clamp(Math.max(signatureWidth, signatureHeight) * 0.055, 10, 34);
+  const padding = clamp(Math.max(signatureWidth, signatureHeight) * 0.045, 8, 30);
   const sourceX = Math.max(0, bounds.minX - padding);
   const sourceY = Math.max(0, bounds.minY - padding);
   const sourceWidth = Math.min(canvasSize.width - sourceX, signatureWidth + padding * 2);
@@ -271,7 +271,7 @@ const exportPolishedSignature = (strokes: SignatureStroke[], canvasSize: Signatu
   outputContext.imageSmoothingEnabled = true;
   outputContext.imageSmoothingQuality = 'high';
 
-  const fitScale = Math.min((output.width * 1.2) / sourceWidth, (output.height * 1.08) / sourceHeight);
+  const fitScale = Math.min((output.width * 1.22) / sourceWidth, (output.height * 1.12) / sourceHeight);
   const drawWidth = sourceWidth * fitScale;
   const drawHeight = sourceHeight * fitScale;
   const offsetX = (output.width - drawWidth) / 2 - sourceX * fitScale;
@@ -281,11 +281,11 @@ const exportPolishedSignature = (strokes: SignatureStroke[], canvasSize: Signatu
     scale: fitScale,
     offsetX,
     offsetY,
-    alpha: 0.12,
-    blur: 0.62,
+    alpha: 0.1,
+    blur: 0.48,
     color: '#1f1712',
-    widthMultiplier: 1.26,
-    smoothingPasses: 2,
+    widthMultiplier: 1.18,
+    smoothingPasses: 3,
   });
 
   renderSignatureStrokes(outputContext, strokes, {
@@ -293,19 +293,19 @@ const exportPolishedSignature = (strokes: SignatureStroke[], canvasSize: Signatu
     offsetX,
     offsetY,
     alpha: 1,
-    color: '#241913',
-    widthMultiplier: 1.02,
-    smoothingPasses: 2,
+    color: '#211610',
+    widthMultiplier: 1,
+    smoothingPasses: 3,
   });
 
   renderSignatureStrokes(outputContext, strokes, {
     scale: fitScale,
     offsetX,
     offsetY,
-    alpha: 0.18,
+    alpha: 0.22,
     color: '#120d0a',
-    widthMultiplier: 0.46,
-    smoothingPasses: 2,
+    widthMultiplier: 0.38,
+    smoothingPasses: 3,
   });
 
   return signatureCanvasToDataUrl(output);
@@ -535,37 +535,169 @@ export default function SignatureWallPage({
 }
 
 function SignaturePreviewModal({ signature, onClose }: { signature: ClassSignature; onClose: () => void }) {
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const lastPanPointRef = useRef<{ x: number; y: number } | null>(null);
+  const pinchStartRef = useRef<{ distance: number; zoom: number } | null>(null);
+
+  const resetZoom = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    pointersRef.current.clear();
+    lastPanPointRef.current = null;
+    pinchStartRef.current = null;
+  }, []);
+
+  const updateZoom = useCallback((nextZoom: number) => {
+    const clamped = clamp(nextZoom, 1, 6);
+    setZoom(clamped);
+    if (clamped <= 1.01) setPan({ x: 0, y: 0 });
+  }, []);
+
+  const zoomIn = useCallback(() => updateZoom(zoom + 0.35), [updateZoom, zoom]);
+  const zoomOut = useCallback(() => updateZoom(zoom - 0.35), [updateZoom, zoom]);
+
+  const getPinchDistance = useCallback(() => {
+    const points = Array.from(pointersRef.current.values());
+    if (points.length < 2) return 0;
+    return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+  }, []);
+
+  const handlePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (pointersRef.current.size === 1) {
+      lastPanPointRef.current = { x: event.clientX, y: event.clientY };
+      return;
+    }
+
+    if (pointersRef.current.size === 2) {
+      pinchStartRef.current = { distance: getPinchDistance(), zoom };
+      lastPanPointRef.current = null;
+    }
+  }, [getPinchDistance, zoom]);
+
+  const handlePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!pointersRef.current.has(event.pointerId)) return;
+    event.preventDefault();
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (pointersRef.current.size >= 2 && pinchStartRef.current) {
+      const distance = getPinchDistance();
+      if (distance > 8 && pinchStartRef.current.distance > 8) {
+        updateZoom(pinchStartRef.current.zoom * (distance / pinchStartRef.current.distance));
+      }
+      return;
+    }
+
+    if (zoom <= 1.01 || !lastPanPointRef.current) return;
+    const deltaX = event.clientX - lastPanPointRef.current.x;
+    const deltaY = event.clientY - lastPanPointRef.current.y;
+    lastPanPointRef.current = { x: event.clientX, y: event.clientY };
+    setPan((current) => ({
+      x: clamp(current.x + deltaX, -340 * zoom, 340 * zoom),
+      y: clamp(current.y + deltaY, -230 * zoom, 230 * zoom),
+    }));
+  }, [getPinchDistance, updateZoom, zoom]);
+
+  const handlePointerEnd = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    pointersRef.current.delete(event.pointerId);
+    pinchStartRef.current = null;
+    const remaining = Array.from(pointersRef.current.values());
+    lastPanPointRef.current = remaining[0] || null;
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture may already be released.
+    }
+  }, []);
+
+  const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    updateZoom(zoom + (event.deltaY > 0 ? -0.28 : 0.28));
+  }, [updateZoom, zoom]);
+
+  const handleDoubleClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    updateZoom(zoom > 1.2 ? 1 : 2.6);
+  }, [updateZoom, zoom]);
+
   return (
     <div
-      className="app-safe-modal-overlay fixed inset-0 z-[98] grid place-items-center bg-[rgba(18,15,13,0.82)] p-3 sm:p-6"
+      className="memory-zoom-overlay fixed inset-0 z-[100] overflow-hidden bg-ink"
       role="dialog"
       aria-modal="true"
       aria-label={`Xem chữ ký của ${signature.name}`}
       onClick={onClose}
     >
       <div
-        className="app-safe-modal-panel relative w-full max-w-3xl overflow-hidden rounded-[1.25rem] border border-[#7a5639]/24 bg-[#fffaf1] p-4 text-ink shadow-[0_26px_80px_rgba(18,15,13,0.38)] sm:p-6"
+        className="relative flex h-full w-full flex-col overflow-hidden bg-ink text-paper"
         onClick={(event) => event.stopPropagation()}
       >
-        <button className="icon-button absolute right-3 top-3 bg-ink text-paper" onClick={onClose} aria-label="Đóng chữ ký">
+        <button className="hidden" onClick={onClose} aria-label="Đóng chữ ký">
           <X size={18} />
         </button>
 
-        <div className="pr-12">
+        <div className="memory-viewer-topbar memory-zoom-topbar">
+          <div className="min-w-0">
           <p className="section-kicker">Chữ ký lớp 9/8</p>
           <h2 className="font-display text-5xl leading-none sm:text-6xl">{signature.name}</h2>
-          <p className="mt-2 text-xs font-black uppercase text-coffee/70">
-            {formatUploadTime(signature.updatedAt || signature.createdAt)}
-          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <p className="text-xs font-black uppercase text-coffee/70">
+              {formatUploadTime(signature.updatedAt || signature.createdAt)}
+            </p>
+            <span className="rounded-full bg-coffee/8 px-2.5 py-1 text-[10px] font-black uppercase text-coffee/62">
+              Chụm/kéo để zoom
+            </span>
+          </div>
+          </div>
+          <div className="memory-viewer-actions">
+            <button className="memory-viewer-action" onClick={zoomOut} disabled={zoom <= 1.01} aria-label="Thu nhỏ chữ ký">
+              -
+            </button>
+            <button className="memory-viewer-action" onClick={zoomIn} disabled={zoom >= 5.95} aria-label="Phóng to chữ ký">
+              +
+            </button>
+            <button className="memory-viewer-action memory-viewer-zoom-reset" onClick={resetZoom} aria-label="Đưa chữ ký về kích thước ban đầu">
+              <RotateCcw size={16} />
+              <span>{Math.round(zoom * 100)}%</span>
+            </button>
+            <button className="memory-viewer-action memory-viewer-close" onClick={onClose} aria-label="Đóng zoom chữ ký">
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
-        <div className="mt-5 grid min-h-[16rem] place-items-center rounded-[1rem] border border-coffee/12 bg-white p-4 shadow-[inset_0_0_0_1px_rgba(122,86,57,0.1)] sm:min-h-[22rem] sm:p-5">
+        <div
+          className={`memory-zoom-stage memory-media-stage-image ${zoom > 1 ? 'memory-media-stage-zoomed' : ''}`}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerEnd}
+          onPointerCancel={handlePointerEnd}
+          onLostPointerCapture={handlePointerEnd}
+          onWheel={handleWheel}
+          onDoubleClick={handleDoubleClick}
+        >
           <img
             src={signature.imageDataUrl}
             alt={`Chữ ký của ${signature.name}`}
-            className="max-h-[58svh] w-full scale-[1.08] object-contain"
+            className="zoomable-memory-image max-h-[92svh] w-auto max-w-full select-none object-contain"
             decoding="async"
+            draggable={false}
+            style={{ transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})` }}
           />
+        </div>
+        <div className="hidden">
+          <span className="text-xs font-bold text-coffee/62">
+            {zoom > 1.01 ? `Đang zoom ${Math.round(zoom * 100)}%` : 'Bấm giữ để kéo, cuộn chuột hoặc chụm hai ngón để phóng to.'}
+          </span>
+          <button className="secondary-button min-h-10 shrink-0 px-3" onClick={resetZoom} disabled={zoom <= 1.01}>
+            <RotateCcw size={15} />
+            Về mặc định
+          </button>
         </div>
       </div>
     </div>
