@@ -555,9 +555,6 @@ function SignaturePreviewModal({ signature, onClose }: { signature: ClassSignatu
     if (clamped <= 1.01) setPan({ x: 0, y: 0 });
   }, []);
 
-  const zoomIn = useCallback(() => updateZoom(zoom + 0.35), [updateZoom, zoom]);
-  const zoomOut = useCallback(() => updateZoom(zoom - 0.35), [updateZoom, zoom]);
-
   const getPinchDistance = useCallback(() => {
     const points = Array.from(pointersRef.current.values());
     if (points.length < 2) return 0;
@@ -627,14 +624,14 @@ function SignaturePreviewModal({ signature, onClose }: { signature: ClassSignatu
 
   return (
     <div
-      className="memory-zoom-overlay fixed inset-0 z-[100] overflow-hidden bg-ink"
+      className="memory-zoom-overlay fixed inset-0 z-[100] overflow-hidden bg-white"
       role="dialog"
       aria-modal="true"
       aria-label={`Xem chữ ký của ${signature.name}`}
       onClick={onClose}
     >
       <div
-        className="relative flex h-full w-full flex-col overflow-hidden bg-ink text-paper"
+        className="relative flex h-full w-full flex-col overflow-hidden bg-white text-ink"
         onClick={(event) => event.stopPropagation()}
       >
         <button className="hidden" onClick={onClose} aria-label="Đóng chữ ký">
@@ -655,12 +652,6 @@ function SignaturePreviewModal({ signature, onClose }: { signature: ClassSignatu
           </div>
           </div>
           <div className="memory-viewer-actions">
-            <button className="memory-viewer-action" onClick={zoomOut} disabled={zoom <= 1.01} aria-label="Thu nhỏ chữ ký">
-              -
-            </button>
-            <button className="memory-viewer-action" onClick={zoomIn} disabled={zoom >= 5.95} aria-label="Phóng to chữ ký">
-              +
-            </button>
             <button className="memory-viewer-action memory-viewer-zoom-reset" onClick={resetZoom} aria-label="Đưa chữ ký về kích thước ban đầu">
               <RotateCcw size={16} />
               <span>{Math.round(zoom * 100)}%</span>
